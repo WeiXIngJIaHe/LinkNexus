@@ -5,59 +5,138 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:LinkNexus"
         mc:Ignorable="d"
-        Title="LinkNexus - Modern Industrial Multi-Channel Workstation" 
-        Height="900" Width="1440"
-        MinHeight="780" MinWidth="1200"
+        Title="LinkNexus - 多通道硬件调试与隔离烧录管理工作站" 
+        Height="920" Width="1480"
+        MinHeight="780" MinWidth="1240"
         WindowStartupLocation="CenterScreen"
-        Background="#0B0E14"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        Background="#0A0D14"
         Foreground="#E1E7EF"
-        FontFamily="Segoe UI, Microsoft YaHei, PingFang SC">
+        FontFamily="Microsoft YaHei, PingFang SC, Segoe UI">
 
     <!-- ======================================================== -->
-    <!-- 1. 全局设计资源与工业级深色主题样式定义 -->
+    <!-- 沉浸式隐形标题栏 (WindowChrome，彻底消除系统原生大白边) -->
+    <!-- ======================================================== -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="38" 
+                      GlassFrameThickness="0" 
+                      CornerRadius="0" 
+                      ResizeBorderThickness="6" 
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
+    <!-- ======================================================== -->
+    <!-- 1. 全局设计资源、工业深色主题与过渡动画定义 -->
     <!-- ======================================================== -->
     <Window.Resources>
-        <!-- 基础核心调色板 (Cyber-Industrial Palette) -->
-        <SolidColorBrush x:Key="BgDarkBrush" Color="#0B0E14" />
-        <SolidColorBrush x:Key="SurfaceBrush" Color="#131722" />
-        <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#1C2232" />
-        <SolidColorBrush x:Key="BorderDarkBrush" Color="#222A3C" />
-        <SolidColorBrush x:Key="BorderLightBrush" Color="#333E56" />
+        <!-- 统一收敛的严谨工控调色板 (Cyber-Industrial Palette) -->
+        <SolidColorBrush x:Key="BgDarkBrush" Color="#0A0D14" />
+        <SolidColorBrush x:Key="TitleBarBgBrush" Color="#0D111A" />
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#121622" />
+        <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#181E2E" />
+        <SolidColorBrush x:Key="BorderDarkBrush" Color="#20283A" />
+        <SolidColorBrush x:Key="BorderLightBrush" Color="#2E3A52" />
 
         <!-- 科技状态色 -->
         <SolidColorBrush x:Key="AccentCyanBrush" Color="#00D2FF" />
-        <SolidColorBrush x:Key="AccentCyanDimBrush" Color="#1A4F6B" />
+        <SolidColorBrush x:Key="AccentBadgeBg" Color="#162234" />
         <SolidColorBrush x:Key="SuccessGreenBrush" Color="#00E676" />
         <SolidColorBrush x:Key="WarningAmberBrush" Color="#FFAB00" />
         <SolidColorBrush x:Key="ErrorRedBrush" Color="#FF3B30" />
-        <SolidColorBrush x:Key="TextDimBrush" Color="#738299" />
+        <SolidColorBrush x:Key="TextDimBrush" Color="#687890" />
         <SolidColorBrush x:Key="TextNormalBrush" Color="#C1CDDD" />
         <SolidColorBrush x:Key="TextBrightBrush" Color="#FFFFFF" />
 
         <!-- 终端背景色 -->
-        <SolidColorBrush x:Key="TerminalBgBrush" Color="#07090D" />
+        <SolidColorBrush x:Key="TerminalBgBrush" Color="#07090E" />
 
-        <!-- 基础工控卡片样式 -->
+        <!-- 工作台切换平滑过渡动画 (淡入 + 垂直平移) -->
+        <Storyboard x:Key="WorkspaceTransitionStoryboard">
+            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.0" To="1.0" Duration="0:0:0.22">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="12" To="0" Duration="0:0:0.22">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+
+        <!-- 统一的工控卡片样式 -->
         <Style x:Key="CyberCardBorderStyle" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource BorderDarkBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="CornerRadius" Value="7" />
             <Setter Property="Padding" Value="14" />
             <Setter Property="Effect">
                 <Setter.Value>
-                    <DropShadowEffect BlurRadius="10" Direction="270" ShadowDepth="2" Opacity="0.4" Color="#000000"/>
+                    <DropShadowEffect BlurRadius="8" Direction="270" ShadowDepth="2" Opacity="0.32" Color="#000000"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 沉浸式标题栏系统控制按钮样式 (最小化 / 最大化) -->
+        <Style x:Key="CaptionBtnStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bdr" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bdr" Property="Background" Value="#222B3D" />
+                                <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bdr" Property="Background" Value="#171F2E" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 标题栏关闭按钮样式 (悬浮高亮暗红) -->
+        <Style x:Key="CaptionCloseBtnStyle" TargetType="Button" BasedOn="{StaticResource CaptionBtnStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bdr" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bdr" Property="Background" Value="#C42B1C" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bdr" Property="Background" Value="#A52214" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
         <!-- 现代通用按钮样式 -->
         <Style x:Key="ModernBtnStyle" TargetType="Button">
-            <Setter Property="Background" Value="#1C2333" />
+            <Setter Property="Background" Value="#1A2131" />
             <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource BorderDarkBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="14,7" />
+            <Setter Property="Padding" Value="12,5" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
@@ -73,11 +152,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bdr" Property="Background" Value="#273147" />
+                                <Setter TargetName="bdr" Property="Background" Value="#242E44" />
                                 <Setter TargetName="bdr" Property="BorderBrush" Value="{StaticResource AccentCyanBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bdr" Property="Background" Value="#141924" />
+                                <Setter TargetName="bdr" Property="Background" Value="#131722" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="bdr" Property="Opacity" Value="0.45" />
@@ -89,7 +168,36 @@
             </Setter>
         </Style>
 
-        <!-- 科技强调按钮样式 (霓虹青) -->
+        <!-- 危险/移除按钮样式 (深红) -->
+        <Style x:Key="DangerBtnStyle" TargetType="Button" BasedOn="{StaticResource ModernBtnStyle}">
+            <Setter Property="Background" Value="#2A171C" />
+            <Setter Property="BorderBrush" Value="#451F26" />
+            <Setter Property="Foreground" Value="#FFA2A0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bdr" Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bdr" Property="Background" Value="#3F1922" />
+                                <Setter TargetName="bdr" Property="BorderBrush" Value="{StaticResource ErrorRedBrush}" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bdr" Property="Background" Value="#1E0E12" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 科技强调按钮样式 (霓虹青蓝) -->
         <Style x:Key="AccentBtnStyle" TargetType="Button" BasedOn="{StaticResource ModernBtnStyle}">
             <Setter Property="Background" Value="#007ACC" />
             <Setter Property="BorderBrush" Value="{StaticResource AccentCyanBrush}" />
@@ -126,14 +234,14 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
-                        <Border x:Name="bgBorder" Width="40" Height="20" CornerRadius="10" 
-                                Background="#252D3E" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
-                            <Ellipse x:Name="thumb" Width="14" Height="14" HorizontalAlignment="Left" 
-                                     Margin="2,0,0,0" Fill="#7E8DA4" />
+                        <Border x:Name="bgBorder" Width="38" Height="19" CornerRadius="9.5" 
+                                Background="#212838" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <Ellipse x:Name="thumb" Width="13" Height="13" HorizontalAlignment="Left" 
+                                     Margin="2,0,0,0" Fill="#707D94" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="bgBorder" Property="Background" Value="#00804C" />
+                                <Setter TargetName="bgBorder" Property="Background" Value="#007F4B" />
                                 <Setter TargetName="bgBorder" Property="BorderBrush" Value="{StaticResource SuccessGreenBrush}" />
                                 <Setter TargetName="thumb" Property="Fill" Value="#FFFFFF" />
                                 <Setter TargetName="thumb" Property="HorizontalAlignment" Value="Right" />
@@ -145,9 +253,9 @@
             </Setter>
         </Style>
 
-        <!-- 现代 ComboBox 样式 -->
+        <!-- 现代深色 ComboBox 样式 -->
         <Style x:Key="ModernComboBoxStyle" TargetType="ComboBox">
-            <Setter Property="Background" Value="#10141E" />
+            <Setter Property="Background" Value="#0E121B" />
             <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource BorderDarkBrush}" />
             <Setter Property="BorderThickness" Value="1" />
@@ -164,7 +272,7 @@
                                           IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
                                 <ToggleButton.Template>
                                     <ControlTemplate TargetType="ToggleButton">
-                                        <Border x:Name="Border" Background="#10141E" BorderBrush="{StaticResource BorderDarkBrush}" 
+                                        <Border x:Name="Border" Background="#0E121B" BorderBrush="{StaticResource BorderDarkBrush}" 
                                                 BorderThickness="1" CornerRadius="5">
                                             <Grid HorizontalAlignment="Stretch">
                                                 <Grid.ColumnDefinitions>
@@ -191,7 +299,7 @@
                             <Popup x:Name="Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" 
                                    AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
                                 <Grid x:Name="DropDown" SnapsToDevicePixels="True" MinWidth="{TemplateBinding ActualWidth}" MaxHeight="220">
-                                    <Border Background="#141824" BorderBrush="{StaticResource BorderLightBrush}" BorderThickness="1" CornerRadius="5" Margin="0,3,0,0">
+                                    <Border Background="#121622" BorderBrush="{StaticResource BorderLightBrush}" BorderThickness="1" CornerRadius="5" Margin="0,3,0,0">
                                         <Border.Effect>
                                             <DropShadowEffect BlurRadius="12" ShadowDepth="4" Direction="270" Opacity="0.6"/>
                                         </Border.Effect>
@@ -207,7 +315,6 @@
             </Setter>
         </Style>
 
-        <!-- ComboBoxItem 悬浮样式 -->
         <Style TargetType="ComboBoxItem">
             <Setter Property="Foreground" Value="{StaticResource TextNormalBrush}" />
             <Setter Property="Padding" Value="8,5" />
@@ -219,7 +326,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="itemBorder" Property="Background" Value="#222B3D" />
+                                <Setter TargetName="itemBorder" Property="Background" Value="#1E273A" />
                                 <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
@@ -234,7 +341,7 @@
 
         <!-- 现代输入框 TextBox 样式 -->
         <Style x:Key="ModernTextBoxStyle" TargetType="TextBox">
-            <Setter Property="Background" Value="#0F131C" />
+            <Setter Property="Background" Value="#0C0F17" />
             <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource BorderDarkBrush}" />
             <Setter Property="BorderThickness" Value="1" />
@@ -267,7 +374,7 @@
         <!-- 现代平滑高光 ProgressBar 样式 -->
         <Style x:Key="ModernProgressBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="8" />
-            <Setter Property="Background" Value="#0C0E14" />
+            <Setter Property="Background" Value="#0A0C12" />
             <Setter Property="BorderBrush" Value="{StaticResource BorderDarkBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
@@ -294,67 +401,82 @@
     </Window.Resources>
 
     <!-- ======================================================== -->
-    <!-- 2. 主窗体网格：顶部状态栏 + 主体左右两栏架构 -->
+    <!-- 2. 主窗体根容器：隐形标题栏 + 主体工作区 -->
     <!-- ======================================================== -->
     <Grid>
         <Grid.RowDefinitions>
-            <!-- 行 0: 顶部全局导航与状态栏 (高度 54) -->
-            <RowDefinition Height="54" />
-            <!-- 行 1: 主体工作区 (左侧电气拓扑 + 右侧多态上下文工作台) -->
+            <!-- 行 0: 沉浸式隐形标题栏 (高 38) -->
+            <RowDefinition Height="38" />
+            <!-- 行 1: 主体左右两栏工作台 -->
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- 顶部系统状态栏 (Header) -->
-        <Border Grid.Row="0" Background="#10141F" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1">
-            <Grid Margin="18,0">
+        <!-- ========================================================= -->
+        <!-- 隐形标题栏 (无白边，深度融入暗黑背景，支持拖拽与双击) -->
+        <!-- ========================================================= -->
+        <Border Grid.Row="0" Background="{StaticResource TitleBarBgBrush}" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1">
+            <Grid>
                 <Grid.ColumnDefinitions>
+                    <!-- 左侧标题与徽标 -->
                     <ColumnDefinition Width="Auto" />
+                    <!-- 中间拓扑信息与拖拽区域 -->
                     <ColumnDefinition Width="*" />
+                    <!-- 右侧运行状态指示与自定义窗口按钮 -->
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- 左侧: Logo + 软件标题 -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="30" Height="30" CornerRadius="6" Background="#192233" 
-                            BorderBrush="{StaticResource AccentCyanBrush}" BorderThickness="1.5" Margin="0,0,10,0">
-                        <Path Data="M 6 12 L 12 6 L 18 12 L 12 18 Z M 3 12 H 6 M 18 12 H 21 M 12 3 V 6 M 12 18 V 21" 
-                              Stroke="{StaticResource AccentCyanBrush}" StrokeThickness="2" 
-                              HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Width="16" Height="16"/>
-                    </Border>
-                    <TextBlock Text="LinkNexus" FontSize="17" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
-                    <Border Background="#1F283B" CornerRadius="4" Padding="6,2" Margin="10,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="PRO HARDWARE HUB" FontSize="9" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" />
-                    </Border>
-                    <TextBlock Text="v2.0-industrial" FontSize="11" Foreground="{StaticResource TextDimBrush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                <!-- 左侧: 软件徽标 + 低调浅灰标题文字 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                    <Path Data="M 6 12 L 12 6 L 18 12 L 12 18 Z M 3 12 H 6 M 18 12 H 21 M 12 3 V 6 M 12 18 V 21" 
+                          Stroke="{StaticResource AccentCyanBrush}" StrokeThickness="1.8" 
+                          HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Width="14" Height="14" Margin="0,0,8,0"/>
+                    <TextBlock Text="LinkNexus" FontSize="13" FontWeight="Bold" Foreground="#8B9BB4" VerticalAlignment="Center"/>
+                    <TextBlock Text="多通道硬件调试与隔离烧录工作站" FontSize="11" Foreground="#55647C" Margin="8,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <!-- 中间: 系统拓扑架构提示 -->
+                <!-- 中间: 拓扑状态说明 (透明背景留作拖拽移动窗口) -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock Text="TOPOLOGY: 4-CH ISOLATED PROBES + 2-CH DYNAMIC EXT HUB" 
-                               FontSize="11" FontWeight="SemiBold" Foreground="#4E5E7A" />
+                    <TextBlock Text="拓扑架构：4 路板载隔离烧录通道 + 2 路 USB 2.0 智能下行端口" 
+                               FontSize="11" FontWeight="Medium" Foreground="#44526B" />
                 </StackPanel>
 
-                <!-- 右侧: 全局运行状态呼吸灯 -->
+                <!-- 右侧: 运行状态呼吸灯 + 极简窗口控制按钮组 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border CornerRadius="12" Background="#161E2D" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" Padding="10,4">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Grid Width="10" Height="10" Margin="0,0,7,0">
-                                <Ellipse x:Name="BreathingHalo" Width="10" Height="10" Fill="{StaticResource SuccessGreenBrush}" Opacity="0.4">
-                                    <Ellipse.Triggers>
-                                        <EventTrigger RoutedEvent="Loaded">
-                                            <BeginStoryboard>
-                                                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.2" To="0.8" Duration="0:0:1.2" />
-                                                </Storyboard>
-                                            </BeginStoryboard>
-                                        </EventTrigger>
-                                    </Ellipse.Triggers>
-                                </Ellipse>
-                                <Ellipse x:Name="StatusDot" Width="5" Height="5" Fill="{StaticResource SuccessGreenBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Grid>
-                            <TextBlock x:Name="TxtGlobalStatus" Text="SYSTEM READY" FontSize="11" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
+                    <!-- 全局状态指示小圆点 -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
+                        <Grid Width="8" Height="8" Margin="0,0,6,0">
+                            <Ellipse x:Name="BreathingHalo" Width="8" Height="8" Fill="{StaticResource SuccessGreenBrush}" Opacity="0.4">
+                                <Ellipse.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.2" To="0.8" Duration="0:0:1.2" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Ellipse.Triggers>
+                            </Ellipse>
+                            <Ellipse x:Name="StatusDot" Width="4" Height="4" Fill="{StaticResource SuccessGreenBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+                        <TextBlock x:Name="TxtGlobalStatus" Text="系统就绪" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource SuccessGreenBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- 自定义极简窗口控制按钮 (需设置 IsHitTestVisibleInChrome=True) -->
+                    <!-- 最小化按钮 -->
+                    <Button Style="{StaticResource CaptionBtnStyle}" Click="BtnWindowMinimize_Click" ToolTip="最小化">
+                        <Path Data="M 0 0 H 10" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1" SnapsToDevicePixels="True"/>
+                    </Button>
+
+                    <!-- 最大化 / 还原按钮 -->
+                    <Button Style="{StaticResource CaptionBtnStyle}" Click="BtnWindowMaximize_Click" ToolTip="最大化 / 还原">
+                        <Path x:Name="PathMaximizeIcon" Data="M 0 0 H 10 V 10 H 0 Z" 
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1" SnapsToDevicePixels="True"/>
+                    </Button>
+
+                    <!-- 关闭按钮 -->
+                    <Button Style="{StaticResource CaptionCloseBtnStyle}" Click="BtnWindowClose_Click" ToolTip="关闭">
+                        <Path Data="M 0 0 L 10 10 M 10 0 L 0 10" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1" SnapsToDevicePixels="True"/>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
@@ -362,10 +484,10 @@
         <!-- ======================================================== -->
         <!-- 主体左右分栏区 (Grid 分割) -->
         <!-- ======================================================== -->
-        <Grid Grid.Row="1" Margin="14">
+        <Grid Grid.Row="1" Margin="14,10,14,14">
             <Grid.ColumnDefinitions>
-                <!-- 左栏: 通道列表与电气拓扑区 (350 宽) -->
-                <ColumnDefinition Width="350" />
+                <!-- 左栏: 通道列表与电气拓扑区 (365 宽) -->
+                <ColumnDefinition Width="365" />
                 <!-- 左右分隔留白 -->
                 <ColumnDefinition Width="12" />
                 <!-- 右栏: 动态多态工作台区 (自适应) -->
@@ -373,31 +495,31 @@
             </Grid.ColumnDefinitions>
 
             <!-- ========================================================= -->
-            <!-- 1. 【左侧通道列表与电气拓扑区】 (Left Navigation & Power Deck) -->
+            <!-- 1. 【左侧通道列表与电气拓扑区】 (Left Navigation Deck) -->
             <!-- ========================================================= -->
             <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
-                    <!-- 顶部: 整机总线全局遥测卡片 (固定高度) -->
+                    <!-- 顶部: 整机总线全局遥测卡片 -->
                     <RowDefinition Height="Auto" />
                     <!-- 留白 -->
                     <RowDefinition Height="10" />
-                    <!-- 核心 6 通道交互卡片组 (滚动查看) -->
+                    <!-- 核心 6 通道交互卡片组 -->
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!-- 1.1 整机总线全局遥测卡片 (Bus Telemetry) -->
-                <Border Grid.Row="0" Style="{StaticResource CyberCardBorderStyle}" Background="#111622" BorderBrush="#2A354C" Padding="14,12">
+                <!-- 1.1 整机总线全局遥测卡片 (INA 独立总线高精度采样) -->
+                <Border Grid.Row="0" Style="{StaticResource CyberCardBorderStyle}" Background="#0E121B" BorderBrush="#202A3C" Padding="14,12">
                     <StackPanel>
                         <!-- 卡片标题 -->
                         <Grid Margin="0,0,0,10">
                             <StackPanel Orientation="Horizontal">
-                                <Path Data="M 11 15 H 6 L 13 1 V 9 H 18 L 11 23 V 15 Z" Fill="{StaticResource AccentCyanBrush}" Width="12" Height="12" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="MAIN BUS POWER TELEMETRY" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
+                                <Path Data="M 11 15 H 6 L 13 1 V 9 H 18 L 11 23 V 15 Z" Fill="{StaticResource AccentCyanBrush}" Width="11" Height="11" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="整机主总线电气遥测" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
                             </StackPanel>
-                            <TextBlock Text="24V/5A Rail" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            <TextBlock Text="INA226 独立传感器" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
 
-                        <!-- 三连仪表遥测读数 (电压 / 电流 / 总功率) -->
+                        <!-- 三连仪表遥测读数 (总电压 / 动态实测总电流 / 实测整机总功率) -->
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -409,38 +531,35 @@
 
                             <!-- 总输入电压 -->
                             <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                                <TextBlock Text="BUS VOLTAGE" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="总线电压" FontSize="10" FontWeight="Medium" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Center"/>
                                 <TextBlock x:Name="TxtBusVoltage" Text="12.02 V" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" HorizontalAlignment="Center" Margin="0,3,0,0"/>
                             </StackPanel>
 
-                            <!-- 分割线 -->
-                            <Rectangle Grid.Column="1" Fill="{StaticResource BorderDarkBrush}" Height="28"/>
+                            <Rectangle Grid.Column="1" Fill="{StaticResource BorderDarkBrush}" Height="26"/>
 
                             <!-- 总工作电流 -->
                             <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                                <TextBlock Text="BUS CURRENT" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Center"/>
-                                <TextBlock x:Name="TxtBusCurrent" Text="625 mA" FontSize="15" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                                <TextBlock Text="实测电流" FontSize="10" FontWeight="Medium" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="TxtBusCurrent" Text="427 mA" FontSize="15" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" HorizontalAlignment="Center" Margin="0,3,0,0"/>
                             </StackPanel>
 
-                            <!-- 分割线 -->
-                            <Rectangle Grid.Column="3" Fill="{StaticResource BorderDarkBrush}" Height="28"/>
+                            <Rectangle Grid.Column="3" Fill="{StaticResource BorderDarkBrush}" Height="26"/>
 
                             <!-- 实时总功率 -->
                             <StackPanel Grid.Column="4" HorizontalAlignment="Center">
-                                <TextBlock Text="TOTAL POWER" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Center"/>
-                                <TextBlock x:Name="TxtBusPower" Text="7.51 W" FontSize="15" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                                <TextBlock Text="整机总功耗" FontSize="10" FontWeight="Medium" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="TxtBusPower" Text="5.13 W" FontSize="15" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" HorizontalAlignment="Center" Margin="0,3,0,0"/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>
                 </Border>
 
-                <!-- 1.2 核心 6 组通道卡片列表 -->
+                <!-- 1.2 核心 6 组通道卡片列表 (统一科技深色系，彻底消除无关占位) -->
                 <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
-                        <!-- 板载通道组标题 -->
-                        <TextBlock Text="ISOLATED PROGRAMMER / DEBUG PROBES" FontSize="10" FontWeight="Bold" Foreground="#4E5F7C" Margin="2,0,0,6"/>
+                        <TextBlock Text="板载专用烧录与调试通道 (4 路)" FontSize="10" FontWeight="Bold" Foreground="#4A5870" Margin="2,0,0,6"/>
 
-                        <!-- 卡片 1: XDS110 高速调试器 -->
+                        <!-- 卡片 1: XDS110 烧录器 (自然展示 INA 电流/功率数据) -->
                         <Border x:Name="Card_CH1" Style="{StaticResource CyberCardBorderStyle}" Margin="0,0,0,8" Padding="12,10" 
                                 Cursor="Hand" MouseDown="ChannelCard_MouseDown" Tag="CH1" BorderBrush="{StaticResource AccentCyanBrush}">
                             <Grid>
@@ -450,22 +569,21 @@
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Background="#1C263B" CornerRadius="4" Padding="5,2" Margin="0,0,6,0">
-                                            <TextBlock Text="CH 01" FontSize="10" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
+                                        <Border Background="{StaticResource AccentBadgeBg}" CornerRadius="3" Padding="5,1" Margin="0,0,6,0">
+                                            <TextBlock Text="CH 01" FontSize="9" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
                                         </Border>
-                                        <TextBlock Text="TI XDS110 Probe" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="Badge_CH1" Text="ACTIVE" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="TI XDS110 烧录器" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="Badge_CH1" Text="在线" FontSize="10" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="Toggle_CH1" HorizontalAlignment="Right" IsChecked="True" Style="{StaticResource CyberSwitchToggleStyle}" Click="ChannelToggle_Click" Tag="CH1"/>
                                 </Grid>
                                 <Grid Grid.Row="1">
-                                    <TextBlock x:Name="Pwr_CH1" Text="3.30 V  |  160 mA  |  0.53 W" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextNormalBrush}"/>
-                                    <TextBlock Text="SWD / JTAG" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock x:Name="Pwr_CH1" Text="3.30 V  |  165 mA  |  0.54 W" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextNormalBrush}"/>
                                 </Grid>
                             </Grid>
                         </Border>
 
-                        <!-- 卡片 2: DAPLink 调试器 -->
+                        <!-- 卡片 2: DAPLink 仿真器 (自然展示 INA 电流/功率数据) -->
                         <Border x:Name="Card_CH2" Style="{StaticResource CyberCardBorderStyle}" Margin="0,0,0,8" Padding="12,10" 
                                 Cursor="Hand" MouseDown="ChannelCard_MouseDown" Tag="CH2">
                             <Grid>
@@ -475,22 +593,21 @@
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Background="#1C263B" CornerRadius="4" Padding="5,2" Margin="0,0,6,0">
-                                            <TextBlock Text="CH 02" FontSize="10" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
+                                        <Border Background="{StaticResource AccentBadgeBg}" CornerRadius="3" Padding="5,1" Margin="0,0,6,0">
+                                            <TextBlock Text="CH 02" FontSize="9" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
                                         </Border>
-                                        <TextBlock Text="ARM DAPLink" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="Badge_CH2" Text="ACTIVE" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="ARM DAPLink 仿真器" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="Badge_CH2" Text="在线" FontSize="10" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="Toggle_CH2" HorizontalAlignment="Right" IsChecked="True" Style="{StaticResource CyberSwitchToggleStyle}" Click="ChannelToggle_Click" Tag="CH2"/>
                                 </Grid>
                                 <Grid Grid.Row="1">
-                                    <TextBlock x:Name="Pwr_CH2" Text="3.31 V  |  145 mA  |  0.48 W" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextNormalBrush}"/>
-                                    <TextBlock Text="CMSIS-DAP" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock x:Name="Pwr_CH2" Text="3.32 V  |  142 mA  |  0.47 W" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextNormalBrush}"/>
                                 </Grid>
                             </Grid>
                         </Border>
 
-                        <!-- 卡片 3: FT2232 双通道 -->
+                        <!-- 卡片 3: FT2232 多功能调试器 (彻底去除电流/功率显示与无采样废话，仅保留纯粹基准输出) -->
                         <Border x:Name="Card_CH3" Style="{StaticResource CyberCardBorderStyle}" Margin="0,0,0,8" Padding="12,10" 
                                 Cursor="Hand" MouseDown="ChannelCard_MouseDown" Tag="CH3">
                             <Grid>
@@ -500,22 +617,22 @@
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Background="#1C263B" CornerRadius="4" Padding="5,2" Margin="0,0,6,0">
-                                            <TextBlock Text="CH 03" FontSize="10" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
+                                        <Border Background="{StaticResource AccentBadgeBg}" CornerRadius="3" Padding="5,1" Margin="0,0,6,0">
+                                            <TextBlock Text="CH 03" FontSize="9" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
                                         </Border>
-                                        <TextBlock Text="FT2232 MPSSE" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="Badge_CH3" Text="ACTIVE" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="FT2232 多功能调试器" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="Badge_CH3" Text="已使能" FontSize="10" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="Toggle_CH3" HorizontalAlignment="Right" IsChecked="True" Style="{StaticResource CyberSwitchToggleStyle}" Click="ChannelToggle_Click" Tag="CH3"/>
                                 </Grid>
                                 <Grid Grid.Row="1">
-                                    <TextBlock x:Name="Pwr_CH3" Text="5.01 V  |  120 mA  |  0.60 W" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextNormalBrush}"/>
-                                    <TextBlock Text="Dual-MPSSE" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Right"/>
+                                    <!-- 纯粹整洁的电压基准，不残留电流占位 -->
+                                    <TextBlock x:Name="Pwr_CH3" Text="基准供电输出：5.00 V" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextNormalBrush}"/>
                                 </Grid>
                             </Grid>
                         </Border>
 
-                        <!-- 卡片 4: 高速虚拟串口 (选中后进入模式 A 串口终端) -->
+                        <!-- 卡片 4: 高速虚拟串口 (彻底去除电流/功率显示，仅保留端口与速率链路) -->
                         <Border x:Name="Card_CH4" Style="{StaticResource CyberCardBorderStyle}" Margin="0,0,0,12" Padding="12,10" 
                                 Cursor="Hand" MouseDown="ChannelCard_MouseDown" Tag="CH4">
                             <Grid>
@@ -525,25 +642,25 @@
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Background="#253018" CornerRadius="4" Padding="5,2" Margin="0,0,6,0">
-                                            <TextBlock Text="UART" FontSize="10" FontWeight="Bold" Foreground="#76E000"/>
+                                        <Border Background="{StaticResource AccentBadgeBg}" CornerRadius="3" Padding="5,1" Margin="0,0,6,0">
+                                            <TextBlock Text="CH 04" FontSize="9" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
                                         </Border>
-                                        <TextBlock Text="High-Speed VCP Port" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="Badge_CH4" Text="ACTIVE" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="高速虚拟串口 (VCP)" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="Badge_CH4" Text="已就绪" FontSize="10" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="Toggle_CH4" HorizontalAlignment="Right" IsChecked="True" Style="{StaticResource CyberSwitchToggleStyle}" Click="ChannelToggle_Click" Tag="CH4"/>
                                 </Grid>
                                 <Grid Grid.Row="1">
-                                    <TextBlock x:Name="Pwr_CH4" Text="3.30 V  |   40 mA  |  0.13 W" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextNormalBrush}"/>
-                                    <TextBlock Text="Up to 3Mbps" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Right"/>
+                                    <!-- 纯粹整洁的分配端口与波特率 -->
+                                    <TextBlock x:Name="Pwr_CH4" Text="分配端口：COM3 | 115200 bps | 8N1" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextNormalBrush}"/>
                                 </Grid>
                             </Grid>
                         </Border>
 
-                        <!-- 扩展端口组标题 -->
-                        <TextBlock Text="ISOLATED EXPANSION DOWNSTREAM PORTS" FontSize="10" FontWeight="Bold" Foreground="#4E5F7C" Margin="2,0,0,6"/>
+                        <!-- 分组 2: 扩展 USB 端口规范命名重构 -->
+                        <TextBlock Text="USB 隔离下行扩展口 (2 路)" FontSize="10" FontWeight="Bold" Foreground="#4A5870" Margin="2,0,0,6"/>
 
-                        <!-- 卡片 5: Ext Port 1 (已插入设备) -->
+                        <!-- 卡片 5: USB 2.0 下行端口 1 (规范命名 + 副标题显示设备 + 安全弹出) -->
                         <Border x:Name="Card_EXT1" Style="{StaticResource CyberCardBorderStyle}" Margin="0,0,0,8" Padding="12,10" 
                                 Cursor="Hand" MouseDown="ChannelCard_MouseDown" Tag="EXT1">
                             <Grid>
@@ -553,24 +670,25 @@
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Background="#2C203B" CornerRadius="4" Padding="5,2" Margin="0,0,6,0">
-                                            <TextBlock Text="EXT 1" FontSize="10" FontWeight="Bold" Foreground="#D183FF"/>
+                                        <Border Background="{StaticResource AccentBadgeBg}" CornerRadius="3" Padding="5,1" Margin="0,0,6,0">
+                                            <TextBlock Text="EXT 1" FontSize="9" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
                                         </Border>
-                                        <TextBlock Text="USB 3.0 Isolated Hub" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="Badge_EXT1" Text="ATTACHED" FontSize="9" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                        <!-- 第一行规范主标题 -->
+                                        <TextBlock Text="USB 2.0 下行端口 1" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="Toggle_EXT1" HorizontalAlignment="Right" IsChecked="True" Style="{StaticResource CyberSwitchToggleStyle}" Click="ChannelToggle_Click" Tag="EXT1"/>
                                 </Grid>
                                 <Grid Grid.Row="1">
-                                    <TextBlock x:Name="Pwr_EXT1" Text="5.05 V  |  160 mA  |  0.81 W" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextNormalBrush}"/>
-                                    <Button Content="Detach Sim" Style="{StaticResource ModernBtnStyle}" Padding="6,2" FontSize="9" HorizontalAlignment="Right" Click="BtnSimulateExt1_Click"/>
+                                    <!-- 第二行副标题显示实际挂载的设备信息 -->
+                                    <TextBlock x:Name="Desc_EXT1" Text="SanDisk 闪迪 USB 3.0 U盘" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextNormalBrush}" VerticalAlignment="Center"/>
+                                    <Button x:Name="BtnEjectExt1" Content="安全弹出" Style="{StaticResource DangerBtnStyle}" Padding="8,2" FontSize="10" HorizontalAlignment="Right" Click="BtnEjectExt1_Click" ToolTip="安全断开下行外设"/>
                                 </Grid>
                             </Grid>
                         </Border>
 
-                        <!-- 卡片 6: Ext Port 2 (未插入设备，半透明状态感应) -->
+                        <!-- 卡片 6: USB 2.0 下行端口 2 (规范命名 + 副标题未插入显示等待设备接入...) -->
                         <Border x:Name="Card_EXT2" Style="{StaticResource CyberCardBorderStyle}" Margin="0,0,0,8" Padding="12,10" 
-                                Cursor="Hand" MouseDown="ChannelCard_MouseDown" Tag="EXT2" Opacity="0.55" BorderBrush="#252D3D">
+                                Cursor="Hand" MouseDown="ChannelCard_MouseDown" Tag="EXT2" Opacity="0.5" BorderBrush="#1C2434">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -578,17 +696,18 @@
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Background="#1B2230" CornerRadius="4" Padding="5,2" Margin="0,0,6,0">
-                                            <TextBlock Text="EXT 2" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}"/>
+                                        <Border Background="{StaticResource AccentBadgeBg}" CornerRadius="3" Padding="5,1" Margin="0,0,6,0">
+                                            <TextBlock Text="EXT 2" FontSize="9" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
                                         </Border>
-                                        <TextBlock Text="Type-C High Power" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="Badge_EXT2" Text="UNPLUGGED" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                        <!-- 第一行规范主标题 -->
+                                        <TextBlock Text="USB 2.0 下行端口 2" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="Toggle_EXT2" HorizontalAlignment="Right" IsChecked="False" Style="{StaticResource CyberSwitchToggleStyle}" Click="ChannelToggle_Click" Tag="EXT2"/>
                                 </Grid>
                                 <Grid Grid.Row="1">
-                                    <TextBlock x:Name="Pwr_EXT2" Text="0.00 V  |    0 mA  |  0.00 W" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextDimBrush}"/>
-                                    <Button Content="Attach Sim" Style="{StaticResource ModernBtnStyle}" Padding="6,2" FontSize="9" HorizontalAlignment="Right" Click="BtnSimulateExt2_Click"/>
+                                    <!-- 第二行副标题未插入时小号灰字提示 -->
+                                    <TextBlock x:Name="Desc_EXT2" Text="等待设备接入..." FontSize="11" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center"/>
+                                    <Button x:Name="BtnAttachSimExt2" Content="模拟插入" Style="{StaticResource ModernBtnStyle}" Padding="8,2" FontSize="10" HorizontalAlignment="Right" Click="BtnAttachSimExt2_Click"/>
                                 </Grid>
                             </Grid>
                         </Border>
@@ -598,20 +717,22 @@
 
             <!-- ========================================================= -->
             <!-- 2. 【右侧动态工作台区】 (Dynamic Context Workspace) -->
+            <!-- 带平滑淡入位移动画容器 -->
             <!-- ========================================================= -->
-            <Grid Grid.Column="2">
+            <Grid Grid.Column="2" x:Name="WorkspaceContainer">
+                <Grid.RenderTransform>
+                    <TranslateTransform X="0" Y="0" />
+                </Grid.RenderTransform>
 
-                <!-- 模式 A: 串口调试与终端工作台 (选中 CH4 虚拟串口时显示) -->
+                <!-- ========================================================= -->
+                <!-- 模式 A: Linux 嵌入式与串口终端工作台 (选中虚拟串口时激活) -->
+                <!-- ========================================================= -->
                 <Grid x:Name="WorkspaceSerial" Visibility="Collapsed">
                     <Grid.RowDefinitions>
-                        <!-- 串口参数配置栏 (Auto) -->
                         <RowDefinition Height="Auto" />
-                        <!-- 上部: 串口接收监视窗口 (Terminal Monitor) -->
-                        <RowDefinition Height="2*" MinHeight="200" />
-                        <!-- 中间上下分割条 (GridSplitter) -->
+                        <RowDefinition Height="2*" MinHeight="220" />
                         <RowDefinition Height="8" />
-                        <!-- 下部: 串口发送控制窗口 (Send Box) -->
-                        <RowDefinition Height="1*" MinHeight="160" />
+                        <RowDefinition Height="1*" MinHeight="170" />
                     </Grid.RowDefinitions>
 
                     <!-- A.1 串口顶部参数栏 -->
@@ -624,19 +745,17 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                <!-- 端口选择与刷新 -->
-                                <TextBlock Text="PORT" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock Text="通信端口" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                 <ComboBox x:Name="CboPortList" Style="{StaticResource ModernComboBoxStyle}" Width="110" Height="30" Margin="0,0,6,0" />
-                                <Button x:Name="BtnRefreshPorts" Style="{StaticResource ModernBtnStyle}" Width="30" Height="30" Padding="0" Click="BtnRefreshPorts_Click" ToolTip="Refresh Serial Ports">
+                                <Button x:Name="BtnRefreshPorts" Style="{StaticResource ModernBtnStyle}" Width="30" Height="30" Padding="0" Click="BtnRefreshPorts_Click" ToolTip="刷新可用串口">
                                     <Path Data="M 17.65 6.35 C 16.2 4.9 14.21 4 12 4 C 7.58 4 4.01 7.58 4.01 12 C 4.01 16.42 7.58 20 12 20 C 15.73 20 18.84 17.45 19.73 14 L 17.65 14 C 16.83 16.33 14.61 18 12 18 C 8.69 18 6 15.31 6 12 C 6 8.69 8.69 6 12 6 C 13.66 6 15.14 6.69 16.22 7.78 L 13 11 L 20 11 L 20 4 L 17.65 6.35 Z" 
                                           Fill="{StaticResource TextNormalBrush}" Stretch="Uniform" Width="12" Height="12"/>
                                 </Button>
 
                                 <Border Width="1" Height="18" Background="{StaticResource BorderDarkBrush}" Margin="12,0"/>
 
-                                <!-- 波特率选择 (支持高达 3M 高速) -->
-                                <TextBlock Text="BAUD" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <ComboBox x:Name="CboBaudRate" Style="{StaticResource ModernComboBoxStyle}" Width="98" Height="30" Margin="0,0,12,0">
+                                <TextBlock Text="波特率" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox x:Name="CboBaudRate" Style="{StaticResource ModernComboBoxStyle}" Width="100" Height="30" Margin="0,0,12,0">
                                     <ComboBoxItem Content="9600" />
                                     <ComboBoxItem Content="115200" IsSelected="True" />
                                     <ComboBoxItem Content="460800" />
@@ -646,26 +765,22 @@
                                     <ComboBoxItem Content="3000000" />
                                 </ComboBox>
 
-                                <!-- 校验位/停止位简略参数 -->
-                                <TextBlock Text="DATA: 8N1" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
-
-                                <!-- DTR / RTS 流控 -->
-                                <CheckBox x:Name="ChkDTR" Content="DTR" Foreground="{StaticResource TextDimBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" IsChecked="True"/>
-                                <CheckBox x:Name="ChkRTS" Content="RTS" Foreground="{StaticResource TextDimBrush}" FontSize="11" VerticalAlignment="Center" IsChecked="True"/>
+                                <TextBlock Text="数据帧：8N1" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <CheckBox x:Name="ChkDTR" Content="DTR 流控" Foreground="{StaticResource TextDimBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" IsChecked="True"/>
+                                <CheckBox x:Name="ChkRTS" Content="RTS 流控" Foreground="{StaticResource TextDimBrush}" FontSize="11" VerticalAlignment="Center" IsChecked="True"/>
                             </StackPanel>
 
-                            <!-- 打开/关闭串口连接大按钮 -->
                             <Button x:Name="BtnToggleSerial" Grid.Column="2" Style="{StaticResource AccentBtnStyle}" Height="32" Padding="18,0" Click="BtnToggleSerial_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <Path Data="M 12 2 C 6.48 2 2 6.48 2 12 C 2 17.52 6.48 22 12 22 C 17.52 22 22 17.52 22 12 C 22 6.48 17.52 2 12 2 Z" 
                                           Fill="#FFFFFF" Width="10" Height="10" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="TxtToggleSerial" Text="OPEN PORT" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="TxtToggleSerial" Text="打开串口连接" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                         </Grid>
                     </Border>
 
-                    <!-- A.2 接收监视窗口 (Terminal Monitor) -->
+                    <!-- A.2 接收监视窗口 -->
                     <Border Grid.Row="1" Style="{StaticResource CyberCardBorderStyle}" Padding="0">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -673,26 +788,23 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
-                            <!-- 接收窗口工具栏 -->
-                            <Border Grid.Row="0" Background="#0F131D" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1" CornerRadius="8,8,0,0">
+                            <Border Grid.Row="0" Background="#0C1018" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1" CornerRadius="7,7,0,0">
                                 <Grid Margin="12,0">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="TERMINAL MONITOR" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
+                                        <TextBlock Text="终端数据接收流 (LINUX BOOT/RAW MONITOR)" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
                                         <Border Width="1" Height="12" Background="{StaticResource BorderDarkBrush}" Margin="10,0"/>
-                                        <TextBlock x:Name="TxtRxStats" Text="Rx: 0 Bytes | 0 fps" FontSize="10" Foreground="{StaticResource TextDimBrush}"/>
+                                        <TextBlock x:Name="TxtRxStats" Text="已接收：0 字节" FontSize="10" Foreground="{StaticResource TextDimBrush}"/>
                                     </StackPanel>
 
-                                    <!-- 右侧控制开关 -->
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <CheckBox x:Name="ChkTimestamp" Content="Timestamp" IsChecked="True" Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="0,0,10,0"/>
-                                        <RadioButton x:Name="RdoAscii" Content="ASCII" IsChecked="True" Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="0,0,6,0"/>
-                                        <RadioButton x:Name="RdoHex" Content="HEX" Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="0,0,12,0"/>
-                                        <Button Content="Clear" Style="{StaticResource ModernBtnStyle}" Padding="8,2" FontSize="10" Height="22" Click="BtnClearRx_Click"/>
+                                        <CheckBox x:Name="ChkTimestamp" Content="毫秒时间戳" IsChecked="True" Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="0,0,10,0"/>
+                                        <RadioButton x:Name="RdoAscii" Content="ASCII 文本" IsChecked="True" Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="0,0,6,0"/>
+                                        <RadioButton x:Name="RdoHex" Content="HEX 十六进制" Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="0,0,12,0"/>
+                                        <Button Content="清空接收区" Style="{StaticResource ModernBtnStyle}" Padding="8,2" FontSize="10" Height="22" Click="BtnClearRx_Click"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>
 
-                            <!-- 接收文本区 (支持 Linux 终端平滑输出) -->
                             <RichTextBox x:Name="RtbSerialRx" Grid.Row="1" 
                                          Background="{StaticResource TerminalBgBrush}" 
                                          Foreground="{StaticResource TextNormalBrush}" 
@@ -709,10 +821,10 @@
                         </Grid>
                     </Border>
 
-                    <!-- 中间分割条 -->
+                    <!-- 分割条 -->
                     <GridSplitter Grid.Row="2" Height="4" HorizontalAlignment="Stretch" Background="Transparent" Cursor="SizeNS" VerticalAlignment="Center" />
 
-                    <!-- A.3 发送控制窗口 (Send Box) -->
+                    <!-- A.3 发送控制窗口 -->
                     <Border Grid.Row="3" Style="{StaticResource CyberCardBorderStyle}" Padding="0">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -721,33 +833,30 @@
                                 <RowDefinition Height="36" />
                             </Grid.RowDefinitions>
 
-                            <!-- 发送窗口工具栏 -->
-                            <Border Grid.Row="0" Background="#0F131D" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1">
+                            <Border Grid.Row="0" Background="#0C1018" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1">
                                 <Grid Margin="12,0">
-                                    <TextBlock Text="SEND COMMAND BUFFER" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="指令发送缓冲区 (COMMAND BUFFER)" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center"/>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <CheckBox x:Name="ChkSendHex" Content="HEX Send" Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="0,0,10,0"/>
-                                        <CheckBox x:Name="ChkAutoSend" Content="Repeat (ms)" Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="0,0,4,0" Click="ChkAutoSend_Click"/>
+                                        <CheckBox x:Name="ChkSendHex" Content="HEX 发送" Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="0,0,10,0"/>
+                                        <CheckBox x:Name="ChkAutoSend" Content="定时发送 (毫秒)" Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="0,0,4,0" Click="ChkAutoSend_Click"/>
                                         <TextBox x:Name="TxtRepeatInterval" Style="{StaticResource ModernTextBoxStyle}" Width="45" Height="20" Padding="2,0" Text="1000" FontSize="10" Margin="0,0,8,0"/>
-                                        <TextBlock x:Name="TxtTxStats" Text="Tx: 0 Bytes" FontSize="10" Foreground="{StaticResource TextDimBrush}"/>
+                                        <TextBlock x:Name="TxtTxStats" Text="已发送：0 字节" FontSize="10" Foreground="{StaticResource TextDimBrush}"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>
 
-                            <!-- 多行发送输入框 -->
                             <TextBox x:Name="TxtSendBuffer" Grid.Row="1" 
-                                     Background="#0A0C12" Foreground="{StaticResource TextBrightBrush}" 
+                                     Background="#080A10" Foreground="{StaticResource TextBrightBrush}" 
                                      BorderThickness="0" Padding="10,6" AcceptsReturn="True" 
                                      FontFamily="Consolas, Cascadia Code" FontSize="12" 
-                                     VerticalScrollBarVisibility="Auto" Text="AT+VERSION" />
+                                     VerticalScrollBarVisibility="Auto" Text="uname -a" />
 
-                            <!-- 底部动作条 -->
-                            <Border Grid.Row="2" Background="#111622" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,1,0,0">
+                            <Border Grid.Row="2" Background="#10141F" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,1,0,0">
                                 <Grid Margin="10,0">
-                                    <TextBlock Text="Press [Enter] or Click Send" FontSize="10" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="提示：支持多行编辑，按发送键或定时发送执行" FontSize="10" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center"/>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <Button Content="Clear" Style="{StaticResource ModernBtnStyle}" Padding="12,3" FontSize="11" Height="26" Margin="0,0,8,0" Click="BtnClearTx_Click"/>
-                                        <Button x:Name="BtnSendSerial" Content="SEND PACKET" Style="{StaticResource AccentBtnStyle}" Padding="16,3" FontSize="11" Height="26" Click="BtnSendSerial_Click"/>
+                                        <Button Content="清空输入" Style="{StaticResource ModernBtnStyle}" Padding="12,3" FontSize="11" Height="26" Margin="0,0,8,0" Click="BtnClearTx_Click"/>
+                                        <Button x:Name="BtnSendSerial" Content="发送数据包" Style="{StaticResource AccentBtnStyle}" Padding="18,3" FontSize="11" Height="26" Click="BtnSendSerial_Click"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -755,43 +864,39 @@
                     </Border>
                 </Grid>
 
-                <!-- 模式 B: 专用固件烧录与调试工作台 (选中 XDS110 / DAP / FT2232 时显示) -->
+                <!-- ========================================================= -->
+                <!-- 模式 B: 内核诊断与固件烧录工作台 (选中 XDS110 / DAP / FT2232 时激活) -->
+                <!-- ========================================================= -->
                 <Grid x:Name="WorkspaceProgrammer" Visibility="Visible">
                     <Grid.RowDefinitions>
-                        <!-- 固件载入与 CRC 解析区 (Auto) -->
                         <RowDefinition Height="Auto" />
-                        <!-- 目标内核分析仪表盘 Core Analyzer (Auto) -->
                         <RowDefinition Height="Auto" />
-                        <!-- 烧录进度与动作控制 (Auto) -->
                         <RowDefinition Height="Auto" />
-                        <!-- 底部滚动调试日志控制台 (余下所有高度) -->
                         <RowDefinition Height="*" MinHeight="180" />
                     </Grid.RowDefinitions>
 
-                    <!-- B.1 固件载入区 (Firmware Loader Deck) -->
+                    <!-- B.1 固件载入区 -->
                     <Border Grid.Row="0" Style="{StaticResource CyberCardBorderStyle}" Margin="0,0,0,10" Padding="14,12">
                         <StackPanel>
                             <Grid Margin="0,0,0,10">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="FIRMWARE PAYLOAD &amp; CHECKSUM" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}"/>
-                                    <TextBlock x:Name="TxtProbeHeader" Text="[ TARGET PROBE: TI XDS110 (ISOLATED SWD) ]" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" Margin="10,0,0,0"/>
+                                    <TextBlock Text="固件镜像载入与校验分析" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}"/>
+                                    <TextBlock x:Name="TxtProbeHeader" Text="[ 当前选定探针：TI XDS110 隔离调试器 ]" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" Margin="10,0,0,0"/>
                                 </StackPanel>
-                                <TextBlock Text="Target: Flash 0x08000000" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Right"/>
+                                <TextBlock Text="目标烧录扇区基址：0x08000000" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Right"/>
                             </Grid>
 
-                            <!-- 文件路径与浏览 -->
                             <Grid Margin="0,0,0,10">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="TxtFirmwareFile" Grid.Column="0" Style="{StaticResource ModernTextBoxStyle}" Height="32" Margin="0,0,8,0"
-                                         Text="C:\Releases\LinkNexus_Controller_V2.1.bin" />
-                                <Button Content="Browse..." Style="{StaticResource ModernBtnStyle}" Grid.Column="1" Height="32" Padding="16,0" Click="BtnBrowseFirmware_Click"/>
+                                         Text="C:\Firmware\LinkNexus_Controller_V2.1.bin" />
+                                <Button Content="浏览文件..." Style="{StaticResource ModernBtnStyle}" Grid.Column="1" Height="32" Padding="16,0" Click="BtnBrowseFirmware_Click"/>
                             </Grid>
 
-                            <!-- 固件文件属性简报卡 -->
-                            <Border Background="#0E121B" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="4" Padding="10,6">
+                            <Border Background="#0A0D15" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="4" Padding="10,6">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -799,19 +904,19 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="TxtFwSize" Grid.Column="0" Text="Payload Size: 256.40 KB" FontSize="10" Foreground="{StaticResource TextNormalBrush}"/>
-                                    <TextBlock x:Name="TxtFwCrc" Grid.Column="1" Text="CRC32: 0x9B41E280" FontSize="10" Foreground="{StaticResource AccentCyanBrush}"/>
-                                    <TextBlock Text="Format: Raw Binary (.bin)" Grid.Column="2" FontSize="10" Foreground="{StaticResource TextDimBrush}"/>
-                                    <TextBlock Text="Target Offset: 0x00000000" Grid.Column="3" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock x:Name="TxtFwSize" Grid.Column="0" Text="镜像大小：256.40 KB" FontSize="10" Foreground="{StaticResource TextNormalBrush}"/>
+                                    <TextBlock x:Name="TxtFwCrc" Grid.Column="1" Text="CRC32 校验：0x9B41E280" FontSize="10" Foreground="{StaticResource AccentCyanBrush}"/>
+                                    <TextBlock Text="文件封装：原始二进制 (.bin)" Grid.Column="2" FontSize="10" Foreground="{StaticResource TextDimBrush}"/>
+                                    <TextBlock Text="加载偏移：0x00000000" Grid.Column="3" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Right"/>
                                 </Grid>
                             </Border>
                         </StackPanel>
                     </Border>
 
-                    <!-- B.2 目标内核分析仪表盘 (Core Analyzer) -->
+                    <!-- B.2 目标内核分析仪表盘 -->
                     <Border Grid.Row="1" Style="{StaticResource CyberCardBorderStyle}" Margin="0,0,0,10" Padding="14,12">
                         <StackPanel>
-                            <TextBlock Text="TARGET MCU CORE ANALYZER &amp; TELEMETRY" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}" Margin="0,0,0,10"/>
+                            <TextBlock Text="目标 MCU 内核遥测与运行状态诊断" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}" Margin="0,0,0,10"/>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -823,49 +928,45 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
 
-                                <!-- 指标 1: MCU 架构 -->
-                                <Border Grid.Column="0" Background="#0F131D" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8">
+                                <Border Grid.Column="0" Background="#0C1018" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8">
                                     <StackPanel>
-                                        <TextBlock Text="MCU ARCHITECTURE" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}"/>
+                                        <TextBlock Text="MCU 核心架构" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}"/>
                                         <TextBlock Text="ARM Cortex-M4F" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" Margin="0,4,0,0"/>
-                                        <TextBlock Text="Hardware FPU / DSP" FontSize="9" Foreground="#5A6D8C" Margin="0,2,0,0"/>
+                                        <TextBlock Text="硬件浮点单元 (FPU)" FontSize="9" Foreground="#546684" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </Border>
 
-                                <!-- 指标 2: 工作主频 -->
-                                <Border Grid.Column="2" Background="#0F131D" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8">
+                                <Border Grid.Column="2" Background="#0C1018" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8">
                                     <StackPanel>
-                                        <TextBlock Text="CORE CLOCK (HCLK)" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}"/>
+                                        <TextBlock Text="内核工作频率 (HCLK)" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}"/>
                                         <TextBlock Text="168.00 MHz" FontSize="13" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" Margin="0,4,0,0"/>
-                                        <TextBlock Text="PLL Stabilized" FontSize="9" Foreground="#5A6D8C" Margin="0,2,0,0"/>
+                                        <TextBlock Text="锁相环倍频稳定" FontSize="9" Foreground="#546684" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </Border>
 
-                                <!-- 指标 3: 目标供电 VDD -->
-                                <Border Grid.Column="4" Background="#0F131D" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8">
+                                <Border Grid.Column="4" Background="#0C1018" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8">
                                     <StackPanel>
-                                        <TextBlock Text="TARGET VDD SENSE" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}"/>
-                                        <TextBlock Text="3.31 V (Nominal)" FontSize="13" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" Margin="0,4,0,0"/>
-                                        <TextBlock Text="Internal LDO Reg" FontSize="9" Foreground="#5A6D8C" Margin="0,2,0,0"/>
+                                        <TextBlock Text="目标供电检测 (VDD SENSE)" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}"/>
+                                        <TextBlock Text="3.31 V (标称正常)" FontSize="13" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" Margin="0,4,0,0"/>
+                                        <TextBlock Text="板载低压差稳压器" FontSize="9" Foreground="#546684" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </Border>
 
-                                <!-- 指标 4: 内核当前状态 -->
-                                <Border Grid.Column="6" Background="#0F131D" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8">
+                                <Border Grid.Column="6" Background="#0C1018" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8">
                                     <StackPanel>
-                                        <TextBlock Text="CORE EXECUTION STATE" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}"/>
+                                        <TextBlock Text="内核执行诊断状态" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}"/>
                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                             <Ellipse x:Name="CoreStatusIndicator" Width="8" Height="8" Fill="{StaticResource SuccessGreenBrush}" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock x:Name="TxtCoreStatus" Text="Running (Normal)" FontSize="13" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}"/>
+                                            <TextBlock x:Name="TxtCoreStatus" Text="运行中 (Normal)" FontSize="13" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}"/>
                                         </StackPanel>
-                                        <TextBlock Text="SWD Debug Port: Attached" FontSize="9" Foreground="#5A6D8C" Margin="0,2,0,0"/>
+                                        <TextBlock Text="SWD 调试口已挂载" FontSize="9" Foreground="#546684" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
                         </StackPanel>
                     </Border>
 
-                    <!-- B.3 烧录进度与动作控制 (Operation & Progress Deck) -->
+                    <!-- B.3 烧录进度与独立动作按钮 -->
                     <Border Grid.Row="2" Style="{StaticResource CyberCardBorderStyle}" Margin="0,0,0,10" Padding="14,12">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -874,25 +975,23 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- 左半侧: 进度条与传输速率 -->
                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                 <Grid Margin="0,0,0,6">
-                                    <TextBlock x:Name="TxtFlasherAction" Text="Ready to program target chip..." FontSize="11" Foreground="{StaticResource TextDimBrush}"/>
-                                    <TextBlock x:Name="TxtFlasherPercent" Text="0 % (Idle)" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock x:Name="TxtFlasherAction" Text="就绪，等待执行烧录写入指令..." FontSize="11" Foreground="{StaticResource TextDimBrush}"/>
+                                    <TextBlock x:Name="TxtFlasherPercent" Text="0 % (空闲)" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" HorizontalAlignment="Right"/>
                                 </Grid>
                                 <ProgressBar x:Name="ProgressFlash" Style="{StaticResource ModernProgressBarStyle}" Height="8" Value="0" Maximum="100"/>
                             </StackPanel>
 
-                            <!-- 右半侧: 独立 3 组烧录动作按钮 -->
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button x:Name="BtnErase" Content="ERASE CHIP" Style="{StaticResource ModernBtnStyle}" Height="34" Padding="14,0" Margin="0,0,8,0" Click="BtnErase_Click"/>
-                                <Button x:Name="BtnVerify" Content="VERIFY CRC" Style="{StaticResource ModernBtnStyle}" Height="34" Padding="14,0" Margin="0,0,8,0" Click="BtnVerify_Click"/>
-                                <Button x:Name="BtnFlashAll" Content="ONE-KEY FLASH" Style="{StaticResource AccentBtnStyle}" Height="34" Padding="18,0" Click="BtnFlashAll_Click"/>
+                                <Button x:Name="BtnErase" Content="全片擦除" Style="{StaticResource ModernBtnStyle}" Height="34" Padding="14,0" Margin="0,0,8,0" Click="BtnErase_Click"/>
+                                <Button x:Name="BtnVerify" Content="读出校验" Style="{StaticResource ModernBtnStyle}" Height="34" Padding="14,0" Margin="0,0,8,0" Click="BtnVerify_Click"/>
+                                <Button x:Name="BtnFlashAll" Content="一键完整烧录" Style="{StaticResource AccentBtnStyle}" Height="34" Padding="18,0" Click="BtnFlashAll_Click"/>
                             </StackPanel>
                         </Grid>
                     </Border>
 
-                    <!-- B.4 底部滚动调试日志控制台 (Debug Terminal Log) -->
+                    <!-- B.4 底部滚动调试日志控制台 -->
                     <Border Grid.Row="3" Style="{StaticResource CyberCardBorderStyle}" Padding="0">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -900,21 +999,145 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
-                            <Border Grid.Row="0" Background="#0F131D" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1" CornerRadius="8,8,0,0">
+                            <Border Grid.Row="0" Background="#0C1018" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1" CornerRadius="7,7,0,0">
                                 <Grid Margin="12,0">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="DEBUG &amp; ISP LOG OUTPUT" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
+                                        <TextBlock Text="调试与 ISP 交互日志 (DEBUG LOG)" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}"/>
                                         <Border Width="1" Height="10" Background="{StaticResource BorderDarkBrush}" Margin="10,0"/>
-                                        <TextBlock Text="Probe Event Stream" FontSize="10" Foreground="{StaticResource TextDimBrush}"/>
+                                        <TextBlock Text="探针实时硬件事件流" FontSize="10" Foreground="{StaticResource TextDimBrush}"/>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <CheckBox x:Name="ChkAutoScrollLog" Content="Auto Scroll" IsChecked="True" Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="0,0,10,0"/>
-                                        <Button Content="Clear Console" Style="{StaticResource ModernBtnStyle}" Padding="8,2" FontSize="10" Height="22" Click="BtnClearLog_Click"/>
+                                        <CheckBox x:Name="ChkAutoScrollLog" Content="自动向下滚屏" IsChecked="True" Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="0,0,10,0"/>
+                                        <Button Content="清空日志控制台" Style="{StaticResource ModernBtnStyle}" Padding="8,2" FontSize="10" Height="22" Click="BtnClearLog_Click"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>
 
                             <RichTextBox x:Name="RtbDebugLog" Grid.Row="1" 
+                                         Background="{StaticResource TerminalBgBrush}" 
+                                         Foreground="{StaticResource TextNormalBrush}" 
+                                         FontFamily="Consolas, Cascadia Code, Courier New" 
+                                         FontSize="12" 
+                                         IsReadOnly="True" 
+                                         BorderThickness="0" 
+                                         VerticalScrollBarVisibility="Auto" 
+                                         Padding="10,8" 
+                                         Block.LineHeight="16"
+                                         Cursor="IBeam">
+                                <FlowDocument />
+                            </RichTextBox>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- ========================================================= -->
+                <!-- 模式 C: USB 外设状态详情页 (选中扩展 USB 口时激活) -->
+                <!-- ========================================================= -->
+                <Grid x:Name="WorkspaceUsbHub" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- C.1 顶部设备识别卡片 -->
+                    <Border Grid.Row="0" Style="{StaticResource CyberCardBorderStyle}" Margin="0,0,0,12" Padding="16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Width="42" Height="42" CornerRadius="8" Background="#182030" 
+                                    BorderBrush="{StaticResource AccentCyanBrush}" BorderThickness="1.5" Margin="0,0,14,0">
+                                <Path Data="M 15 7 V 11 M 9 7 V 11 M 12 2 L 17 7 H 14 V 17 H 16 V 19 H 14 V 22 H 10 V 19 H 8 V 17 H 10 V 7 H 7 L 12 2 Z" 
+                                      Fill="{StaticResource AccentCyanBrush}" Width="18" Height="18" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="TxtUsbDeviceTitle" Text="SanDisk 闪迪 USB 3.0 U盘" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}"/>
+                                    <Border Background="#16261A" CornerRadius="3" Padding="6,2" Margin="10,0,0,0">
+                                        <TextBlock x:Name="TxtUsbAttachedStatus" Text="已安全挂载" FontSize="10" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}"/>
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock x:Name="TxtUsbSpeedGrade" Text="链路层协商速度：SuperSpeed 5Gbps (USB 3.2 Gen1 x1 隔离拓扑)" FontSize="11" Foreground="{StaticResource TextDimBrush}" Margin="0,3,0,0"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button x:Name="BtnUsbActionAttach" Content="模拟设备接入" Style="{StaticResource ModernBtnStyle}" Margin="0,0,8,0" Click="BtnUsbActionAttach_Click"/>
+                                <Button x:Name="BtnUsbActionEject" Content="安全移除硬件" Style="{StaticResource DangerBtnStyle}" Click="BtnUsbActionEject_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- C.2 拓扑层级与硬件 ID 识别参数 -->
+                    <Border Grid.Row="1" Style="{StaticResource CyberCardBorderStyle}" Margin="0,0,0,12" Padding="14,12">
+                        <StackPanel>
+                            <TextBlock Text="硬件设备枚举与拓扑参数详情" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}" Margin="0,0,0,10"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Background="#0C1018" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8">
+                                    <StackPanel>
+                                        <TextBlock Text="硬件识别码 (VID / PID)" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}"/>
+                                        <TextBlock x:Name="TxtUsbVidPid" Text="VID: 0781  PID: 5583" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" Margin="0,4,0,0"/>
+                                        <TextBlock Text="SanDisk Corp. 官方签名" FontSize="9" Foreground="#546684" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="2" Background="#0C1018" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8">
+                                    <StackPanel>
+                                        <TextBlock Text="集线拓扑位置" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}"/>
+                                        <TextBlock x:Name="TxtUsbHubPort" Text="Hub 01 -> Port 01" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" Margin="0,4,0,0"/>
+                                        <TextBlock Text="电气隔离下行通路" FontSize="9" Foreground="#546684" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="4" Background="#0C1018" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8">
+                                    <StackPanel>
+                                        <TextBlock Text="VBUS 供电协商模式" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}"/>
+                                        <TextBlock x:Name="TxtUsbPowerNegotiation" Text="标称 5.00V / 900mA" FontSize="12" FontWeight="Bold" Foreground="{StaticResource SuccessGreenBrush}" Margin="0,4,0,0"/>
+                                        <TextBlock Text="支持自愈过流保护 (OCP)" FontSize="9" Foreground="#546684" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="6" Background="#0C1018" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8">
+                                    <StackPanel>
+                                        <TextBlock Text="设备接口类 (USB Class)" FontSize="9" FontWeight="Bold" Foreground="{StaticResource TextDimBrush}"/>
+                                        <TextBlock x:Name="TxtUsbClass" Text="Mass Storage (08h)" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" Margin="0,4,0,0"/>
+                                        <TextBlock Text="系统自带 BOT 协议驱动" FontSize="9" Foreground="#546684" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- C.3 USB 热插拔事件日志 -->
+                    <Border Grid.Row="2" Style="{StaticResource CyberCardBorderStyle}" Padding="0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="32" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Background="#0C1018" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1" CornerRadius="7,7,0,0">
+                                <Grid Margin="12,0">
+                                    <TextBlock Text="USB 集线器事件流水 (HUB CONTROLLER EVENT STREAM)" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="已连接物理控制器" FontSize="10" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+
+                            <RichTextBox x:Name="RtbUsbLog" Grid.Row="1" 
                                          Background="{StaticResource TerminalBgBrush}" 
                                          Foreground="{StaticResource TextNormalBrush}" 
                                          FontFamily="Consolas, Cascadia Code, Courier New" 

@@ -9,8 +9,8 @@ namespace LinkNexus
 {
     /// <summary>
     /// MainWindow.xaml 的交互与系统底层控制接入
-    /// 负责接管 Windows Win32 消息泵 WndProc，监听 USB PnP 热插拔并挂载 MVVM 架构
-    /// 包含文件拖拽载入、开发者功能预览选项卡切换与快捷键管理
+    /// 接管 Windows Win32 消息泵 WndProc，监听 USB PnP 热插拔并挂载 MVVM 架构
+    /// 包含文件拖拽载入与 Linux CLI 键盘回车交互
     /// </summary>
     public partial class MainWindow : Window
     {
@@ -27,43 +27,9 @@ namespace LinkNexus
             _viewModel = new MainViewModel(_usbMonitorService);
             DataContext = _viewModel;
 
-            // 监听 ViewModel 属性变化 (例如调试模式开关时自动同步界面卡片与控制台选项)
-            _viewModel.PropertyChanged += ViewModel_PropertyChanged;
-
-            // 2. 窗口生命周期事件与快捷键监听
+            // 2. 窗口生命周期事件
             StateChanged += MainWindow_StateChanged;
-            PreviewKeyDown += MainWindow_PreviewKeyDown;
             Closed += MainWindow_Closed;
-        }
-
-        private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(MainViewModel.IsDebugMode))
-            {
-                if (_viewModel.IsDebugMode)
-                {
-                    // 进入调试模式：自动展开功能预览工作台
-                    RdoDebugPreview.IsChecked = true;
-                    PnlPnpLogs.Visibility = Visibility.Collapsed;
-                    PnlDebugPreviewWorkbench.Visibility = Visibility.Visible;
-                }
-                else
-                {
-                    // 退出调试模式：回退至纯净 PnP 诊断事件流
-                    PnlPnpLogs.Visibility = Visibility.Visible;
-                    PnlDebugPreviewWorkbench.Visibility = Visibility.Collapsed;
-                }
-            }
-        }
-
-        private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            // F12 快捷键全局切换开发者调试模式
-            if (e.Key == Key.F12)
-            {
-                _viewModel.ToggleDebugModeCommand.Execute(null);
-                e.Handled = true;
-            }
         }
 
         /// <summary>
@@ -73,7 +39,6 @@ namespace LinkNexus
         {
             base.OnSourceInitialized(e);
 
-            // 获取原生 Win32 窗口句柄
             _hwndSource = PresentationSource.FromVisual(this) as HwndSource;
             if (_hwndSource != null)
             {
@@ -93,19 +58,14 @@ namespace LinkNexus
             return _usbMonitorService.HwndHandler(hwnd, msg, wParam, lParam, ref handled);
         }
 
-        /// <summary>
-        /// 窗体最大化 / 还原状态变更时更新图标
-        /// </summary>
         private void MainWindow_StateChanged(object? sender, EventArgs e)
         {
             if (WindowState == WindowState.Maximized)
             {
-                // 还原状态双层框图标
                 PathMaximizeIcon.Data = Geometry.Parse("M 2 0 H 10 V 8 H 8 V 10 H 0 V 2 H 2 Z M 2 2 V 8 H 8 V 2 Z");
             }
             else
             {
-                // 最大化单层正方形图标
                 PathMaximizeIcon.Data = Geometry.Parse("M 0 0 H 10 V 10 H 0 Z");
             }
         }
@@ -131,7 +91,7 @@ namespace LinkNexus
 
         #endregion
 
-        #region 文件拖拽放入处理 (支持全窗口拖拽与专用放入区)
+        #region 固件文件拖拽放入处理
 
         private void Window_DragOver(object sender, DragEventArgs e)
         {
@@ -153,17 +113,7 @@ namespace LinkNexus
             string[]? files = e.Data.GetData(DataFormats.FileDrop) as string[];
             if (files != null && files.Length > 0 && File.Exists(files[0]))
             {
-                // 自动激活开发者调试模式以便直观审查文件
-                if (!_viewModel.IsDebugMode)
-                {
-                    _viewModel.IsDebugMode = true;
-                }
-
                 _viewModel.LoadFile(files[0]);
-
-                RdoDebugPreview.IsChecked = true;
-                PnlPnpLogs.Visibility = Visibility.Collapsed;
-                PnlDebugPreviewWorkbench.Visibility = Visibility.Visible;
                 e.Handled = true;
             }
         }
@@ -180,33 +130,24 @@ namespace LinkNexus
 
         #endregion
 
-        #region 控制台视图与功能预览选项卡切换
+        #region 串口与智能输入按键交互
 
-        private void RdoPnpLogs_Click(object sender, RoutedEventArgs e)
+        private void SmartInputTextBox_KeyDown(object sender, KeyEventArgs e)
         {
-            PnlPnpLogs.Visibility = Visibility.Visible;
-            PnlDebugPreviewWorkbench.Visibility = Visibility.Collapsed;
-        }
-
-        private void RdoDebugPreview_Click(object sender, RoutedEventArgs e)
-        {
-            PnlPnpLogs.Visibility = Visibility.Collapsed;
-            PnlDebugPreviewWorkbench.Visibility = Visibility.Visible;
-        }
-
-        private void TabPreview_Click(object sender, RoutedEventArgs e)
-        {
-            ViewFlashPreview.Visibility = (TabFlash.IsChecked == true) ? Visibility.Visible : Visibility.Collapsed;
-            ViewSerialPreview.Visibility = (TabSerial.IsChecked == true) ? Visibility.Visible : Visibility.Collapsed;
-            ViewLoadPreview.Visibility = (TabLoad.IsChecked == true) ? Visibility.Visible : Visibility.Collapsed;
-            ViewProtocolPreview.Visibility = (TabProtocol.IsChecked == true) ? Visibility.Visible : Visibility.Collapsed;
+            if (e.Key == Key.Enter)
+            {
+                if (_viewModel.SendSmartInputCommand.CanExecute(null))
+                {
+                    _viewModel.SendSmartInputCommand.Execute(null);
+                }
+                e.Handled = true;
+            }
         }
 
         #endregion
 
         private void MainWindow_Closed(object? sender, EventArgs e)
         {
-            // 卸载钩子与释放 PnP 资源
             if (_hwndSource != null)
             {
                 _hwndSource.RemoveHook(WndProc);

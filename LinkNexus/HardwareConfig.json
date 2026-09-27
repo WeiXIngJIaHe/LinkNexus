@@ -1,0 +1,105 @@
+{
+  "Version": "26739.0100",
+  "DeviceModel": "LinkNexus-Pro-CH338X",
+  "Esp32CdcPort": "COM_AUTO",
+  "Esp32BaudRate": 115200,
+  "HubPortMappings": [
+    {
+      "PhysicalPortNumber": 1,
+      "LogicalChannelType": "XDS110",
+      "PowerControlChannelIndex": 0,
+      "TelemetryChannelIndex": 1,
+      "NominalVoltage": 3.3,
+      "DisplayName": "TI XDS110 烧录器",
+      "LocationPathKeywords": [ "Port1", "VID_0451" ],
+      "HasCurrentSensor": true
+    },
+    {
+      "PhysicalPortNumber": 2,
+      "LogicalChannelType": "DAPLink",
+      "PowerControlChannelIndex": 1,
+      "TelemetryChannelIndex": 2,
+      "NominalVoltage": 3.3,
+      "DisplayName": "ARM DAPLink 仿真器",
+      "LocationPathKeywords": [ "Port2", "VID_0D28" ],
+      "HasCurrentSensor": true
+    },
+    {
+      "PhysicalPortNumber": 3,
+      "LogicalChannelType": "FT2232",
+      "PowerControlChannelIndex": 2,
+      "TelemetryChannelIndex": null,
+      "NominalVoltage": 5.0,
+      "DisplayName": "FT2232 多功能调试器",
+      "LocationPathKeywords": [ "Port3", "VID_0403" ],
+      "HasCurrentSensor": false
+    },
+    {
+      "PhysicalPortNumber": 4,
+      "LogicalChannelType": "UART",
+      "PowerControlChannelIndex": 3,
+      "TelemetryChannelIndex": null,
+      "NominalVoltage": 3.3,
+      "DisplayName": "高速虚拟串口 (VCP)",
+      "LocationPathKeywords": [ "Port4", "VID_1A86", "VID_10C4" ],
+      "HasCurrentSensor": false
+    },
+    {
+      "PhysicalPortNumber": 5,
+      "LogicalChannelType": "Downstream_1",
+      "PowerControlChannelIndex": 4,
+      "TelemetryChannelIndex": null,
+      "NominalVoltage": 5.0,
+      "DisplayName": "USB 2.0 下行端口 1",
+      "LocationPathKeywords": [ "Port5" ],
+      "HasCurrentSensor": false
+    },
+    {
+      "PhysicalPortNumber": 6,
+      "LogicalChannelType": "Downstream_2",
+      "PowerControlChannelIndex": 5,
+      "TelemetryChannelIndex": null,
+      "NominalVoltage": 5.0,
+      "DisplayName": "USB 2.0 下行端口 2",
+      "LocationPathKeywords": [ "Port6" ],
+      "HasCurrentSensor": false
+    },
+    {
+      "PhysicalPortNumber": 7,
+      "LogicalChannelType": "ESP32_CDC",
+      "PowerControlChannelIndex": -1,
+      "TelemetryChannelIndex": null,
+      "NominalVoltage": 3.3,
+      "DisplayName": "ESP32-S3 管理控制器",
+      "LocationPathKeywords": [ "Port7", "VID_303A" ],
+      "HasCurrentSensor": false
+    }
+  ],
+  "TelemetrySensors": [
+    {
+      "TelemetryIndex": 0,
+      "SensorName": "整机主总线",
+      "ChipType": "INA236",
+      "I2CAddress": "0x40",
+      "MaxVoltage": 24.0,
+      "MaxCurrent": 5000.0
+    },
+    {
+      "TelemetryIndex": 1,
+      "SensorName": "XDS110 独立采样",
+      "ChipType": "INA236",
+      "I2CAddress": "0x41",
+      "MaxVoltage": 5.5,
+      "MaxCurrent": 2000.0
+    },
+    {
+      "TelemetryIndex": 2,
+      "SensorName": "DAPLink 独立采样",
+      "ChipType": "INA236",
+      "I2CAddress": "0x42",
+      "MaxVoltage": 5.5,
+      "MaxCurrent": 2000.0
+    }
+  ]
+}
+

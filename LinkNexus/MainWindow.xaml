@@ -257,7 +257,10 @@
                                         MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" 
                                         MaxHeight="240" 
                                         Margin="0,2,0,0">
-                                    <ScrollViewer SnapsToDevicePixels="True">
+                                    <Border.Resources>
+                                        <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource IndustrialScrollBarStyle}"/>
+                                    </Border.Resources>
+                                    <ScrollViewer SnapsToDevicePixels="True" VerticalScrollBarVisibility="Auto">
                                         <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained" />
                                     </ScrollViewer>
                                 </Border>

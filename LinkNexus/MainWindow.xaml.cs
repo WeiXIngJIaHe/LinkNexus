@@ -154,6 +154,7 @@ namespace LinkNexus
                 _hwndSource = null;
             }
 
+            _viewModel.CloseSerialPortInternal();
             _usbMonitorService.Dispose();
         }
     }

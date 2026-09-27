@@ -91,6 +91,7 @@ namespace LinkNexus
                 {
                     _deviceName = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(FunctionBadgeText));
                 }
             }
         }
@@ -170,11 +171,53 @@ namespace LinkNexus
             DeviceFunctionType.Burner_FT2232 => IsVirtual ? "⚡ FT2232 烧录 (虚拟仿真)" : "⚡ FT2232 烧录调试器",
             DeviceFunctionType.Burner_DAPLink => IsVirtual ? "🚀 CMSIS-DAP (虚拟仿真)" : "🚀 CMSIS-DAP 仿真器",
             DeviceFunctionType.Burner_XDS110 => IsVirtual ? "🛠️ XDS110 探针 (虚拟仿真)" : "🛠️ TI XDS110 烧录探针",
-            DeviceFunctionType.Uart_Serial => IsVirtual ? "📡 CH343P 串口/CLI (虚拟仿真)" : "📡 CH343P 串口 / Linux CLI",
+            DeviceFunctionType.Uart_Serial => GetUartFunctionBadgeText(),
             DeviceFunctionType.Controller_ESP32 => "🛠️ ESP32-S3 核心主控 (Debug)",
             DeviceFunctionType.MassStorage => "💾 USB 存储设备 (U盘)",
             _ => "🔌 通用 USB 外设"
         };
+
+        private string GetUartFunctionBadgeText()
+        {
+            string suffix = IsVirtual ? " (虚拟仿真)" : "";
+            string devName = DeviceName ?? string.Empty;
+            string upper = devName.ToUpperInvariant();
+
+            // 按照用户要求：window识别出来的设备名 + 对应功能，比如 CH340串口-TTL
+            if (upper.Contains("CH340"))
+            {
+                return $"📡 CH340 串口-TTL{suffix}";
+            }
+            if (upper.Contains("CH341"))
+            {
+                return $"📡 CH341 串口-TTL{suffix}";
+            }
+            if (upper.Contains("CH343"))
+            {
+                return $"📡 CH343 串口-TTL{suffix}";
+            }
+            if (upper.Contains("CP210"))
+            {
+                return $"📡 CP210x 串口-TTL{suffix}";
+            }
+            if (upper.Contains("FT232"))
+            {
+                return $"📡 FT232 串口-TTL{suffix}";
+            }
+            if (upper.Contains("PL2303"))
+            {
+                return $"📡 PL2303 串口-TTL{suffix}";
+            }
+
+            // 若不是以上常见芯片，自动剥离 (COMx) 后缀，以 Windows 识别出的主名字 + 串口-TTL 拼接呈现
+            string cleanName = System.Text.RegularExpressions.Regex.Replace(devName, @"\s*\([Cc][Oo][Mm]\d+\)", "").Trim();
+            if (string.IsNullOrWhiteSpace(cleanName) || cleanName == "--")
+            {
+                cleanName = "USB";
+            }
+
+            return $"📡 {cleanName} 串口-TTL{suffix}";
+        }
 
         public bool IsBurnerDevice =>
             FunctionType == DeviceFunctionType.Burner_FT2232 ||

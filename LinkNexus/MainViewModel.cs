@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.IO.Ports;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -168,6 +169,7 @@ namespace LinkNexus
 
         private int _selectedBaudRate = 115200;
         private bool _isPortOpen = false;
+        private SerialPort? _serialPort = null;
         private bool _isLinuxCliMode = false;
         private bool _isHexSendMode = false;
         private bool _isHexReceiveMode = false;
@@ -450,7 +452,26 @@ namespace LinkNexus
         public int SelectedBaudRate
         {
             get => _selectedBaudRate;
-            set { if (_selectedBaudRate != value) { _selectedBaudRate = value; OnPropertyChanged(); } }
+            set
+            {
+                if (_selectedBaudRate != value)
+                {
+                    _selectedBaudRate = value;
+                    OnPropertyChanged();
+                    if (_serialPort != null && _serialPort.IsOpen)
+                    {
+                        try
+                        {
+                            _serialPort.BaudRate = value;
+                            AddLog($"[串口服务] 物理串口波特率已动态更新为 {value}", "INFO");
+                        }
+                        catch (Exception ex)
+                        {
+                            AddLog($"[串口服务] 动态更改波特率失败: {ex.Message}", "ERROR");
+                        }
+                    }
+                }
+            }
         }
 
         public bool IsPortOpen
@@ -491,6 +512,10 @@ namespace LinkNexus
                     _isDtrEnable = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(DtrButtonText));
+                    if (_serialPort != null && _serialPort.IsOpen)
+                    {
+                        try { _serialPort.DtrEnable = value; } catch { }
+                    }
                     AddLog($"[串口引脚] DTR 信号线切换为 {(value ? "高电平 (1 / SET)" : "低电平 (0 / CLEAR)")}", "INFO");
                 }
             }
@@ -511,6 +536,10 @@ namespace LinkNexus
                     _isRtsEnable = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(RtsButtonText));
+                    if (_serialPort != null && _serialPort.IsOpen)
+                    {
+                        try { _serialPort.RtsEnable = value; } catch { }
+                    }
                     AddLog($"[串口引脚] RTS 信号线切换为 {(value ? "高电平 (1 / SET)" : "低电平 (0 / CLEAR)")}", "INFO");
                 }
             }
@@ -801,7 +830,7 @@ namespace LinkNexus
 
             ToggleSerialPortCommand = new RelayCommand(OnToggleSerialPort);
             SendSerialTextCommand = new RelayCommand(OnSendSerialText);
-            ClearSerialMonitorCommand = new RelayCommand(() => SerialMonitorLines.Clear());
+            ClearSerialMonitorCommand = new RelayCommand(OnClearSerialMonitor);
             SendLinuxCliCommand = new RelayCommand(OnSendLinuxCli);
             InjectCliPresetCommand = new RelayCommand(p => OnInjectCliPreset(p?.ToString()));
             SelectDeviceCommand = new RelayCommand(p =>
@@ -1015,9 +1044,11 @@ namespace LinkNexus
             {
                 card.FunctionType = DeviceFunctionType.Burner_XDS110;
             }
-            // 4. CH343P / 板载高速串口 (CH338X 下行)
+            // 4. CH343P / 板载高速串口 / 通用串口 (CH338X 下行及所有串口)
             else if ((vid == "1A86" && (pid == "55D3" || pid == "7523" || pid == "5523")) ||
-                     nameUpper.Contains("CH343") || nameUpper.Contains("CH340") || nameUpper.Contains("CP210"))
+                     nameUpper.Contains("CH343") || nameUpper.Contains("CH340") || nameUpper.Contains("CH341") ||
+                     nameUpper.Contains("CP210") || nameUpper.Contains("FT232") || nameUpper.Contains("PL2303") ||
+                     !string.IsNullOrWhiteSpace(dev.ComPort))
             {
                 card.FunctionType = DeviceFunctionType.Uart_Serial;
             }
@@ -1036,6 +1067,16 @@ namespace LinkNexus
 
         private void OnDeviceCardSelected(PortDeviceModel selected)
         {
+            if (SelectedDevice != selected && _serialPort != null && _serialPort.IsOpen)
+            {
+                if (selected.ComPort != SelectedDevice?.ComPort)
+                {
+                    CloseSerialPortInternal();
+                    IsPortOpen = false;
+                    AddLog("【串口服务】由于切换设备卡片，已自动释放上一设备的串口物理句柄。", "INFO");
+                }
+            }
+
             foreach (var dev in ConnectedDevices)
             {
                 if (dev != selected) dev.IsSelected = false;
@@ -1364,16 +1405,168 @@ namespace LinkNexus
 
         private void OnToggleSerialPort()
         {
-            IsPortOpen = !IsPortOpen;
             if (IsPortOpen)
             {
-                AddLog($"【串口服务】已打开 {SelectedDevice?.ComPort ?? "COM4"} | 波特率: {SelectedBaudRate} 8-N-1 | DTR: {(IsDtrEnable ? 1 : 0)} RTS: {(IsRtsEnable ? 1 : 0)}", "SUCCESS");
-                SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [系统] 串口 {SelectedDevice?.ComPort ?? "COM4"} 已打开，波特率：{SelectedBaudRate}，硬件流控引脚已初始化就绪。");
-            }
-            else
-            {
-                AddLog($"【串口服务】已关闭 {SelectedDevice?.ComPort ?? "COM4"}", "INFO");
+                CloseSerialPortInternal();
+                IsPortOpen = false;
+                AddLog($"【串口服务】已关闭串口 {SelectedDevice?.ComPort ?? "COM"}", "INFO");
                 SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [系统] 串口已关闭。");
+                return;
+            }
+
+            string portName = SelectedDevice?.ComPort?.Trim() ?? string.Empty;
+            bool isVirtualDevice = SelectedDevice?.IsVirtual == true;
+
+            // 若无有效 COM 端口，且是虚拟设备，允许虚拟仿真通道
+            if (string.IsNullOrWhiteSpace(portName) || portName == "--" || !portName.StartsWith("COM", StringComparison.OrdinalIgnoreCase))
+            {
+                if (isVirtualDevice)
+                {
+                    IsPortOpen = true;
+                    AddLog($"【串口服务】已开启虚拟串口仿真通道 | 波特率: {SelectedBaudRate} 8-N-1", "SUCCESS");
+                    SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [虚拟] 虚拟串口仿真已开启，波特率：{SelectedBaudRate}。");
+                    return;
+                }
+
+                AddLog("【串口服务】无法打开串口：当前选中的设备未分配有效的 COM 端口号！", "ERROR");
+                SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [错误] 未找到有效通信端口 (COMx)。");
+                return;
+            }
+
+            // 若包含多端口字符串（如 "COM3, COM4"），取第一个物理端口
+            if (portName.Contains(','))
+            {
+                portName = portName.Split(',')[0].Trim();
+            }
+
+            try
+            {
+                CloseSerialPortInternal();
+
+                _serialPort = new SerialPort(portName, SelectedBaudRate, Parity.None, 8, StopBits.One)
+                {
+                    ReadTimeout = 500,
+                    WriteTimeout = 500,
+                    DtrEnable = IsDtrEnable,
+                    RtsEnable = IsRtsEnable,
+                    Encoding = System.Text.Encoding.UTF8,
+                    ReceivedBytesThreshold = 1
+                };
+
+                _serialPort.DataReceived += SerialPort_DataReceived;
+                _serialPort.PinChanged += SerialPort_PinChanged;
+                _serialPort.Open();
+
+                IsPortOpen = true;
+                AddLog($"【串口服务】已成功打开真实物理串口 {portName} | 波特率: {SelectedBaudRate} 8-N-1 | DTR: {(IsDtrEnable ? 1 : 0)} RTS: {(IsRtsEnable ? 1 : 0)}", "SUCCESS");
+                SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [硬件] 物理串口 {portName} 已打开，监听中...");
+
+                UpdateHardwarePinStatus();
+            }
+            catch (Exception ex)
+            {
+                CloseSerialPortInternal();
+                IsPortOpen = false;
+                AddLog($"【串口服务】打开物理串口 {portName} 失败: {ex.Message}", "ERROR");
+                SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [错误] 打开物理串口异常: {ex.Message}");
+            }
+        }
+
+        private void SerialPort_PinChanged(object sender, SerialPinChangedEventArgs e)
+        {
+            _dispatcher.InvokeAsync(() =>
+            {
+                UpdateHardwarePinStatus();
+            });
+        }
+
+        private void UpdateHardwarePinStatus()
+        {
+            if (_serialPort != null && _serialPort.IsOpen)
+            {
+                try
+                {
+                    IsCtsActive = _serialPort.CtsHolding;
+                    IsDtsActive = _serialPort.DsrHolding;
+                }
+                catch { }
+            }
+        }
+
+        private void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
+        {
+            var sp = _serialPort;
+            if (sp == null || !sp.IsOpen) return;
+
+            try
+            {
+                int count = sp.BytesToRead;
+                if (count <= 0) return;
+
+                byte[] buffer = new byte[count];
+                int readCount = sp.Read(buffer, 0, count);
+                if (readCount <= 0) return;
+
+                _dispatcher.InvokeAsync(() =>
+                {
+                    SerialRxBytes += readCount;
+                    string prefix = IsTimestampEnabled ? $"[{DateTime.Now:HH:mm:ss.fff}] " : "";
+
+                    if (IsHexReceiveMode)
+                    {
+                        string hexStr = BitConverter.ToString(buffer, 0, readCount).Replace("-", " ");
+                        SerialMonitorLines.Add($"{prefix}[Rx HEX] <- {hexStr}");
+                    }
+                    else
+                    {
+                        string text = System.Text.Encoding.UTF8.GetString(buffer, 0, readCount);
+                        var rawLines = text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+                        for (int i = 0; i < rawLines.Length; i++)
+                        {
+                            string line = rawLines[i];
+                            if (i == rawLines.Length - 1 && string.IsNullOrEmpty(line)) break;
+
+                            SerialMonitorLines.Add($"{prefix}[Rx] <- {line}");
+
+                            if (IsLinuxCliAreaVisible && !string.IsNullOrWhiteSpace(line))
+                            {
+                                LinuxCliTerminalLines.Add(line);
+                                while (LinuxCliTerminalLines.Count > 300) LinuxCliTerminalLines.RemoveAt(0);
+                            }
+                        }
+                    }
+
+                    while (SerialMonitorLines.Count > 300) SerialMonitorLines.RemoveAt(0);
+                });
+            }
+            catch (Exception ex)
+            {
+                _dispatcher.InvokeAsync(() =>
+                {
+                    AddLog($"[串口接收异常] {ex.Message}", "WARN");
+                });
+            }
+        }
+
+        public void CloseSerialPortInternal()
+        {
+            if (_serialPort != null)
+            {
+                try
+                {
+                    if (_serialPort.IsOpen)
+                    {
+                        _serialPort.DataReceived -= SerialPort_DataReceived;
+                        _serialPort.PinChanged -= SerialPort_PinChanged;
+                        _serialPort.Close();
+                    }
+                    _serialPort.Dispose();
+                }
+                catch { }
+                finally
+                {
+                    _serialPort = null;
+                }
             }
         }
 
@@ -1385,12 +1578,24 @@ namespace LinkNexus
                 // 经典下载/复位时序：拉低 DTR (0)，拉高 RTS (1)
                 IsDtrEnable = false;
                 IsRtsEnable = true;
+                if (_serialPort != null && _serialPort.IsOpen)
+                {
+                    try { _serialPort.DtrEnable = false; _serialPort.RtsEnable = true; } catch { }
+                }
                 await Task.Delay(100);
                 // 释放复位电平
                 IsDtrEnable = true;
                 IsRtsEnable = false;
+                if (_serialPort != null && _serialPort.IsOpen)
+                {
+                    try { _serialPort.DtrEnable = true; _serialPort.RtsEnable = false; } catch { }
+                }
                 await Task.Delay(50);
                 IsRtsEnable = true;
+                if (_serialPort != null && _serialPort.IsOpen)
+                {
+                    try { _serialPort.RtsEnable = true; } catch { }
+                }
                 AddLog("【串口引脚】目标 MCU 自动复位完成，固件已重新启动运行！", "SUCCESS");
                 SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [引脚] DTR/RTS 脉冲复位完成，下位机已重新复位启动。");
             });
@@ -1553,136 +1758,247 @@ namespace LinkNexus
                 return;
             }
 
-            string hexFormatted = string.Join(" ", byteList.Select(b => b.ToString("X2")));
-            int count = byteList.Count;
+            byte[] bytesToSend = byteList.ToArray();
+            int count = bytesToSend.Length;
             SerialTxBytes += count;
 
+            string hexFormatted = string.Join(" ", bytesToSend.Select(b => b.ToString("X2")));
             string prefix = IsTimestampEnabled ? $"[{DateTime.Now:HH:mm:ss.fff}] " : "";
             SerialMonitorLines.Add($"{prefix}[Tx HEX] -> {hexFormatted} ({count} 字节)");
             AddLog($"[串口通信] [HEX 发送] {hexFormatted} (共 {count} 字节)", "INFO");
 
-            // 仿真下位机响应
-            _dispatcher.InvokeAsync(async () =>
+            // 真实物理串口发送：直接送入物理硬件 TX 引脚
+            if (_serialPort != null && _serialPort.IsOpen)
             {
-                await Task.Delay(40);
-                string rxPrefix = IsTimestampEnabled ? $"[{DateTime.Now:HH:mm:ss.fff}] " : "";
-                string respHex = byteList[0] == 0xAA ? "AA 55 06 00 00 05" : $"06 {hexFormatted}";
-                int rxCount = respHex.Split(' ').Length;
-                SerialRxBytes += rxCount;
-                SerialMonitorLines.Add($"{rxPrefix}[Rx HEX] <- {respHex} (ACK OK)");
-                while (SerialMonitorLines.Count > 150) SerialMonitorLines.RemoveAt(0);
-            });
+                try
+                {
+                    _serialPort.Write(bytesToSend, 0, bytesToSend.Length);
+                }
+                catch (Exception ex)
+                {
+                    AddLog($"【串口错误】物理串口写入失败: {ex.Message}", "ERROR");
+                    SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [错误] 写入失败: {ex.Message}");
+                }
+                // 真实硬件下，由 RX 实际物理电平回环触发，不伪造数据！
+                return;
+            }
+
+            // 仅在虚拟仿真卡片模式且未开启物理串口时，运行虚拟仿真回执
+            if (SelectedDevice?.IsVirtual == true)
+            {
+                _dispatcher.InvokeAsync(async () =>
+                {
+                    await Task.Delay(40);
+                    string rxPrefix = IsTimestampEnabled ? $"[{DateTime.Now:HH:mm:ss.fff}] " : "";
+                    string respHex = bytesToSend[0] == 0xAA ? "AA 55 06 00 00 05" : $"06 {hexFormatted}";
+                    int rxCount = respHex.Split(' ').Length;
+                    SerialRxBytes += rxCount;
+                    SerialMonitorLines.Add($"{rxPrefix}[Rx HEX] <- {respHex} (ACK OK)");
+                    while (SerialMonitorLines.Count > 150) SerialMonitorLines.RemoveAt(0);
+                });
+            }
+            else if (!IsPortOpen)
+            {
+                AddLog("【串口警告】物理串口未打开，无法发送数据！请先点击【打开串口】！", "WARN");
+                SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [警告] 串口未打开，请先点击【打开串口】。");
+            }
         }
 
         private void ProcessSendLinuxCli(string cmd)
         {
-            int bytesCount = System.Text.Encoding.UTF8.GetByteCount(cmd) + 1;
+            string fullCmd = cmd + "\n";
+            byte[] bytesToSend = System.Text.Encoding.UTF8.GetBytes(fullCmd);
+            int bytesCount = bytesToSend.Length;
             SerialTxBytes += bytesCount;
 
             LinuxCliTerminalLines.Add($"root@linknexus-board:~# {cmd}");
             string prefix = IsTimestampEnabled ? $"[{DateTime.Now:HH:mm:ss.fff}] " : "";
             SerialMonitorLines.Add($"{prefix}[Tx CLI] -> {cmd}");
 
-            _dispatcher.InvokeAsync(async () =>
+            // 真实物理串口发送
+            if (_serialPort != null && _serialPort.IsOpen)
             {
-                await Task.Delay(40);
-                switch (cmd.ToLowerInvariant())
+                try
                 {
-                    case "uname -a":
-                        LinuxCliTerminalLines.Add("Linux linknexus-board 6.1.0-arm64-v8a #1 SMP PREEMPT Sun Sep 27 20:30:00 CST 2026 aarch64 GNU/Linux");
-                        break;
-                    case "ifconfig":
-                    case "ifconfig -a":
-                        LinuxCliTerminalLines.Add("eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500");
-                        LinuxCliTerminalLines.Add("        inet 192.168.1.108  netmask 255.255.255.0  broadcast 192.168.1.255");
-                        LinuxCliTerminalLines.Add("        rx packets 4812 bytes 3918231 (3.7 MiB)  tx packets 2189 bytes 291812");
-                        break;
-                    case "dmesg":
-                    case "dmesg | tail":
-                    case "dmesg | tail -n 20":
-                        LinuxCliTerminalLines.Add("[   1.218912] usb 1-1: new high-speed USB device number 2 using ch338x-ehci");
-                        LinuxCliTerminalLines.Add("[   1.382109] ttyUSB0: CH343P USB UART converter now attached to ttyUSB0");
-                        LinuxCliTerminalLines.Add("[   2.019281] linknexus-power: VBUS Sense 5.03V, load normal.");
-                        break;
-                    case "top":
-                    case "top -b -n 1":
-                        LinuxCliTerminalLines.Add("Mem: 1892184K used, 2198124K free, 1024K shrd, 18920K buff, 521820K cached");
-                        LinuxCliTerminalLines.Add("CPU:  0.8% usr  1.2% sys  0.0% nic 98.0% idle  0.0% io  0.0% irq  0.0% sirq");
-                        LinuxCliTerminalLines.Add("  PID  USER     PR  NI  VIRT  RES  SHR S  %CPU %MEM    TIME+  COMMAND");
-                        LinuxCliTerminalLines.Add("  512  root     20   0  128M  18M  12M S   1.2  0.5   0:04.12 linknexus_daemon");
-                        break;
-                    case "reboot":
-                        LinuxCliTerminalLines.Add("The system is going down for reboot NOW!");
-                        LinuxCliTerminalLines.Add("Restarting system...");
-                        await Task.Delay(500);
-                        LinuxCliTerminalLines.Add("U-Boot 2026.04 (LinkNexus Embedded Platform)");
-                        LinuxCliTerminalLines.Add("Starting kernel ...");
-                        break;
-                    case "help":
-                        LinuxCliTerminalLines.Add("Available demo commands: uname -a, ifconfig, dmesg, top, reboot, clear");
-                        break;
-                    case "clear":
-                        LinuxCliTerminalLines.Clear();
-                        break;
-                    default:
-                        LinuxCliTerminalLines.Add($"Command '{cmd}' executed successfully (return code 0).");
-                        break;
+                    _serialPort.Write(bytesToSend, 0, bytesToSend.Length);
                 }
-                LinuxCliTerminalLines.Add("root@linknexus-board:~# ");
-                SerialRxBytes += 48;
-                while (LinuxCliTerminalLines.Count > 200) LinuxCliTerminalLines.RemoveAt(0);
-            });
+                catch (Exception ex)
+                {
+                    AddLog($"【串口错误】物理串口写入失败: {ex.Message}", "ERROR");
+                    SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [错误] 写入失败: {ex.Message}");
+                }
+                return;
+            }
+
+            // 仅在虚拟仿真模式且无真实串口时，走虚拟仿真终端回显
+            if (SelectedDevice?.IsVirtual == true)
+            {
+                _dispatcher.InvokeAsync(async () =>
+                {
+                    await Task.Delay(40);
+                    switch (cmd.ToLowerInvariant())
+                    {
+                        case "uname -a":
+                            LinuxCliTerminalLines.Add("Linux linknexus-board 6.1.0-arm64-v8a #1 SMP PREEMPT Sun Sep 27 20:30:00 CST 2026 aarch64 GNU/Linux");
+                            break;
+                        case "ifconfig":
+                        case "ifconfig -a":
+                            LinuxCliTerminalLines.Add("eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500");
+                            LinuxCliTerminalLines.Add("        inet 192.168.1.108  netmask 255.255.255.0  broadcast 192.168.1.255");
+                            LinuxCliTerminalLines.Add("        rx packets 4812 bytes 3918231 (3.7 MiB)  tx packets 2189 bytes 291812");
+                            break;
+                        case "dmesg":
+                        case "dmesg | tail":
+                        case "dmesg | tail -n 20":
+                            LinuxCliTerminalLines.Add("[   1.218912] usb 1-1: new high-speed USB device number 2 using ch338x-ehci");
+                            LinuxCliTerminalLines.Add("[   1.382109] ttyUSB0: CH343P USB UART converter now attached to ttyUSB0");
+                            LinuxCliTerminalLines.Add("[   2.019281] linknexus-power: VBUS Sense 5.03V, load normal.");
+                            break;
+                        case "top":
+                        case "top -b -n 1":
+                            LinuxCliTerminalLines.Add("Mem: 1892184K used, 2198124K free, 1024K shrd, 18920K buff, 521820K cached");
+                            LinuxCliTerminalLines.Add("CPU:  0.8% usr  1.2% sys  0.0% nic 98.0% idle  0.0% io  0.0% irq  0.0% sirq");
+                            LinuxCliTerminalLines.Add("  PID  USER     PR  NI  VIRT  RES  SHR S  %CPU %MEM    TIME+  COMMAND");
+                            LinuxCliTerminalLines.Add("  512  root     20   0  128M  18M  12M S   1.2  0.5   0:04.12 linknexus_daemon");
+                            break;
+                        case "reboot":
+                            LinuxCliTerminalLines.Add("The system is going down for reboot NOW!");
+                            LinuxCliTerminalLines.Add("Restarting system...");
+                            await Task.Delay(500);
+                            LinuxCliTerminalLines.Add("U-Boot 2026.04 (LinkNexus Embedded Platform)");
+                            LinuxCliTerminalLines.Add("Starting kernel ...");
+                            break;
+                        case "help":
+                            LinuxCliTerminalLines.Add("Available demo commands: uname -a, ifconfig, dmesg, top, reboot, clear");
+                            break;
+                        case "clear":
+                            LinuxCliTerminalLines.Clear();
+                            break;
+                        default:
+                            LinuxCliTerminalLines.Add($"Command '{cmd}' executed successfully (return code 0).");
+                            break;
+                    }
+                    LinuxCliTerminalLines.Add("root@linknexus-board:~# ");
+                    SerialRxBytes += 48;
+                    while (LinuxCliTerminalLines.Count > 200) LinuxCliTerminalLines.RemoveAt(0);
+                });
+            }
+            else if (!IsPortOpen)
+            {
+                AddLog("【串口警告】物理串口未打开，无法发送指令！请先点击【打开串口】！", "WARN");
+                SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [警告] 串口未打开，请先点击【打开串口】。");
+            }
         }
 
         private void ProcessSendAtCommand(string cmd)
         {
-            int bytesCount = System.Text.Encoding.UTF8.GetByteCount(cmd) + 2;
+            string fullCmd = cmd + "\r\n";
+            byte[] bytesToSend = System.Text.Encoding.UTF8.GetBytes(fullCmd);
+            int bytesCount = bytesToSend.Length;
             SerialTxBytes += bytesCount;
 
             string prefix = IsTimestampEnabled ? $"[{DateTime.Now:HH:mm:ss.fff}] " : "";
             SerialMonitorLines.Add($"{prefix}[Tx AT] -> {cmd}\\r\\n");
 
-            _dispatcher.InvokeAsync(async () =>
+            // 真实物理串口发送
+            if (_serialPort != null && _serialPort.IsOpen)
             {
-                await Task.Delay(40);
-                string rxPrefix = IsTimestampEnabled ? $"[{DateTime.Now:HH:mm:ss.fff}] " : "";
-                string response = cmd.Trim().ToUpperInvariant() switch
+                try
                 {
-                    "AT" => "OK",
-                    "AT+SYSINFO?" => "+SYSINFO: CH343P-UART-CONTROLLER, BAUD=115200, FLOW=RTS/CTS, DTR=1",
-                    "AT+VERSION?" => $"+VERSION: {VersionString}",
-                    "AT+RST" => "OK\r\n[SYSTEM REBOOTING...]",
-                    _ => "OK"
-                };
-                SerialRxBytes += System.Text.Encoding.UTF8.GetByteCount(response);
-                SerialMonitorLines.Add($"{rxPrefix}[Rx AT] <- {response}");
-                while (SerialMonitorLines.Count > 150) SerialMonitorLines.RemoveAt(0);
-            });
+                    _serialPort.Write(bytesToSend, 0, bytesToSend.Length);
+                }
+                catch (Exception ex)
+                {
+                    AddLog($"【串口错误】物理串口写入失败: {ex.Message}", "ERROR");
+                    SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [错误] 写入失败: {ex.Message}");
+                }
+                return;
+            }
+
+            // 仅在虚拟仿真模式且无真实串口时，走虚拟仿真回执
+            if (SelectedDevice?.IsVirtual == true)
+            {
+                _dispatcher.InvokeAsync(async () =>
+                {
+                    await Task.Delay(40);
+                    string rxPrefix = IsTimestampEnabled ? $"[{DateTime.Now:HH:mm:ss.fff}] " : "";
+                    string response = cmd.Trim().ToUpperInvariant() switch
+                    {
+                        "AT" => "OK",
+                        "AT+SYSINFO?" => "+SYSINFO: UART-CONTROLLER, BAUD=115200, FLOW=RTS/CTS, DTR=1",
+                        "AT+VERSION?" => $"+VERSION: {VersionString}",
+                        "AT+RST" => "OK\r\n[SYSTEM REBOOTING...]",
+                        _ => "OK"
+                    };
+                    SerialRxBytes += System.Text.Encoding.UTF8.GetByteCount(response);
+                    SerialMonitorLines.Add($"{rxPrefix}[Rx AT] <- {response}");
+                    while (SerialMonitorLines.Count > 150) SerialMonitorLines.RemoveAt(0);
+                });
+            }
+            else if (!IsPortOpen)
+            {
+                AddLog("【串口警告】物理串口未打开，无法发送指令！请先点击【打开串口】！", "WARN");
+                SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [警告] 串口未打开，请先点击【打开串口】。");
+            }
         }
 
         private void ProcessSendPlainText(string text)
         {
-            int bytesCount = System.Text.Encoding.UTF8.GetByteCount(text);
+            byte[] bytesToSend = System.Text.Encoding.UTF8.GetBytes(text + "\r\n");
+            int bytesCount = bytesToSend.Length;
             SerialTxBytes += bytesCount;
 
             string prefix = IsTimestampEnabled ? $"[{DateTime.Now:HH:mm:ss.fff}] " : "";
             SerialMonitorLines.Add($"{prefix}[Tx] -> {text}");
 
-            _dispatcher.InvokeAsync(async () =>
+            // 真实物理串口发送
+            if (_serialPort != null && _serialPort.IsOpen)
             {
-                await Task.Delay(50);
-                string rxPrefix = IsTimestampEnabled ? $"[{DateTime.Now:HH:mm:ss.fff}] " : "";
-                string response = text.Trim().ToUpperInvariant() switch
+                try
                 {
-                    "PING" => "+PONG: 1ms ACK",
-                    _ => $"+ECHO: {text}"
-                };
+                    _serialPort.Write(bytesToSend, 0, bytesToSend.Length);
+                }
+                catch (Exception ex)
+                {
+                    AddLog($"【串口错误】物理串口写入失败: {ex.Message}", "ERROR");
+                    SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [错误] 写入失败: {ex.Message}");
+                }
+                // 真实硬件下，由 RX 实际物理电平回环触发，不伪造数据！
+                return;
+            }
 
-                int rxCount = System.Text.Encoding.UTF8.GetByteCount(response);
-                SerialRxBytes += rxCount;
-                SerialMonitorLines.Add($"{rxPrefix}[Rx] <- {response}");
-                while (SerialMonitorLines.Count > 150) SerialMonitorLines.RemoveAt(0);
-            });
+            // 仅在虚拟仿真模式且无真实物理串口时提供模拟响应
+            if (SelectedDevice?.IsVirtual == true)
+            {
+                _dispatcher.InvokeAsync(async () =>
+                {
+                    await Task.Delay(50);
+                    string rxPrefix = IsTimestampEnabled ? $"[{DateTime.Now:HH:mm:ss.fff}] " : "";
+                    string response = text.Trim().ToUpperInvariant() switch
+                    {
+                        "PING" => "+PONG: 1ms ACK",
+                        _ => $"+ECHO: {text}"
+                    };
+
+                    int rxCount = System.Text.Encoding.UTF8.GetByteCount(response);
+                    SerialRxBytes += rxCount;
+                    SerialMonitorLines.Add($"{rxPrefix}[Rx] <- {response}");
+                    while (SerialMonitorLines.Count > 150) SerialMonitorLines.RemoveAt(0);
+                });
+            }
+            else if (!IsPortOpen)
+            {
+                AddLog("【串口警告】物理串口未打开，无法发送数据！请先点击【打开串口】！", "WARN");
+                SerialMonitorLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [警告] 串口未打开，请先点击【打开串口】。");
+            }
+        }
+
+        private void OnClearSerialMonitor()
+        {
+            SerialMonitorLines.Clear();
+            SerialTxBytes = 0;
+            SerialRxBytes = 0;
+            AddLog("【串口监视】已清空数据监视记录及 TX / RX 发送与接收字节计数器。", "INFO");
         }
 
         private void OnSendSerialText()

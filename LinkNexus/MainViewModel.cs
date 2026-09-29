@@ -222,12 +222,63 @@ namespace LinkNexus
                     _isOtherDevicesDrawerOpen = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(OtherDevicesDrawerButtonText));
+                    OnPropertyChanged(nameof(AreCardsExceedingTwoRows));
                 }
             }
         }
 
         public string OtherDevicesDrawerButtonText =>
-            $"📂 系统其他设备 ({OtherDevices.Count}) {(IsOtherDevicesDrawerOpen ? "▴ 收起抽屉" : "▾ 展开抽屉")}";
+            $"系统其他设备 ({OtherDevices.Count}) {(IsOtherDevicesDrawerOpen ? "▴ 收起" : "▾ 展开")}";
+
+        #region 核心设备托盘抽屉收纳体系 (解决卡片超过两行打开工具时占用比例过大问题)
+
+        private bool _isDeviceDrawerCollapsed = false;
+
+        /// <summary>
+        /// 核心设备卡片抽屉是否处于收起/收纳状态 (用于在打开工具时将超过2行的卡片收纳为精简抽屉栏)
+        /// </summary>
+        public bool IsDeviceDrawerCollapsed
+        {
+            get => _isDeviceDrawerCollapsed;
+            set
+            {
+                if (_isDeviceDrawerCollapsed != value)
+                {
+                    _isDeviceDrawerCollapsed = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsDeviceDrawerExpanded));
+                    OnPropertyChanged(nameof(DeviceDrawerCollapseButtonText));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 核心设备卡片抽屉是否展开
+        /// </summary>
+        public bool IsDeviceDrawerExpanded => !IsDeviceDrawerCollapsed;
+
+        /// <summary>
+        /// 是否有活动工作台/工具正在打开 (选定了设备)
+        /// </summary>
+        public bool IsToolWorkspaceActive => SelectedDevice != null;
+
+        /// <summary>
+        /// 判断卡片是否超过两行 (在 100%~150% 缩放下，核心卡片 >= 5 张或展开外设抽屉时即超过两行)
+        /// </summary>
+        public bool AreCardsExceedingTwoRows => ConnectedDevices.Count >= 5 || (ConnectedDevices.Count >= 3 && IsOtherDevicesDrawerOpen);
+
+        /// <summary>
+        /// 抽屉展开时卡片区域的最大高度 (若有工具打开且卡片多，限制在两行高度约 265px，支持暗黑滑条滚动，杜绝挤压工作台)
+        /// </summary>
+        public double CardAreaMaxHeight => IsToolWorkspaceActive ? 265.0 : double.PositiveInfinity;
+
+        public string DeviceDrawerCollapseButtonText =>
+            IsDeviceDrawerCollapsed ? "▾ 展开设备抽屉" : "▴ 收起设备抽屉";
+
+        public ICommand ToggleDeviceDrawerCommand { get; }
+        public ICommand CloseWorkspaceCommand { get; }
+
+        #endregion
 
         /// <summary>
         /// 全局系统 PnP 与诊断事件流
@@ -281,6 +332,16 @@ namespace LinkNexus
                     if (_selectedDevice != null)
                     {
                         _selectedDevice.IsSelected = true;
+                        // 核心需求: 当卡片超过两行再打开工具时，自动将设备卡片收纳入抽屉，释放屏幕空间给下方工作台
+                        if (AreCardsExceedingTwoRows || ConnectedDevices.Count >= 5 || (IsDebugMode && VirtualDevices.Count >= 5))
+                        {
+                            IsDeviceDrawerCollapsed = true;
+                        }
+                    }
+                    else
+                    {
+                        // 关闭工具返回概览时，自动展开设备卡片抽屉
+                        IsDeviceDrawerCollapsed = false;
                     }
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(IsBurnerWorkspaceVisible));
@@ -288,6 +349,8 @@ namespace LinkNexus
                     OnPropertyChanged(nameof(IsEsp32WorkspaceVisible));
                     OnPropertyChanged(nameof(IsGenericWorkspaceVisible));
                     OnPropertyChanged(nameof(IsLogsWorkspaceVisible));
+                    OnPropertyChanged(nameof(IsToolWorkspaceActive));
+                    OnPropertyChanged(nameof(CardAreaMaxHeight));
                 }
             }
         }
@@ -390,12 +453,12 @@ namespace LinkNexus
         }
 
         public string VirtualDevicesButtonText => IsVirtualDevicesEnabled
-            ? "🛑 断开虚拟硬件接入 (收起虚拟设备)"
-            : "🚀 开启虚拟硬件接入 (弹出 4 大核心引擎)";
+            ? "断开虚拟硬件接入 (收起仿真)"
+            : "开启虚拟硬件接入 (仿真核心引擎)";
 
         public string VirtualDevicesStatusText => IsVirtualDevicesEnabled
-            ? "🟢 虚拟硬件已就绪：已接入 FT2232、CH343P、XDS110、DAPLink 仿真设备 (可直接测试全套功能)"
-            : "⚪ 虚拟硬件未接入：点击按钮弹出 4 大核心硬件进行免接线在线功能测试";
+            ? "虚拟硬件已就绪：已接入 FT2232、CH343P、XDS110、DAPLink 仿真设备 (可直接测试全套功能)"
+            : "虚拟硬件未接入：点击按钮开启虚拟仿真核心硬件进行免接线功能测试";
 
         #endregion
 
@@ -570,7 +633,7 @@ namespace LinkNexus
         #region 智能自动识别输入与视窗分流模式
 
         private string _smartInputBuffer = string.Empty;
-        private string _detectedInputType = "🤖 智能识别：请输入 Shell 命令、HEX 数据或字符串...";
+        private string _detectedInputType = "智能识别：请输入 Shell 命令、HEX 数据或字符串...";
         private string _detectedInputBadgeColor = "#71717A";
         private InputRecognizedCategory _detectedCategory = InputRecognizedCategory.PlainText;
         private int _inputModeOverrideIndex = 0; // 0: 智能自适应, 1: 强制 HEX, 2: 强制 Linux CLI, 3: 强制 纯文本
@@ -846,6 +909,12 @@ namespace LinkNexus
             });
             ReloadConfigCommand = new RelayCommand(OnReloadHardwareConfig);
             ToggleOtherDevicesDrawerCommand = new RelayCommand(() => IsOtherDevicesDrawerOpen = !IsOtherDevicesDrawerOpen);
+            ToggleDeviceDrawerCommand = new RelayCommand(() => IsDeviceDrawerCollapsed = !IsDeviceDrawerCollapsed);
+            CloseWorkspaceCommand = new RelayCommand(() =>
+            {
+                SelectedDevice = null;
+                IsDeviceDrawerCollapsed = false;
+            });
             ExitDebugModeCommand = new RelayCommand(() => IsDebugMode = false);
             ToggleVirtualDevicesCommand = new RelayCommand(OnToggleVirtualDevices);
             SelectVirtualDeviceCommand = new RelayCommand(p =>
@@ -1008,6 +1077,7 @@ namespace LinkNexus
             OnPropertyChanged(nameof(HasConnectedDevices));
             OnPropertyChanged(nameof(HasOtherDevices));
             OnPropertyChanged(nameof(OtherDevicesDrawerButtonText));
+            OnPropertyChanged(nameof(AreCardsExceedingTwoRows));
 
             // 保持当前选中的设备或默认选中第一个
             if (SelectedDevice == null || (!ConnectedDevices.Contains(SelectedDevice) && !OtherDevices.Contains(SelectedDevice)))
@@ -1028,7 +1098,7 @@ namespace LinkNexus
                 HardwarePath = dev.HardwarePath,
                 State = dev.HasDriverIssue ? DeviceState.Warning : DeviceState.Ready,
                 StatusMessage = dev.HasDriverIssue
-                    ? $"⚠️ 驱动未就绪 (Code {dev.ConfigManagerErrorCode})"
+                    ? $"驱动未就绪 (Code {dev.ConfigManagerErrorCode})"
                     : "正常就绪 (驱动正常加载)"
             };
 
@@ -1668,7 +1738,7 @@ namespace LinkNexus
         {
             if (string.IsNullOrWhiteSpace(_smartInputBuffer))
             {
-                DetectedInputType = "🤖 智能识别：请输入 Shell 命令、HEX 数据或字符串...";
+                DetectedInputType = "智能识别：请输入 Shell 命令、HEX 数据或字符串...";
                 DetectedInputBadgeColor = "#71717A";
                 _detectedCategory = InputRecognizedCategory.PlainText;
                 return;
@@ -1678,21 +1748,21 @@ namespace LinkNexus
 
             if (_inputModeOverrideIndex == 1)
             {
-                DetectedInputType = "🔢 强制模式：十六进制数据帧 (HEX Mode)";
+                DetectedInputType = "强制模式：十六进制数据帧 (HEX Mode)";
                 DetectedInputBadgeColor = "#F59E0B";
                 _detectedCategory = InputRecognizedCategory.Hex;
                 return;
             }
             if (_inputModeOverrideIndex == 2)
             {
-                DetectedInputType = "🐧 强制模式：Linux 卡片机 CLI 指令 (Shell Mode)";
+                DetectedInputType = "强制模式：Linux 卡片机 CLI 指令 (Shell Mode)";
                 DetectedInputBadgeColor = "#38BDF8";
                 _detectedCategory = InputRecognizedCategory.LinuxCli;
                 return;
             }
             if (_inputModeOverrideIndex == 3)
             {
-                DetectedInputType = "📝 强制模式：标准 ASCII 文本 (Raw Text Mode)";
+                DetectedInputType = "强制模式：标准 ASCII 文本 (Raw Text Mode)";
                 DetectedInputBadgeColor = "#A1A1AA";
                 _detectedCategory = InputRecognizedCategory.PlainText;
                 return;
@@ -1701,25 +1771,25 @@ namespace LinkNexus
             // 智能自动识别
             if (text.StartsWith("HEX:", StringComparison.OrdinalIgnoreCase) || IsHexString(text))
             {
-                DetectedInputType = "🔢 自动识别：十六进制数据帧 (HEX Frame) ➜ 将按原始二进制字节流发送";
+                DetectedInputType = "自动识别：十六进制数据帧 (HEX Frame) -> 将按原始二进制字节流发送";
                 DetectedInputBadgeColor = "#F59E0B";
                 _detectedCategory = InputRecognizedCategory.Hex;
             }
             else if (text.StartsWith("AT", StringComparison.OrdinalIgnoreCase))
             {
-                DetectedInputType = "📡 自动识别：AT 调制解调指令 (Modem Command) ➜ 自动追加 \\r\\n 握手";
+                DetectedInputType = "自动识别：AT 调制解调指令 (Modem Command) -> 自动追加 \\r\\n 握手";
                 DetectedInputBadgeColor = "#10B981";
                 _detectedCategory = InputRecognizedCategory.AtCommand;
             }
             else if (IsLinuxCommand(text))
             {
-                DetectedInputType = "🐧 自动识别：Linux 卡片机 CLI 指令 ➜ 将执行 Shell 终端交互与回显";
+                DetectedInputType = "自动识别：Linux 卡片机 CLI 指令 -> 将执行 Shell 终端交互与回显";
                 DetectedInputBadgeColor = "#38BDF8";
                 _detectedCategory = InputRecognizedCategory.LinuxCli;
             }
             else
             {
-                DetectedInputType = "📝 自动识别：标准 ASCII 串口字符串 ➜ 普通串口双向透传";
+                DetectedInputType = "自动识别：标准 ASCII 串口字符串 -> 普通串口双向透传";
                 DetectedInputBadgeColor = "#A1A1AA";
                 _detectedCategory = InputRecognizedCategory.PlainText;
             }

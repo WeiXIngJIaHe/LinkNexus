@@ -282,6 +282,44 @@
 
         <Style TargetType="ComboBox" BasedOn="{StaticResource IndustrialComboBoxStyle}" />
 
+        <!-- 抽屉收纳模式下的迷你设备切换药丸按钮样式 -->
+        <Style x:Key="MiniPillBtnStyle" TargetType="Button">
+            <Setter Property="Background" Value="#18181B" />
+            <Setter Property="Foreground" Value="#D4D4D8" />
+            <Setter Property="BorderBrush" Value="#27272A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bdr" Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bdr" Property="Background" Value="#27272A" />
+                                <Setter TargetName="bdr" Property="BorderBrush" Value="#38BDF8" />
+                                <Setter Property="Foreground" Value="#38BDF8" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter Property="Background" Value="#0F2847" />
+                    <Setter Property="BorderBrush" Value="#38BDF8" />
+                    <Setter Property="Foreground" Value="#38BDF8" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- 设备卡片模板定义 -->
         <DataTemplate x:Key="DeviceCardTemplate">
             <Border Margin="0,0,10,8" Width="310" MinHeight="115" Cursor="Hand" SnapsToDevicePixels="True"
@@ -435,7 +473,7 @@
                             Visibility="{Binding DebugModeTagVisibility}">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse Width="6" Height="6" Fill="#F59E0B" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="🛠️ 开发者维护模式 (已解锁 ESP32 主控救砖、通道 MOS 供电控制与拓扑热重载)" FontSize="10" FontWeight="SemiBold" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                            <TextBlock Text="开发者维护模式 (已解锁 ESP32 主控救砖、通道 MOS 供电控制与拓扑热重载)" FontSize="10" FontWeight="SemiBold" Foreground="#F59E0B" VerticalAlignment="Center"/>
                             <Button Style="{StaticResource IndustrialBtnStyle}" Content="重载配置" Height="20" Padding="6,0" FontSize="9" Margin="8,0,0,0" 
                                     Command="{Binding ReloadConfigCommand}"/>
                         </StackPanel>
@@ -505,51 +543,187 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 核心 CH338X 下行卡片流 + 抽屉切换按钮栏 -->
-                <WrapPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- CH338X 下行设备卡片 (FT2232, CH343P, XDS110, DAP，以及 Debug 模式的 ESP32) -->
-                    <ItemsControl ItemsSource="{Binding ConnectedDevices}" ItemTemplate="{StaticResource DeviceCardTemplate}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
+                <!-- 核心 CH338X 下行卡片流与双态抽屉收纳体系 (核心需求: 卡片超过两行再打开工具做抽屉收纳) -->
+                <Grid Grid.Row="0" Visibility="{Binding HasConnectedDevices, Converter={StaticResource BoolToVisConverter}}">
+                    <Grid.RowDefinitions>
+                        <!-- 行 0: 设备抽屉 (展开全景状态 vs 精简收纳栏状态) -->
+                        <RowDefinition Height="Auto" />
+                        <!-- 行 1: 外部 USB 外设抽屉面板 (可随时在下方展开) -->
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                    <!-- 当 ESP32 识别成功，其他 USB 设备隐藏为抽屉按钮 (核心要求 1) -->
-                    <Border Visibility="{Binding HasOtherDevices, Converter={StaticResource BoolToVisConverter}}" 
-                            Margin="0,0,10,8" VerticalAlignment="Top">
-                        <Button Style="{StaticResource IndustrialBtnStyle}" Content="{Binding OtherDevicesDrawerButtonText}" 
-                                Command="{Binding ToggleOtherDevicesDrawerCommand}" Height="30" Padding="12,0" FontSize="11"
-                                ToolTip="点击展开/收起操作系统枚举到的其他通用 USB 外设"/>
-                    </Border>
-                </WrapPanel>
-
-                <!-- 外部 USB 外设抽屉面板 (Drawer Panel - 核心要求 1) -->
-                <Border Grid.Row="1" Background="#0C0C0E" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" 
-                        Padding="12,10" Margin="0,4,0,8"
-                        Visibility="{Binding IsOtherDevicesDrawerOpen, Converter={StaticResource BoolToVisConverter}}">
-                    <Grid>
+                    <!-- 状态 A: 设备抽屉展开状态 (Full Cards View) -->
+                    <Grid Grid.Row="0" Visibility="{Binding IsDeviceDrawerExpanded, Converter={StaticResource BoolToVisConverter}}">
                         <Grid.RowDefinitions>
+                            <!-- 抽屉顶部控制条 -->
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
+                            <!-- 卡片流容器 (受 CardAreaMaxHeight 保护) -->
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <Grid Grid.Row="0" Margin="0,0,0,8">
-                            <TextBlock Text="📂 操作系统识别的其他 USB 外设抽屉 (点击卡片可查看其底层硬件属性)" FontSize="11" FontWeight="Bold" Foreground="#A1A1AA" VerticalAlignment="Center"/>
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="✕ 收起抽屉" Height="22" Padding="8,0" FontSize="10" 
-                                    HorizontalAlignment="Right" Command="{Binding ToggleOtherDevicesDrawerCommand}"/>
-                        </Grid>
+                        <!-- 抽屉顶部控制条 -->
+                        <Border Grid.Row="0" Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,0,8">
+                            <Grid>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="核心接入设备总线托盘" FontSize="11" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
+                                    <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding ConnectedDevices.Count, StringFormat=共 {0} 台设备}" FontSize="10" Foreground="#38BDF8"/>
+                                    </Border>
+                                    <!-- 当打开工具时，显示当前激活设备标签 -->
+                                    <Border Visibility="{Binding IsToolWorkspaceActive, Converter={StaticResource BoolToVisConverter}}"
+                                            Background="#0F172A" BorderBrush="#38BDF8" BorderThickness="1" CornerRadius="4" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="5" Height="5" Fill="#10B981" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="当前激活: " FontSize="10" Foreground="#71717A"/>
+                                            <TextBlock Text="{Binding SelectedDevice.DeviceName}" FontSize="10" FontWeight="Bold" Foreground="#38BDF8"/>
+                                            <TextBlock Text="{Binding SelectedDevice.ComPort, StringFormat= [{0}]}" FontSize="10" FontFamily="Consolas" Foreground="#38BDF8"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
 
-                        <ItemsControl Grid.Row="1" ItemsSource="{Binding OtherDevices}" ItemTemplate="{StaticResource DeviceCardTemplate}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <!-- 外部 USB 设备抽屉按钮 -->
+                                    <Button Visibility="{Binding HasOtherDevices, Converter={StaticResource BoolToVisConverter}}" 
+                                            Style="{StaticResource IndustrialBtnStyle}" Content="{Binding OtherDevicesDrawerButtonText}" 
+                                            Command="{Binding ToggleOtherDevicesDrawerCommand}" Height="24" Padding="10,0" FontSize="10" Margin="0,0,8,0"
+                                            ToolTip="点击展开/收起操作系统枚举到的其他通用 USB 外设"/>
+
+                                    <!-- 抽屉收纳按钮 (支持随时收起卡片) -->
+                                    <Button Style="{StaticResource AccentActionBtnStyle}" 
+                                            Command="{Binding ToggleDeviceDrawerCommand}" Height="24" Padding="10,0" FontSize="10"
+                                            ToolTip="点击将上方设备卡片收纳入抽屉，释放更多工作空间给下方工作台">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="▲ 收起设备抽屉" FontSize="10" FontWeight="SemiBold"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- 核心设备卡片容器 (当工具激活且超过2行时，限定最大高度并启用滚动条，绝不挤压工作台) -->
+                        <ScrollViewer Grid.Row="1" MaxHeight="{Binding CardAreaMaxHeight}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                            <ItemsControl ItemsSource="{Binding ConnectedDevices}" ItemTemplate="{StaticResource DeviceCardTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </ScrollViewer>
                     </Grid>
-                </Border>
+
+                    <!-- 状态 B: 设备抽屉收纳状态 (Collapsed Compact Drawer Bar - 彻底解决超过两行占位过大问题) -->
+                    <Border Grid.Row="0" Visibility="{Binding IsDeviceDrawerCollapsed, Converter={StaticResource BoolToVisConverter}}"
+                            Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="10,5">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <!-- 左侧: 抽屉徽标与当前激活工作台标签 -->
+                                <ColumnDefinition Width="Auto" />
+                                <!-- 中部: 设备快速切换药丸栏 -->
+                                <ColumnDefinition Width="*" />
+                                <!-- 右侧: 操作按钮组 -->
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 左侧: 抽屉收纳指示 + 当前激活设备 -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,10,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="设备托盘抽屉 (已收纳)" FontSize="11" FontWeight="Bold" Foreground="#A1A1AA" VerticalAlignment="Center"/>
+                                        <Border Background="#27272A" CornerRadius="3" Padding="4,0" Margin="6,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding ConnectedDevices.Count, StringFormat='{}{0} 台'}" FontSize="9" Foreground="#38BDF8"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- 当前工作台设备标签 -->
+                                <Border Background="#0F172A" BorderBrush="#38BDF8" BorderThickness="1" CornerRadius="4" Padding="8,2" Margin="0,0,10,0"
+                                        Visibility="{Binding IsToolWorkspaceActive, Converter={StaticResource BoolToVisConverter}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="6" Height="6" Fill="#10B981" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="工作台: " FontSize="10" Foreground="#71717A"/>
+                                        <TextBlock Text="{Binding SelectedDevice.DeviceName}" FontSize="10" FontWeight="Bold" Foreground="#38BDF8"/>
+                                        <TextBlock Text="{Binding SelectedDevice.ComPort, StringFormat= [{0}]}" FontSize="10" FontFamily="Consolas" Foreground="#38BDF8" Margin="4,0,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- 中部: 设备快速切换药丸栏 (免展开抽屉，一键切换) -->
+                            <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False" Margin="6,0">
+                                <ItemsControl ItemsSource="{Binding ConnectedDevices}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource MiniPillBtnStyle}" Margin="0,0,6,0"
+                                                    Command="{Binding SelectCommand}"
+                                                    ToolTip="{Binding DeviceName, StringFormat=切换至 {0}}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding FunctionBadgeText}" FontSize="9" Margin="0,0,4,0"/>
+                                                    <TextBlock Text="{Binding ComPort}" FontSize="9" FontFamily="Consolas" FontWeight="Bold"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <!-- 右侧: 展开抽屉与工作台操作按钮 -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- 外部 USB 设备抽屉按钮 -->
+                                <Button Visibility="{Binding HasOtherDevices, Converter={StaticResource BoolToVisConverter}}" 
+                                        Style="{StaticResource IndustrialBtnStyle}" Content="{Binding OtherDevicesDrawerButtonText}" 
+                                        Command="{Binding ToggleOtherDevicesDrawerCommand}" Height="24" Padding="8,0" FontSize="10" Margin="0,0,6,0"
+                                        ToolTip="点击展开/收起操作系统枚举到的其他通用 USB 外设"/>
+
+                                <!-- 展开设备抽屉按钮 -->
+                                <Button Style="{StaticResource AccentActionBtnStyle}" Command="{Binding ToggleDeviceDrawerCommand}" 
+                                        Height="24" Padding="10,0" FontSize="10" Margin="0,0,6,0"
+                                        ToolTip="展开核心设备卡片全景抽屉">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="▼" FontSize="10" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- 关闭当前工作台返回概览 -->
+                                <Button Visibility="{Binding IsToolWorkspaceActive, Converter={StaticResource BoolToVisConverter}}"
+                                        Style="{StaticResource IndustrialBtnStyle}" Command="{Binding CloseWorkspaceCommand}" 
+                                        Height="24" Padding="8,0" FontSize="10" ToolTip="关闭当前工作台，返回设备总览与系统日志">
+                                    <TextBlock Text="✕ 关闭" FontSize="10"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 外部 USB 外设抽屉面板 (无论是 State A 还是 State B，均可在下方展开展示) -->
+                    <Border Grid.Row="1" Background="#0C0C0E" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" 
+                            Padding="12,10" Margin="0,8,0,0"
+                            Visibility="{Binding IsOtherDevicesDrawerOpen, Converter={StaticResource BoolToVisConverter}}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,8">
+                                <TextBlock Text="操作系统识别的其他 USB 外设抽屉 (点击卡片可查看其底层硬件属性)" FontSize="11" FontWeight="Bold" Foreground="#A1A1AA" VerticalAlignment="Center"/>
+                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="✕ 收起外设抽屉" Height="22" Padding="8,0" FontSize="10" 
+                                        HorizontalAlignment="Right" Command="{Binding ToggleOtherDevicesDrawerCommand}"/>
+                            </Grid>
+
+                            <ItemsControl Grid.Row="1" ItemsSource="{Binding OtherDevices}" ItemTemplate="{StaticResource DeviceCardTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </Grid>
+                    </Border>
+                </Grid>
             </Grid>
 
             <!-- 2.2 下部: 选定设备独立工作页面 -->
@@ -598,7 +772,7 @@
 
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="📂 固件镜像:" FontSize="10" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,6,0"/>
+                                        <TextBlock Text="固件镜像:" FontSize="10" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,6,0"/>
                                         <TextBlock Text="{Binding CurrentLoadedFile.FileName}" FontSize="11" FontWeight="Bold" Foreground="#FAFAFA" TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
@@ -625,15 +799,15 @@
                         <!-- 行 2: 内核操作组件工具栏 -->
                         <Border Grid.Row="2" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="8,6" Margin="0,0,0,10">
                             <WrapPanel VerticalAlignment="Center">
-                                <Button Style="{StaticResource AccentActionBtnStyle}" Content="▶ 开始执行固件烧录" Height="28" Padding="12,0" Margin="0,0,8,0"
+                                <Button Style="{StaticResource AccentActionBtnStyle}" Content="开始执行固件烧录" Height="28" Padding="12,0" Margin="0,0,8,0"
                                         Command="{Binding StartPreviewFlashCommand}" ToolTip="执行流式写入、扇区擦除与片上 CRC32 严格校验"/>
-                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="📖 读取扇区数据 (Read Sector)" Height="28" Margin="0,0,8,0"
+                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="读取扇区数据 (Read Sector)" Height="28" Margin="0,0,8,0"
                                         Command="{Binding ReadSectorCommand}" ToolTip="从目标 MCU 基地址读取 256 字节并在下方 Hex 转储视窗呈现"/>
-                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="🧹 整片快速擦除 (Chip Erase)" Height="28" Margin="0,0,8,0"
+                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="整片快速擦除 (Chip Erase)" Height="28" Margin="0,0,8,0"
                                         Command="{Binding ChipEraseCommand}" ToolTip="执行全片扇区擦除并校验空片"/>
-                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="⚡ 读取芯片 CoreID" Height="28" Margin="0,0,8,0"
+                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="读取芯片 CoreID" Height="28" Margin="0,0,8,0"
                                         Command="{Binding ReadCoreIdCommand}" ToolTip="在线查询目标 MCU 内核 CoreID 寄存器"/>
-                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="🔄 硬件/系统复位 (SYSRESET)" Height="28"
+                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="硬件/系统复位 (SYSRESET)" Height="28"
                                         Command="{Binding ResetTargetCommand}" ToolTip="拉低复位引脚或触发内核 SYSRESETREQ"/>
                             </WrapPanel>
                         </Border>
@@ -808,17 +982,17 @@
                                     </Border>
 
                                     <!-- 硬件复位脉冲 -->
-                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="⚡ DTR/RTS 脉冲复位" Height="24" Padding="8,0" FontSize="10"
+                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="DTR/RTS 脉冲复位" Height="24" Padding="8,0" FontSize="10"
                                             Command="{Binding TriggerMcuResetCommand}" ToolTip="执行 DTR/RTS 硬件时序脉冲复位下位机/开发板 (ESP32/STM32)"/>
                                 </WrapPanel>
 
                                 <!-- 右侧: 视窗布局切换 (智能双视窗 / 纯 CLI / 纯串口监视) -->
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="🤖 智能双视窗" Height="22" Padding="7,0" FontSize="9" Margin="0,0,4,0"
+                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="智能双视窗" Height="22" Padding="7,0" FontSize="9" Margin="0,0,4,0"
                                             Command="{Binding SetSerialViewModeCommand}" CommandParameter="0"/>
-                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="🐧 纯 CLI" Height="22" Padding="7,0" FontSize="9" Margin="0,0,4,0"
+                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="纯 CLI" Height="22" Padding="7,0" FontSize="9" Margin="0,0,4,0"
                                             Command="{Binding SetSerialViewModeCommand}" CommandParameter="1"/>
-                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="📡 纯串口监视" Height="22" Padding="7,0" FontSize="9"
+                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="纯串口监视" Height="22" Padding="7,0" FontSize="9"
                                             Command="{Binding SetSerialViewModeCommand}" CommandParameter="2"/>
                                 </StackPanel>
                             </Grid>
@@ -926,7 +1100,7 @@
 
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <TextBlock Text="模式锁定:" FontSize="9" Foreground="#71717A" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <RadioButton Content="🤖 智能自适应" IsChecked="True" Foreground="#FAFAFA" FontSize="9" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <RadioButton Content="智能自适应" IsChecked="True" Foreground="#FAFAFA" FontSize="9" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                         <CheckBox Content="追加 \r\n" IsChecked="{Binding IsAppendNewLine}" Foreground="#71717A" FontSize="9" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Grid>
@@ -944,7 +1118,7 @@
                                              KeyDown="SmartInputTextBox_KeyDown"
                                              Height="26" Background="#18181B" Foreground="#FAFAFA" BorderBrush="#27272A" BorderThickness="1" 
                                              FontFamily="Consolas" FontSize="11" Padding="6,3" VerticalAlignment="Center"/>
-                                    <Button Grid.Column="2" Style="{StaticResource AccentActionBtnStyle}" Content="▶ 执行 / 发送 (Enter)" Height="26" Padding="14,0" FontSize="10" Margin="6,0,0,0"
+                                    <Button Grid.Column="2" Style="{StaticResource AccentActionBtnStyle}" Content="执行 / 发送 (Enter)" Height="26" Padding="14,0" FontSize="10" Margin="6,0,0,0"
                                             Command="{Binding SendSmartInputCommand}" ToolTip="自动按识别到的类型发送 (支持直接按回车键)"/>
                                 </Grid>
                             </Grid>
@@ -1074,7 +1248,7 @@
                 <Grid>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Ellipse Width="8" Height="8" Fill="#F59E0B" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="🛠️ LinkNexus 开发者工程维护总控中心 (DEBUG 专属总台)" FontSize="12" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
+                        <TextBlock Text="LinkNexus 开发者工程维护总控中心 (DEBUG 专属总台)" FontSize="12" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
                         <Border Background="#1C180B" BorderBrush="#78350F" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center">
                             <TextBlock Text="ROM Bootloader &amp; Virtual Simulation Active" FontSize="9" FontFamily="Consolas" Foreground="#F59E0B"/>
                         </Border>
@@ -1084,7 +1258,7 @@
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <Button Style="{StaticResource IndustrialBtnStyle}" Content="⚙️ 重载硬件配置" Height="24" Padding="10,0" FontSize="10" Margin="0,0,8,0"
+                        <Button Style="{StaticResource IndustrialBtnStyle}" Content="重载硬件配置" Height="24" Padding="10,0" FontSize="10" Margin="0,0,8,0"
                                 Command="{Binding ReloadConfigCommand}" ToolTip="热重载 HardwareConfig.json 配置文件"/>
                         <Button Style="{StaticResource AccentActionBtnStyle}" Content="✕ 退出 Debug 模式" Height="24" Padding="10,0" FontSize="10"
                                 Command="{Binding ExitDebugModeCommand}" ToolTip="返回正常物理设备极简监控模式"/>
@@ -1111,16 +1285,16 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Text="⚡ 板载各引擎固件一键救砖覆盖 (Embedded Resource Flash)" FontSize="11" FontWeight="Bold" Foreground="#FAFAFA" Margin="0,0,0,8"/>
+                        <TextBlock Grid.Row="0" Text="板载各引擎固件一键救砖覆盖 (Embedded Resource Flash)" FontSize="11" FontWeight="Bold" Foreground="#FAFAFA" Margin="0,0,0,8"/>
 
                         <WrapPanel Grid.Row="1" Margin="0,0,0,6">
-                            <Button Style="{StaticResource AccentActionBtnStyle}" Content="🛠️ 刷入主控固件 (ESP32-S3)" Height="25" Padding="8,0" Margin="0,0,6,4"
+                            <Button Style="{StaticResource AccentActionBtnStyle}" Content="刷入主控固件 (ESP32-S3)" Height="25" Padding="8,0" Margin="0,0,6,4"
                                     Command="{Binding FlashEsp32MasterFirmwareCommand}"/>
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="⚡ 覆盖 TM4C DFU 镜像" Height="25" Padding="8,0" Margin="0,0,6,4"
+                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="覆盖 TM4C DFU 镜像" Height="25" Padding="8,0" Margin="0,0,6,4"
                                     Command="{Binding FlashTm4cDfuMirrorCommand}"/>
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="🔄 覆盖 DAPLink 固件" Height="25" Padding="8,0" Margin="0,0,6,4"
+                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="覆盖 DAPLink 固件" Height="25" Padding="8,0" Margin="0,0,6,4"
                                     Command="{Binding FlashDapLinkFirmwareCommand}"/>
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="⚙️ 恢复出厂拓扑" Height="25" Padding="8,0" Margin="0,0,0,4"
+                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="恢复出厂拓扑" Height="25" Padding="8,0" Margin="0,0,0,4"
                                     Command="{Binding FactoryResetCommand}"/>
                         </WrapPanel>
 
@@ -1147,7 +1321,7 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Text="🔌 CH338X 物理下行通道 MOS 供电开通/隔离控制矩阵 (硬件保护)" FontSize="11" FontWeight="Bold" Foreground="#FAFAFA" Margin="0,0,0,8"/>
+                        <TextBlock Grid.Row="0" Text="CH338X 物理下行通道 MOS 供电开通/隔离控制矩阵 (硬件保护)" FontSize="11" FontWeight="Bold" Foreground="#FAFAFA" Margin="0,0,0,8"/>
 
                         <UniformGrid Grid.Row="1" Columns="4" Rows="1">
                             <!-- 通道 1: FT2232 -->
@@ -1217,9 +1391,7 @@
                     <!-- 虚拟接入总控栏 -->
                     <Grid Grid.Row="0" Margin="0,0,0,8">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Path Data="M 12 2 L 2 7 L 12 12 L 22 7 Z M 2 17 L 12 22 L 22 17 M 2 12 L 12 17 L 22 12" 
-                                  Stroke="{StaticResource AccentCyanBrush}" StrokeThickness="1.8" Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="🧪 虚拟接入功能 (Virtual Simulation Hub)" FontSize="12" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
+                            <TextBlock Text="虚拟接入功能 (Virtual Simulation Hub)" FontSize="12" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
                             <Border Background="#1C180B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding VirtualDevicesStatusText}" FontSize="9" Foreground="#A1A1AA" VerticalAlignment="Center"/>
                             </Border>
@@ -1229,16 +1401,93 @@
                                 Command="{Binding ToggleVirtualDevicesCommand}" Content="{Binding VirtualDevicesButtonText}"/>
                     </Grid>
 
-                    <!-- 开启后弹出的虚拟设备卡片 (FT2232, CH343P, XDS110, DAP) -->
-                    <Border Grid.Row="1" Visibility="{Binding IsVirtualDevicesEnabled, Converter={StaticResource BoolToVisConverter}}" Margin="0,0,0,8">
-                        <ItemsControl ItemsSource="{Binding VirtualDevices}" ItemTemplate="{StaticResource DeviceCardTemplate}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </Border>
+                    <!-- 开启后弹出的虚拟设备抽屉体系 (包含展开全景与精简收纳两态) -->
+                    <Grid Grid.Row="1" Visibility="{Binding IsVirtualDevicesEnabled, Converter={StaticResource BoolToVisConverter}}" Margin="0,0,0,8">
+                        <!-- 状态 A: 展开全景 -->
+                        <Grid Visibility="{Binding IsDeviceDrawerExpanded, Converter={StaticResource BoolToVisConverter}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="8,4" Margin="0,0,0,6">
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="虚拟仿真核心设备总线" FontSize="10" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
+                                        <Border Background="#27272A" CornerRadius="3" Padding="4,0" Margin="6,0,0,0">
+                                            <TextBlock Text="{Binding VirtualDevices.Count, StringFormat=共 {0} 台}" FontSize="9" Foreground="#38BDF8"/>
+                                        </Border>
+                                    </StackPanel>
+                                    <Button Style="{StaticResource AccentActionBtnStyle}" Command="{Binding ToggleDeviceDrawerCommand}" 
+                                            Height="20" Padding="8,0" FontSize="9" HorizontalAlignment="Right"
+                                            ToolTip="收起虚拟设备卡片，将完整屏幕空间留给下方测试工作台">
+                                        <TextBlock Text="▲ 收起虚拟卡片抽屉" FontSize="9" FontWeight="SemiBold"/>
+                                    </Button>
+                                </Grid>
+                            </Border>
+
+                            <ScrollViewer Grid.Row="1" MaxHeight="{Binding CardAreaMaxHeight}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                <ItemsControl ItemsSource="{Binding VirtualDevices}" ItemTemplate="{StaticResource DeviceCardTemplate}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+
+                        <!-- 状态 B: 虚拟抽屉收纳状态 (精简收纳栏) -->
+                        <Border Visibility="{Binding IsDeviceDrawerCollapsed, Converter={StaticResource BoolToVisConverter}}"
+                                Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="8,4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text=" 虚拟设备抽屉 (已收纳)" FontSize="10" FontWeight="Bold" Foreground="#A1A1AA" VerticalAlignment="Center"/>
+                                    <Border Background="#0F172A" BorderBrush="#38BDF8" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="5" Height="5" Fill="#10B981" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="测试工作台: " FontSize="9" Foreground="#71717A"/>
+                                            <TextBlock Text="{Binding SelectedDevice.DeviceName}" FontSize="9" FontWeight="Bold" Foreground="#38BDF8"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+
+                                <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False" Margin="6,0">
+                                    <ItemsControl ItemsSource="{Binding VirtualDevices}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource MiniPillBtnStyle}" Margin="0,0,6,0"
+                                                        Command="{Binding SelectCommand}"
+                                                        ToolTip="{Binding DeviceName, StringFormat=测试 {0}}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding FunctionBadgeText}" FontSize="9" Margin="0,0,4,0"/>
+                                                        <TextBlock Text="{Binding ComPort}" FontSize="9" FontFamily="Consolas" FontWeight="Bold"/>
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <Button Grid.Column="2" Style="{StaticResource AccentActionBtnStyle}" Command="{Binding ToggleDeviceDrawerCommand}" 
+                                        Height="22" Padding="8,0" FontSize="9"
+                                        ToolTip="展开虚拟设备卡片全景抽屉">
+                                    <TextBlock Text="▼ 展开虚拟卡片抽屉" FontSize="9" FontWeight="SemiBold"/>
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </Grid>
 
                     <!-- 当虚拟接入关闭时的占位引导提示 -->
                     <Border Grid.Row="2" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="20"
@@ -1247,7 +1496,7 @@
                             <Path Data="M 12 2 C 6.48 2 2 6.48 2 12 C 2 17.52 6.48 22 12 22 C 17.52 22 22 17.52 22 12 C 22 6.48 17.52 2 12 2 Z M 13 17 H 11 V 15 H 13 V 17 Z M 13 13 H 11 V 7 H 13 V 13 Z"
                                   Fill="#71717A" Width="36" Height="36" Stretch="Uniform" Margin="0,0,0,14" HorizontalAlignment="Center"/>
                             <TextBlock Text="虚拟硬件链路未开启" FontSize="14" FontWeight="Bold" Foreground="#FAFAFA" HorizontalAlignment="Center"/>
-                            <TextBlock Text="点击右上角【🚀 开启虚拟硬件接入】按钮，系统将立即弹出虚拟的 FT2232、CH343P、XDS110、DAP 仿真设备，" FontSize="11" Foreground="#A1A1AA" HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                            <TextBlock Text="点击右上角【开启虚拟硬件接入】按钮，系统将立即弹出虚拟的 FT2232、CH343P、XDS110、DAP 仿真设备，" FontSize="11" Foreground="#A1A1AA" HorizontalAlignment="Center" Margin="0,6,0,0"/>
                             <TextBlock Text="您可免接物理硬件，直接在此测试固件拖拽烧录、Flash 扇区 Hex 转储、整片擦除、CoreID 抓取、串口通信与 Linux CLI 控制台交互等全部核心功能。" FontSize="11" Foreground="#71717A" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                         </StackPanel>
                     </Border>
@@ -1293,7 +1542,7 @@
 
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="📂 固件镜像:" FontSize="9" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,6,0"/>
+                                                <TextBlock Text="固件镜像:" FontSize="9" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,6,0"/>
                                                 <TextBlock Text="{Binding CurrentLoadedFile.FileName}" FontSize="10" FontWeight="Bold" Foreground="#FAFAFA" TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
@@ -1320,15 +1569,15 @@
                                 <!-- 行 2: 内核操作组件工具栏 -->
                                 <Border Grid.Row="2" Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="6,4" Margin="0,0,0,8">
                                     <WrapPanel VerticalAlignment="Center">
-                                        <Button Style="{StaticResource AccentActionBtnStyle}" Content="▶ 开始执行固件烧录" Height="24" Padding="10,0" FontSize="10" Margin="0,0,6,0"
+                                        <Button Style="{StaticResource AccentActionBtnStyle}" Content="开始执行固件烧录" Height="24" Padding="10,0" FontSize="10" Margin="0,0,6,0"
                                                 Command="{Binding StartPreviewFlashCommand}" ToolTip="执行流式写入、扇区擦除与片上 CRC32 严格校验"/>
-                                        <Button Style="{StaticResource IndustrialBtnStyle}" Content="📖 读取扇区数据 (Read Sector)" Height="24" Padding="8,0" FontSize="10" Margin="0,0,6,0"
+                                        <Button Style="{StaticResource IndustrialBtnStyle}" Content="读取扇区数据 (Read Sector)" Height="24" Padding="8,0" FontSize="10" Margin="0,0,6,0"
                                                 Command="{Binding ReadSectorCommand}" ToolTip="从目标 MCU 基地址读取 256 字节并在下方 Hex 转储视窗呈现"/>
-                                        <Button Style="{StaticResource IndustrialBtnStyle}" Content="🧹 整片快速擦除 (Chip Erase)" Height="24" Padding="8,0" FontSize="10" Margin="0,0,6,0"
+                                        <Button Style="{StaticResource IndustrialBtnStyle}" Content="整片快速擦除 (Chip Erase)" Height="24" Padding="8,0" FontSize="10" Margin="0,0,6,0"
                                                 Command="{Binding ChipEraseCommand}" ToolTip="执行全片扇区擦除并校验空片"/>
-                                        <Button Style="{StaticResource IndustrialBtnStyle}" Content="⚡ 读取芯片 CoreID" Height="24" Padding="8,0" FontSize="10" Margin="0,0,6,0"
+                                        <Button Style="{StaticResource IndustrialBtnStyle}" Content="读取芯片 CoreID" Height="24" Padding="8,0" FontSize="10" Margin="0,0,6,0"
                                                 Command="{Binding ReadCoreIdCommand}" ToolTip="在线查询目标 MCU 内核 CoreID 寄存器"/>
-                                        <Button Style="{StaticResource IndustrialBtnStyle}" Content="🔄 硬件/系统复位 (SYSRESET)" Height="24" Padding="8,0" FontSize="10"
+                                        <Button Style="{StaticResource IndustrialBtnStyle}" Content="硬件/系统复位 (SYSRESET)" Height="24" Padding="8,0" FontSize="10"
                                                 Command="{Binding ResetTargetCommand}" ToolTip="拉低复位引脚或触发内核 SYSRESETREQ"/>
                                     </WrapPanel>
                                 </Border>

@@ -126,7 +126,7 @@ namespace LinkNexus
         public string StatusBadgeText => State switch
         {
             DeviceState.Ready => "正常就绪",
-            DeviceState.Warning => "⚠️ 驱动未就绪",
+            DeviceState.Warning => "驱动未就绪",
             _ => "离线未连接"
         };
 
@@ -168,13 +168,13 @@ namespace LinkNexus
 
         public string FunctionBadgeText => FunctionType switch
         {
-            DeviceFunctionType.Burner_FT2232 => IsVirtual ? "⚡ FT2232 烧录 (虚拟仿真)" : "⚡ FT2232 烧录调试器",
-            DeviceFunctionType.Burner_DAPLink => IsVirtual ? "🚀 CMSIS-DAP (虚拟仿真)" : "🚀 CMSIS-DAP 仿真器",
-            DeviceFunctionType.Burner_XDS110 => IsVirtual ? "🛠️ XDS110 探针 (虚拟仿真)" : "🛠️ TI XDS110 烧录探针",
+            DeviceFunctionType.Burner_FT2232 => IsVirtual ? "FT2232 烧录 (虚拟仿真)" : "FT2232 烧录调试器",
+            DeviceFunctionType.Burner_DAPLink => IsVirtual ? "CMSIS-DAP (虚拟仿真)" : "CMSIS-DAP 仿真器",
+            DeviceFunctionType.Burner_XDS110 => IsVirtual ? "XDS110 探针 (虚拟仿真)" : "TI XDS110 烧录探针",
             DeviceFunctionType.Uart_Serial => GetUartFunctionBadgeText(),
-            DeviceFunctionType.Controller_ESP32 => "🛠️ ESP32-S3 核心主控 (Debug)",
-            DeviceFunctionType.MassStorage => "💾 USB 存储设备 (U盘)",
-            _ => "🔌 通用 USB 外设"
+            DeviceFunctionType.Controller_ESP32 => "ESP32-S3 核心主控 (Debug)",
+            DeviceFunctionType.MassStorage => "USB 存储设备 (U盘)",
+            _ => "通用 USB 外设"
         };
 
         private string GetUartFunctionBadgeText()
@@ -186,35 +186,35 @@ namespace LinkNexus
             // 按照用户要求：window识别出来的设备名 + 对应功能，比如 CH340串口-TTL / XDS110 虚拟串口
             if (upper.Contains("XDS110"))
             {
-                return $"📡 XDS110 虚拟串口{suffix}";
+                return $"XDS110 虚拟串口{suffix}";
             }
             if (upper.Contains("CMSIS-DAP") || upper.Contains("DAPLINK"))
             {
-                return $"📡 DAP 虚拟串口{suffix}";
+                return $"DAP 虚拟串口{suffix}";
             }
             if (upper.Contains("CH340"))
             {
-                return $"📡 CH340 串口-TTL{suffix}";
+                return $"CH340 串口-TTL{suffix}";
             }
             if (upper.Contains("CH341"))
             {
-                return $"📡 CH341 串口-TTL{suffix}";
+                return $"CH341 串口-TTL{suffix}";
             }
             if (upper.Contains("CH343"))
             {
-                return $"📡 CH343 串口-TTL{suffix}";
+                return $"CH343 串口-TTL{suffix}";
             }
             if (upper.Contains("CP210"))
             {
-                return $"📡 CP210x 串口-TTL{suffix}";
+                return $"CP210x 串口-TTL{suffix}";
             }
             if (upper.Contains("FT232"))
             {
-                return $"📡 FT232 串口-TTL{suffix}";
+                return $"FT232 串口-TTL{suffix}";
             }
             if (upper.Contains("PL2303"))
             {
-                return $"📡 PL2303 串口-TTL{suffix}";
+                return $"PL2303 串口-TTL{suffix}";
             }
 
             // 若不是以上常见芯片，自动剥离 (COMx) 后缀，以 Windows 识别出的主名字 + 串口-TTL 拼接呈现
@@ -224,7 +224,7 @@ namespace LinkNexus
                 cleanName = "USB";
             }
 
-            return $"📡 {cleanName} 串口-TTL{suffix}";
+            return $"{cleanName} 串口-TTL{suffix}";
         }
 
         public bool IsBurnerDevice =>
@@ -313,7 +313,7 @@ namespace LinkNexus
                     _isPortEnabled = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(PortEnabledButtonText));
-                    StatusMessage = _isPortEnabled ? "硬件链路已导通" : "⚠️ 端口已被开发者手动隔离";
+                    StatusMessage = _isPortEnabled ? "硬件链路已导通" : "端口已被开发者手动隔离";
                 }
             }
         }

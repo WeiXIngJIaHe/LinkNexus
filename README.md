@@ -6,7 +6,7 @@
 ![.NET Version](https://img.shields.io/badge/.NET-10.0-512BD4?style=for-the-badge&logo=dotnet)
 ![Architecture](https://img.shields.io/badge/Architecture-WPF%20%7C%20MVVM%20%7C%20Win32%20PnP-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Version](https://img.shields.io/badge/Release-v0102.2639%20(PRE)-38BDF8?style=for-the-badge)
+![Version](https://img.shields.io/badge/Release-v0104.2639%20(PRE)-38BDF8?style=for-the-badge)
 
 **专为嵌入式软硬件工程师打造的高工业质感、低视觉噪点、带硬件级安全供电互锁的多协议桌面硬件调试工作台**
 

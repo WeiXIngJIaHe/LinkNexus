@@ -6,7 +6,7 @@
 ![.NET Version](https://img.shields.io/badge/.NET-10.0-512BD4?style=for-the-badge&logo=dotnet)
 ![Architecture](https://img.shields.io/badge/Architecture-WPF%20%7C%20MVVM%20%7C%20Win32%20PnP-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Version](https://img.shields.io/badge/Release-v0100.2639%20(PRE)-38BDF8?style=for-the-badge)
+![Version](https://img.shields.io/badge/Release-v0102.2639%20(PRE)-38BDF8?style=for-the-badge)
 
 **专为嵌入式软硬件工程师打造的高工业质感、低视觉噪点、带硬件级安全供电互锁的多协议桌面硬件调试工作台**
 
@@ -27,7 +27,7 @@
   * **串口与 Linux CLI 工作台**（CH343P）：纯暗黑工业波特率下拉框、DTR/RTS 硬件引脚控制、CTS/DSR(DTS) 硬件指示、MCU 脉冲复位、智能文本/HEX/Linux CLI/AT 指令自动识别分流引擎及智能双视窗；
   * **通用设备/外部存储工作台**（U盘等外设）：查看 Windows 硬件底层参数。
 - 🛡️ **ESP32-S3 后台守护与外设抽屉自动收拢**：
-  * ESP32 隐匿于后台运行管理总线，驱动主界面左下角“LinkNexus 物理拓扑守护服务”绿（正常就绪）/ 红（主控离线）/ 黄（驱动异常）三态；
+  * ESP32 隐匿于后台运行管理总线，驱动主界面左下角“LinkNexus 物理拓扑守护服务”绿（在线）/ 红（离线）/ 黄（异常）三态，文案去噪，仅展示守护服务状态；
   * ESP32 在线后，自动开启 CH338X 拓扑过滤，仅平铺核心四大引擎，其余通用外设自动收拢入“📂 系统其他设备 (N) ▾”可折叠抽屉中。
 - 🛠️ **全屏开发者维护总台与虚拟仿真接入**：
   * 仅限在右下角版本号区域 **1.5 秒内连续点击 5 次**激活，直接切入全屏开发者维护页面；
@@ -178,8 +178,7 @@ LinkNexus/
 
 | 触发操作 | 目标动作 | 作用说明 |
 | :--- | :--- | :--- |
-| <kbd>F12</kbd> | 切换开发者调试模式 | 全局一键激活/隐藏调试控制条与功能预览工作台 |
-| **连击 5 次版本号** | 激活开发者调试模式 | 1.5 秒内快速点击右下角规范版本号区域 |
+| **连击 5 次版本号** | 激活开发者调试模式 | 1.5 秒内快速点击右下角规范版本号区域 (开启/关闭) |
 | **全窗口拖拽文件** | 固件载入与架构识别 | 拖入 `.bin` / `.hex` / `.json` 文件，自动激活调试模式并解析 CRC32 |
 | **标题栏刷新按钮** | 强制刷新总线 | 立即触发一次系统全量 Windows PnP 设备树扫描 |
 

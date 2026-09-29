@@ -30,6 +30,7 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Oo]ut/
+[Oo]utput/
 [Ll]og/
 [Ll]ogs/
 
@@ -176,9 +177,13 @@ DocProject/Help/*.hhp
 DocProject/Help/Html2
 DocProject/Help/html
 
-# Click-Once and Publish directories
+# Click-Once, Publish and Installer packaging artifacts (only upload source code)
 publish/
 [Pp]ublish*/
+[Oo]utput/
+setup.iss
+*.iss
+installer/
 
 
 # Publish Web Output

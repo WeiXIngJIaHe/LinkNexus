@@ -6,11 +6,18 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>26739.0100</Version>
-    <AssemblyVersion>26739.1.0.0</AssemblyVersion>
-    <FileVersion>26739.0100</FileVersion>
-    <InformationalVersion>26739.0100</InformationalVersion>
+    <Version>26739.0102</Version>
+    <AssemblyVersion>26739.1.2.0</AssemblyVersion>
+    <FileVersion>26739.0102</FileVersion>
+    <InformationalVersion>26739.0102</InformationalVersion>
+    <ApplicationIcon>assets\app.ico</ApplicationIcon>
+    <SatelliteResourceLanguages>zh-Hans;zh-CN;en;en-US</SatelliteResourceLanguages>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="assets\app.ico" />
+    <Resource Include="assets\app.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="System.IO.Ports" Version="10.0.12" />

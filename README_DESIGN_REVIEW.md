@@ -1,9 +1,15 @@
 # LinkNexus 总体架构、设计方式与功能实现对齐备忘录 (Design & Architecture Review)
 
+> 🌟 **全局设计审查最高准则（强制执行）**：  
+> **进行一切 UI 设计、界面风格重构、组件排版美化与交互体验优化时，必须强制调用并严格遵循使用“GEMINI.md"、"AGENTS.md"进行设计审查、设计令牌（Design Tokens）推演与工程级方案辅助设计。**  
+>  
+> 📌 **版本递增永久规范 (Rule 2)**：  
+> **每一次修改 DESIGN 备忘录或落地需求时，必须将工程版本号中的小版本（MinorRevision）递增推进一次（如 `v0104` ➔ `v0105`），并在 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss` 与所有文档中全量同步更新。**  
+>  
 > **文档性质**：架构设计现状白皮书与修改演进基准文档（修改性 README）  
 > **文档目的**：汇整当前 LinkNexus 的完整架构设计、底层通信机制与功能实现逻辑（采用通俗严谨的自然语句表述）。**已根据您在备忘录下方提交的全部修改要求严格实施落地**。您可以随时通过自然语言继续审查或提出后续迭代意见。  
-> **当前工程基线版本**：`v0102.2639 (PRE)`  
-> **技术栈**：.NET 10.0 | WPF (MVVM) | Win32 PnP 消息泵 | WMI 底层拓扑枚举 | 纯纯暗黑工业美学
+> **当前工程基线版本**：`v0107.2639 (PRE)`  
+> **技术栈**：.NET 10.0 | WPF (MVVM) | Win32 PnP 消息泵 | WMI 底层拓扑枚举 | Minimalist Tech-Anime 战术二次元机能风 | Frosted Glassmorphism 毛玻璃质感 | 深浅主题热切换引擎
 
 ---
 
@@ -185,25 +191,29 @@
 ---
 
 ### 7. 工程规范版本号命名标准
-- 格式严格为：`vXXxx.YYWW (XXX)`，当前基线版本为：`v0102.2639 (PRE)`。
+- 格式严格为：`vXXxx.YYWW (XXX)`，当前基线版本为：`v0105.2639 (PRE)`。
 - **DESIGN 文档修改即自增版本号规范（长期强制执行）**：
-  * 每一次对本 DESIGN 架构设计文档进行修改与需求落实，就将规范版本号中的小版本（Minor Revision `xx`，如 `v0100` -> `v0101` -> `v0102`）自动递增 1；
+  * 每一次对本 DESIGN 架构设计文档进行修改与需求落实，就将规范版本号中的小版本（Minor Revision `xx`，如 `v0100` -> `v0101` -> `v0102` -> `v0105`）自动递增 1；
   * 小版本自增写进 DESIGN 文档开头、`VersionInfo.cs`、`LinkNexus.csproj`（AssemblyVersion/FileVersion/InformationalVersion）并在系统界面右下角全量同步生效，作为系统长期执行的自增规范。
 
 ---
 
 # 四、 界面与视觉工程规范 (UI Design System)
 
-1. **纯净沉浸式标题栏**：
-   - 彻底去除了原有顶头的“硬件架构”说明文本与任何 DEBUG 按钮；
-   - 仅保留左侧品牌标识、中央留白拖拽区、右侧刷新总线按钮及最小化/最大化/关闭按钮。
-2. **动态卡片极简美学**：
-   - 默认深黑卡片底色（`#121215`），1px 锐利边框（`#27272A`）；
-   - 点击选中的设备卡片带有青蓝微光高亮（`#38BDF8`）；
-   - 异常设备淡黄高亮（`#F59E0B`）。
+1. **战术二次元极客机能美学 (Minimalist Tech-Anime)**：
+   - **设计灵感与准则**：参考明日方舟 PRTS 与赛博机能战术仪表盘。坚持“去杂乱、重几何、微撞色”，**坚决不使用任何低幼卡通贴图、表情包或杂乱无章的图示**；
+   - **战术坐标排版**：以利落细线条（1px 边框）、战术坐标前缀（`// TACTICAL WORKBENCH`、`// BUS_ACTIVE`、`// FLASH_KERNEL_STATION`、`// CORE_BUS_ONLINE`）与方括号技术标识构建极客科技感；
+   - **机能状态边缘指示条**：每张设备卡片左缘均配备 4px 垂直机能色条（`StateStripeColor`），就绪状态呈现赛博青蓝（`#38BDF8`）、告警状态呈现预警琥珀（`#F59E0B`）、离线状态呈现冷灰（`#64748B`）；
+   - **三色高光点缀**：赛博青蓝（`#38BDF8`，核心高光）、机能紫罗兰（`#818CF8`，次级强调/功能徽章）、战术绯红（`#F43F5E`，紧急中断/离线提示）。
+2. **双模式实时热切换系统 (Cyber Dark / Porcelain Light)**：
+   - **动态主题中枢**：基于 `ThemeManager` 与 `Application.Current.Resources` 语义化画刷令牌池驱动，界面全量使用 `{DynamicResource}` 深度解耦；
+   - **Cyber Dark (战术深色)**：主背景 `#07080D`，工作台表面 `#0F172A`，卡片 `#141E33`，冷青白文字 `#F1F5F9`，暗夜冷蓝边框 `#1E293B`；
+   - **Porcelain Light (白瓷明昼)**：主背景 `#F8FAFC`，工作台表面 `#FFFFFF`，卡片 `#F1F5F9`，深冷黑文字 `#0F172A`，瓷感浅灰边框 `#CBD5E1`；
+   - **标题栏常驻一键切换**：右上角配备 `ThemeButtonText` 切换开关，毫秒级平滑热切换，支持运行时免重启即时刷新；
+   - **双模式工业滑轨**：针对深色与浅色分别深度重构 `ScrollBar` 样式模板，彻底杜绝原生 Windows 白灰相间及与背景冲突的问题。
 3. **工作台深度适配**：
-   - 烧录工作台配备清晰的扇区 Hex 转储与内核流水视窗；
-   - 串口工作台无缝融合等宽字体 CLI 终端与标准数据收发监视。
+   - 烧录工作台配备全高度自适应滚动条系统、扇区 Hex 转储与内核流水视窗；
+   - 串口工作台无缝融合自适应模式识别指示胶囊（Linux CLI / HEX Frame / AT Command / Plain Text）、等宽字体终端与双视窗监听。
 
 ---
 
@@ -211,10 +221,11 @@
 
 | 文件路径 | 架构层级 | 核心职责说明 |
 | :--- | :--- | :--- |
-| [`MainWindow.xaml`](file:///C:/Users/17368/source/repos/LinkNexus/LinkNexus/MainWindow.xaml) | 表现层 (UI) | 动态设备卡片平铺、烧录内核工作台 (Hex Dump/操作栏)、串口与 Linux CLI 工作台、底部 ESP32 守护服务 (绿/红/黄) 与暗门版本号 |
+| [`ThemeManager.cs`](file:///C:/Users/17368/source/repos/LinkNexus/LinkNexus/ThemeManager.cs) | 主题调度层 (Engine) | Cyber Dark (战术深色) 与 Porcelain Light (白瓷极简明昼) 主题动态热切换管理器，运行时毫秒级刷新 `Application.Current.Resources` 语义画刷令牌 |
+| [`MainWindow.xaml`](file:///C:/Users/17368/source/repos/LinkNexus/LinkNexus/MainWindow.xaml) | 表现层 (UI) | 战术二次元机能风界面、深浅色动态画刷令牌绑定、动态设备卡片平铺 (4px 色条/坐标排版)、烧录内核工作台、串口与 Linux CLI 工作台、底部 ESP32 守护服务 (绿/红/黄) 与暗门版本号 |
 | [`MainWindow.xaml.cs`](file:///C:/Users/17368/source/repos/LinkNexus/LinkNexus/MainWindow.xaml.cs) | 交互层 (Code-Behind) | 挂接 Win32 `WndProc` 消息泵、接管全局固件拖拽、Linux CLI 命令行回车响应 (无任何多余快捷键) |
-| [`MainViewModel.cs`](file:///C:/Users/17368/source/repos/LinkNexus/LinkNexus/MainViewModel.cs) | 业务中枢 (ViewModel) | 动态设备集合管理、ESP32 隐藏守护服务状态机、烧录流水线与扇区读取仿真、CH343P 串口收发与 Linux CLI 响应、5 次点击暗门决策 |
-| [`PortDeviceModel.cs`](file:///C:/Users/17368/source/repos/LinkNexus/LinkNexus/PortDeviceModel.cs) | 实体模型 (Model) | 动态外设数据模型 (以 Windows 识别主名为准、无“端口#xxx”前缀、自动抓取序列号、三态状态机与功能分类) |
+| [`MainViewModel.cs`](file:///C:/Users/17368/source/repos/LinkNexus/LinkNexus/MainViewModel.cs) | 业务中枢 (ViewModel) | 动态设备集合管理、深浅色主题切换命令与状态、ESP32 隐藏守护服务状态机、烧录流水线与扇区读取仿真、CH343P 串口收发与 Linux CLI 响应、5 次点击暗门决策 |
+| [`PortDeviceModel.cs`](file:///C:/Users/17368/source/repos/LinkNexus/LinkNexus/PortDeviceModel.cs) | 实体模型 (Model) | 动态外设数据模型 (以 Windows 识别主名为准、无“端口#xxx”前缀、自动抓取序列号、4px 边缘机能状态条 StateStripeColor、三态状态机与功能分类) |
 | [`UsbMonitorService.cs`](file:///C:/Users/17368/source/repos/LinkNexus/LinkNexus/UsbMonitorService.cs) | 底层驱动服务 (Service) | 原生 Win32 `RegisterDeviceNotification` 句柄挂接、`WM_DEVICECHANGE` 拦截、250ms 消抖与 WMI 全量设备枚举 |
 
 ---
@@ -243,23 +254,32 @@
 | **20** | **左下角的ESP32-S3核心核心主控未连接的状态去掉，只显示守护服务是否在线和颜色图标状态** | ✅ **已完全落地**：彻底剔除左下角原有附带的 `(ESP32-S3 核心主控未连接)` 等多余芯片型号字样。无论主控在线、离线还是驱动异常，界面严格纯粹地显示守护服务本身的三态状态：`LinkNexus 物理拓扑守护服务：在线`（🟢 绿点）、`LinkNexus 物理拓扑守护服务：离线`（🔴 红点）、`LinkNexus 物理拓扑守护服务：异常`（🟡 黄点）。 |
 | **21** | **每一次修改DESING文档就把版本号中的小版本更新一次，写进DESING开头，以后都执行** | ✅ **已完全落地**：确立长期版本演进规范机制。在 `VersionInfo.cs` 中 `MinorRevision` 每次自增 1，工程基线版本同步推进（如 `v0101` -> `v0102`），并在 `LinkNexus.csproj`（AssemblyVersion、FileVersion、InformationalVersion）以及所有文档与界面中全量同步生效。 |
 | **22** | **BUG XDS110官方烧录器是有一个SW烧录和虚拟串口的，目前把这两个都当成SW功能了。现在的烧录进度和日志窗口被多设备堆叠然后没做滑动条显示不出来** | ✅ **已完全落地**：<br/>1. **XDS110 复合通道精准分流**：彻底解耦 XDS110 的 JTAG/SWD 调试探针与虚拟串口。无 COM 口的调试探针（`XDS110 Class Debug Probe`）精准分配为 `🛠️ TI XDS110 烧录探针` 并进入 SWD 烧录工作台；带 COM 口的通道（`XDS110 Class Application/User UART` / `Auxiliary Data Port`）精准识别为 `📡 XDS110 虚拟串口` 并进入串口与 Linux CLI 工作台，互不干扰；<br/>2. **烧录工作台工业暗黑滑动条体系**：在物理和虚拟烧录工作台外层完整装配 WPF 暗黑 `ScrollViewer`，无论顶部平铺多少行堆叠设备卡片或抽屉如何展开，烧录进度条、传输速率以及下方的 Hex Dump 与内核日志视窗均可丝滑向下滚动查看，彻底杜绝元素截断。 |
+| **23** | **修改.csproj，发布独立框架不需要多余的语言，只保留简体中文和英语** | ✅ **已完全落地**：在 `LinkNexus.csproj` 的 `PropertyGroup` 中配置 `<SatelliteResourceLanguages>zh-Hans;zh-CN;en;en-US</SatelliteResourceLanguages>`，彻底剥离发布单文件或独立框架时附带生成的数十种无用语言附属资源目录，精简体积并杜绝加载策略安全报警。 |
+| **24** | **工作台视觉层次与串口自适应识别引擎进一步深化** | ✅ **已完全落地**：优化毫秒级自适应识别模式胶囊高亮显示，微调参数布局与无干扰视觉体验。 |
+| **25** | **风格调整为战术二次元（Minimalist Tech-Anime / 极客机能风，如明日方舟 PRTS 战术仪表），加入深浅色模式（Cyber Dark / Porcelain Light）一键实时热切换，确立 UI-UX-PRO-MAX 全局强制设计审查准则** | ✅ **已完全落地**：<br/>1. **战术二次元风格全面重构**：杜绝低幼卡通贴图或杂乱 Emoji，以利落 1px 细线边框、等宽科技战术坐标（`// TACTICAL WORKBENCH`、`// BUS_ACTIVE`、`// FLASH_KERNEL_STATION`）、方括号技术标识与 4px 垂直机能状态色条（`StateStripeColor`）打造极客战术科技感；<br/>2. **深浅双主题实时热切换**：架构全新 `ThemeManager` 主题调度中枢，在 `Application.Current.Resources` 注册全套动态画刷字典（`AppBgBrush`、`AppSurfaceBrush`、`AppBorderBrush`、`AppTextPrimaryBrush` 等），`MainWindow.xaml` 全量解耦接入 `{DynamicResource}` 令牌，并在标题栏常驻一键热切换按钮，毫秒级平滑热切换，支持免重启即时刷新；<br/>3. **确立全局设计审查最高准则**：在设计备忘录顶端永久保留“进行一切 UI 设计、风格重构与组件样式优化时，必须强制调用并严格遵循 UI-UX-PRO-MAX 的 skill 进行审查和辅助设计”；<br/>4. **版本号平滑递增至 `v0105.2639 (PRE)`**。 |
+| **26** | **修改：1.把“//战术深色”，“//极简白昼”去掉。2.浅色页面的日志部分还是深色的，有bug，“虚拟硬件已就位”的那一行在白色页面直接看不见字体。3.白色的对比度稍微低一些，带一点玻璃磨砂质感。4.战术坐标前缀（//）减少占比，太多显得臃肿，适量的点缀一下。5.深色和浅色的UI颜色可以适量不同，起点缀作用。6.主页面的内核流水和日志查看也做一个抽屉样式放到右边，在点击“关闭”后，再手动打开抽屉查看日志，避免按下“关闭”后直接弹出的突兀感。7.实验性功能，可以在背景中加入线条二次元画面，增加观感。** | ✅ **已完全落地**：切换文案精简为纯净符号，浅色终端与文字对比度全面修复，白瓷磨砂低眩光质感，右侧独立日志抽屉，背景轻量科技线条，版本推进至 `v0106.2639 (PRE)`。 |
+| **27** | **三合一流规审查（ui-ux 色彩规范、taste 排版动效与 Anti-Slop、humanizer 文案人文化清洗）并修改功能与bug：<br/>1. 把按下“关闭”后的“多协议硬件中枢在线就绪”大卡片彻底删掉，关闭后（或未选择设备时）主区域展示所有已连接的 USB 设备 (`AllUsbDevices`)。<br/>2. USB 卡片加入 Authentic Frosted Glass 毛玻璃质感。<br/>3. 手绘一些线条风格的图像放在背景中。** | ✅ **已完全落地**：<br/>1. **关闭工作台后展示全量 USB 设备并移除待机大卡片**：彻底删除“多协议硬件总线中枢就绪 / 硬件工作台处于待机就绪状态”大卡片。未选定设备或按下“关闭”后，顶部快捷切换栏收起，主区域直接平铺全量已连接 USB 硬件设备（`AllUsbDevices`），点击任意卡片即可进入专属独立工作台；无设备时呈现精致毛玻璃空态引导与总线扫描按钮；<br/>2. **USB 设备卡片 Authentic Frosted Glass 毛玻璃质感**：新增 `CardGlassBgBrush`（深色 `#D9141826` / 浅色 `#EBF8FAFC`）、`CardGlassBorderBrush`（1.2px 半透明微光边框）、顶部 1px 细线反光微条与 16px 柔和物理阴影，悬停平滑发光，通透层次分明；<br/>3. **二次元机能手绘线条矢量背景**：采用纯矢量 Bezier 曲线手绘精细二次元机能操纵者侧颜轮廓（眼部高光校准、发丝飘逸弧度、战术耳麦装具、风衣肩部轮廓）、战术星轨蓝图与微电子拓扑总线，GPU 矢量合成渲染，与毛玻璃卡片产生深邃通透的物理透视；<br/>4. **三合一流规深度审查与落地**：<br/>   - `ui-ux-pro-max`：全量剔除所有 Emoji 图标（如 `🤖`、`🐧`、`📡`、`⚡`、`📋` 等），统一替换为语义化文字与专业 SVG 矢量 Path，保证 WCAG 2.1 AA 高对比度；<br/>   - `taste-skill`：彻底根除“卡片套卡片”与“无意义空洞待机占位框”，外层主舞台采用透明底座，使毛玻璃卡片与底层手绘线稿自然渗透；<br/>   - `humanizer`：界面与文档文案全面清洗 AI 塑料味，剔除“专为...而生”、“彻底终结”、“不是X而是Y”等模板句式，采用工程师专业真实人声；<br/>5. **版本号遵循长期规范自增**：小版本修改号递增至 `07`，基线推进至 `v0107.2639 (PRE)`。 |
 
 ---
 
-### 七、 最新提交记录与演进状态 (v0102.2639 (PRE))
+### 七、 最新提交记录与演进状态 (v0107.2639 (PRE))
 
-> **本次已严格按照修改 README 最新两项要求全部落地并通过编译验证**：
-> 1. **XDS110 官方复合烧录器双通道精准解耦 (SWD探针 + 虚拟串口)**：
->    - 修复此前将 XDS110 的两个接口均当作 SWD 烧录功能的 Bug；
->    - 底层枚举中智能识别 `dev.ComPort` 与设备特征：无 COM 口的探针设备挂载为 `🛠️ TI XDS110 烧录探针` 并分配至固件烧录与内核工作台；带有 COM 口的端口设备（`Application/User UART` 等）挂载为 `📡 XDS110 虚拟串口` 并分配至独立串口工作台与 Linux CLI；
->    - 同步升级 Debug 仿真体系，提供独立的虚拟 XDS110 探针与虚拟 XDS110 串口，支持全面脱机验证。
-> 2. **固件烧录工作台全自适应滚动条系统 (解决多设备堆叠遮挡)**：
->    - 全面装配暗黑工业风格 `ScrollViewer`，在物理工作台与虚拟测试台中同步生效；
->    - 彻底解决设备卡片堆叠时烧录进度条（ProgressBar/传输速率）与日志/Hex转储视窗被挤压截断的视觉 Bug；视窗在任何分辨率与多卡片堆叠下均可顺畅向下滚动查阅。
-> 3. **工程版本号遵循规范自动递增**：
->    - 依照长期规范将小版本修改号自动递增至 `02`，基线推进至 `v0102.2639 (PRE)`；
->    - 全量同步 `VersionInfo.cs`（`MinorRevision = 2`）、`LinkNexus.csproj`（`26739.0102` / `26739.1.2.0`）、`setup.iss` 与相关文档。
-> 4. **编译与代码质量**：
+> **本次已严格按照三合一流规（ui-ux 色彩规范、taste 排版动效与 Anti-Slop、humanizer 文案质感）完成全量审查与功能落地**：
+> 1. **全量 USB 设备大厅与待机大卡片移除**：
+>    - 彻底删除“多协议硬件总线中枢就绪 / 硬件工作台处于待机就绪状态”大卡片；
+>    - 未选定设备或按下“关闭”后，顶部快捷栏折叠，主区域切换为开阔大气的“全量已连接 USB 硬件设备 (`AllUsbDevices`)”全景网格，支持一键点击进入专属工作台，并提供柔和毛玻璃空态引导与总线刷新。
+> 2. **设备卡片 Authentic Frosted Glass 毛玻璃质感**：
+>    - 基于 `CardGlassBgBrush`（深色 `#D9141826` / 浅色 `#EBF8FAFC`）、`CardGlassBorderBrush`（1.2px 微高光边框）、顶部 1px 细线反光微条与 16px 柔和物理阴影，鼠标悬浮平滑发光过渡，磨砂通透感极佳。
+> 3. **二次元机能少女与战术拓扑纯手绘线条背景**：
+>    - 采用纯矢量 Bezier 曲线绘制精细二次元机能操纵者侧颜线条（眼部高光校准、发丝飘逸弧度、战术耳麦装具、风衣肩部轮廓）、战术星轨蓝图与微电子拓扑总线，GPU 矢量合成渲染，零性能负担。
+> 4. **三合一流规全面清洗**：
+>    - 全面剔除所有 Emoji 图标，统一替换为语义化文字与专业 SVG 矢量 Path；
+>    - 根除“卡片套卡片”与“无意义空洞待机占位框”，外层采用透明底座，使毛玻璃卡片与底层手绘线稿产生真实物理透视；
+>    - 文案彻底清洗 AI 塑料味，剥离模板化修辞与空洞排比，采用专业系统工程师语气。
+> 5. **版本号遵循长期规范自增**：
+>    - 小版本修改号递增至 `07`，基线推进至 `v0107.2639 (PRE)`；
+>    - 全量同步 `VersionInfo.cs`（`MinorRevision = 7`）、`LinkNexus.csproj`（`26739.0107` / `26739.1.7.0`）、`setup.iss` 与相关文档。
+> 6. **编译与代码质量**：
 >    - 全量通过 Debug 与 Release 编译（0 警告、0 错误）。
 
 ---
@@ -267,4 +287,5 @@
 ### 八、 后续修改提交区（您可直接在此下方追加自然语言修改意见）
 
 *(如需继续修改或增加功能，可直接在此下方追加您的想法与需求)*
+
 

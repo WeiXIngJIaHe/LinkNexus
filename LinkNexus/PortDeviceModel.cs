@@ -183,7 +183,15 @@ namespace LinkNexus
             string devName = DeviceName ?? string.Empty;
             string upper = devName.ToUpperInvariant();
 
-            // 按照用户要求：window识别出来的设备名 + 对应功能，比如 CH340串口-TTL
+            // 按照用户要求：window识别出来的设备名 + 对应功能，比如 CH340串口-TTL / XDS110 虚拟串口
+            if (upper.Contains("XDS110"))
+            {
+                return $"📡 XDS110 虚拟串口{suffix}";
+            }
+            if (upper.Contains("CMSIS-DAP") || upper.Contains("DAPLINK"))
+            {
+                return $"📡 DAP 虚拟串口{suffix}";
+            }
             if (upper.Contains("CH340"))
             {
                 return $"📡 CH340 串口-TTL{suffix}";

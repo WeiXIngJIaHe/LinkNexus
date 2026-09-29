@@ -6,6 +6,7 @@
         xmlns:local="clr-namespace:LinkNexus"
         mc:Ignorable="d"
         Title="LinkNexus - 多协议桌面硬件调试站"
+        Icon="assets/app.ico"
         Height="880" Width="1440"
         MinHeight="720" MinWidth="1180"
         WindowStartupLocation="CenterScreen"
@@ -556,15 +557,18 @@
                 <Grid>
                     <!-- ========================================================= -->
                     <!-- 独立工作页面 A: FT2232 / XDS110 / DAPLink 固件烧录与内核调试工作台 -->
+                    <!-- 独立工作页面 A: FT2232 / XDS110 / DAPLink 固件烧录与内核调试工作台 (支持垂直滚动以适配多设备堆叠) -->
                     <!-- ========================================================= -->
-                    <Grid Visibility="{Binding IsBurnerWorkspaceVisible, Converter={StaticResource BoolToVisConverter}}">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
+                    <ScrollViewer Visibility="{Binding IsBurnerWorkspaceVisible, Converter={StaticResource BoolToVisConverter}}"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                        <Grid Margin="0,0,6,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
 
                         <!-- 行 0: 设备标题与内核运行状态 -->
                         <Grid Grid.Row="0" Margin="0,0,0,10">
@@ -652,7 +656,7 @@
                         </Grid>
 
                         <!-- 行 4: 扇区 Hex 转储与内核日志双视窗 -->
-                        <Grid Grid.Row="4">
+                        <Grid Grid.Row="4" Height="260" Margin="0,2,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="3*" />
                                 <ColumnDefinition Width="10" />
@@ -702,6 +706,7 @@
                             </Border>
                         </Grid>
                     </Grid>
+                    </ScrollViewer>
 
                     <!-- ========================================================= -->
                     <!-- 独立工作页面 B: CH343P / UART 串口调试与 Linux CLI 工作台 -->
@@ -921,9 +926,8 @@
 
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <TextBlock Text="模式锁定:" FontSize="9" Foreground="#71717A" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <RadioButton Content="🤖 智能自适应" IsChecked="True" Foreground="#FAFAFA" FontSize="9" Margin="0,0,6,0" VerticalAlignment="Center"
-                                                     Command="{Binding SendSmartInputCommand}" CommandParameter="override:0"/>
-                                        <CheckBox Content="追加 \r\n" IsChecked="True" Foreground="#71717A" FontSize="9" VerticalAlignment="Center"/>
+                                        <RadioButton Content="🤖 智能自适应" IsChecked="True" Foreground="#FAFAFA" FontSize="9" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <CheckBox Content="追加 \r\n" IsChecked="{Binding IsAppendNewLine}" Foreground="#71717A" FontSize="9" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Grid>
 
@@ -1252,15 +1256,17 @@
                     <Border Grid.Row="2" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="10"
                             Visibility="{Binding IsVirtualDevicesEnabled, Converter={StaticResource BoolToVisConverter}}">
                         <Grid>
-                            <!-- A. 虚拟烧录设备测试 (FT2232 / DAPLink / XDS110) -->
-                            <Grid Visibility="{Binding IsBurnerWorkspaceVisible, Converter={StaticResource BoolToVisConverter}}">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" />
-                                </Grid.RowDefinitions>
+                            <!-- A. 虚拟烧录设备测试 (FT2232 / DAPLink / XDS110，带垂直滚动支持) -->
+                            <ScrollViewer Visibility="{Binding IsBurnerWorkspaceVisible, Converter={StaticResource BoolToVisConverter}}"
+                                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                <Grid Margin="0,0,6,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
 
                                 <!-- 行 0: 设备标题与内核运行状态 -->
                                 <Grid Grid.Row="0" Margin="0,0,0,8">
@@ -1345,7 +1351,7 @@
                                 </Grid>
 
                                 <!-- 行 4: 扇区 Hex 转储与事件流 -->
-                                <Grid Grid.Row="4">
+                                <Grid Grid.Row="4" Height="220" Margin="0,2,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="3*" />
                                         <ColumnDefinition Width="8" />
@@ -1391,6 +1397,7 @@
                                     </Border>
                                 </Grid>
                             </Grid>
+                            </ScrollViewer>
 
                             <!-- B. 虚拟串口与 Linux CLI 调试测试 (CH343P) -->
                             <Grid Visibility="{Binding IsUartWorkspaceVisible, Converter={StaticResource BoolToVisConverter}}">
@@ -1608,9 +1615,8 @@
 
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                 <TextBlock Text="模式锁定:" FontSize="8" Foreground="#71717A" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                <RadioButton Content="🤖 智能自适应" IsChecked="True" Foreground="#FAFAFA" FontSize="8" Margin="0,0,4,0" VerticalAlignment="Center"
-                                                             Command="{Binding SendSmartInputCommand}" CommandParameter="override:0"/>
-                                                <CheckBox Content="追加 \r\n" IsChecked="True" Foreground="#71717A" FontSize="8" VerticalAlignment="Center"/>
+                                                <RadioButton Content="🤖 智能自适应" IsChecked="True" Foreground="#FAFAFA" FontSize="8" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                                <CheckBox Content="追加 \r\n" IsChecked="{Binding IsAppendNewLine}" Foreground="#71717A" FontSize="8" VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </Grid>
 

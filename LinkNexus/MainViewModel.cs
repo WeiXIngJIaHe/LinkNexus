@@ -148,7 +148,7 @@ namespace LinkNexus
         private bool _isEsp32Online = false;
         private PortDeviceModel? _esp32DeviceModel;
         private string _daemonStatusDotColor = "#EF4444"; // 默认未连接为红色
-        private string _daemonStatusText = "LinkNexus 物理拓扑守护服务离线 (ESP32-S3 核心主控未连接)";
+        private string _daemonStatusText = "LinkNexus 物理拓扑守护服务：离线";
 
         // 抽屉状态
         private bool _isOtherDevicesDrawerOpen = false;
@@ -308,7 +308,7 @@ namespace LinkNexus
             set { if (_isEsp32Online != value) { _isEsp32Online = value; OnPropertyChanged(); } }
         }
 
-        public string VersionString => GenerateVersionString(1, 0, "PRE");
+        public string VersionString => GenerateVersionString(VersionInfo.MajorVersion, VersionInfo.MinorRevision, "PRE");
 
         public string DaemonStatusDotColor
         {
@@ -634,6 +634,13 @@ namespace LinkNexus
             }
         }
 
+        private bool _isAppendNewLine = true;
+        public bool IsAppendNewLine
+        {
+            get => _isAppendNewLine;
+            set { if (_isAppendNewLine != value) { _isAppendNewLine = value; OnPropertyChanged(); } }
+        }
+
         public bool IsSmartDualViewVisible => _serialViewMode == 0;
         public bool IsOnlyLinuxCliVisible => _serialViewMode == 1;
         public bool IsOnlySerialMonitorVisible => _serialViewMode == 2;
@@ -910,14 +917,14 @@ namespace LinkNexus
                 if (espDev.HasDriverIssue)
                 {
                     IsEsp32Online = false;
-                    DaemonStatusDotColor = "#F59E0B"; // 黄色：枚举异常 / 驱动未就绪
-                    DaemonStatusText = $"LinkNexus 物理拓扑守护服务异常 (ESP32 主控驱动未就绪 Code {espDev.ConfigManagerErrorCode})";
+                    DaemonStatusDotColor = "#F59E0B"; // 黄色：守护服务异常
+                    DaemonStatusText = "LinkNexus 物理拓扑守护服务：异常";
                 }
                 else
                 {
                     IsEsp32Online = true;
-                    DaemonStatusDotColor = "#10B981"; // 绿色：正常就绪
-                    DaemonStatusText = $"LinkNexus 物理拓扑守护服务正常运行中 (ESP32-S3 主控在线 | {espDev.ComPort})";
+                    DaemonStatusDotColor = "#10B981"; // 绿色：正常就绪/在线
+                    DaemonStatusText = "LinkNexus 物理拓扑守护服务：在线";
                 }
 
                 _esp32DeviceModel = new PortDeviceModel
@@ -925,8 +932,8 @@ namespace LinkNexus
                     DeviceName = string.IsNullOrWhiteSpace(espDev.Name) ? "ESP32-S3 核心通信主控" : espDev.Name,
                     DeviceDescription = espDev.Description,
                     VidPid = espDev.VidPid,
-                    ComPort = string.IsNullOrWhiteSpace(espDev.ComPort) ? "COM9" : espDev.ComPort,
-                    SerialNumber = string.IsNullOrWhiteSpace(espDev.SerialNumber) ? "ESP32-S3-MAIN-001" : espDev.SerialNumber,
+                    ComPort = string.IsNullOrWhiteSpace(espDev.ComPort) ? "--" : espDev.ComPort,
+                    SerialNumber = string.IsNullOrWhiteSpace(espDev.SerialNumber) ? "--" : espDev.SerialNumber,
                     HardwarePath = espDev.HardwarePath,
                     State = espDev.HasDriverIssue ? DeviceState.Warning : DeviceState.Ready,
                     FunctionType = DeviceFunctionType.Controller_ESP32,
@@ -937,8 +944,8 @@ namespace LinkNexus
             {
                 IsEsp32Online = false;
                 _esp32DeviceModel = null;
-                DaemonStatusDotColor = "#EF4444"; // 红色：未连接
-                DaemonStatusText = "LinkNexus 物理拓扑守护服务离线 (ESP32-S3 核心主控未连接)";
+                DaemonStatusDotColor = "#EF4444"; // 红色：离线
+                DaemonStatusText = "LinkNexus 物理拓扑守护服务：离线";
             }
 
             // 2. 分离设备：
@@ -1037,12 +1044,39 @@ namespace LinkNexus
             // 2. DAPLink (CH32V305) 仿真器 (CH338X 下行)
             else if ((vid == "0D28" && pid == "0204") || nameUpper.Contains("DAPLINK") || nameUpper.Contains("CMSIS-DAP"))
             {
-                card.FunctionType = DeviceFunctionType.Burner_DAPLink;
+                if (!string.IsNullOrWhiteSpace(dev.ComPort) || nameUpper.Contains("UART") || nameUpper.Contains("CDC") || nameUpper.Contains("SERIAL") || nameUpper.Contains("串行"))
+                {
+                    card.FunctionType = DeviceFunctionType.Uart_Serial;
+                }
+                else
+                {
+                    card.FunctionType = DeviceFunctionType.Burner_DAPLink;
+                }
             }
-            // 3. XDS110 (TM4C1294) 仿真器 (CH338X 下行)
+            // 3. XDS110 (TM4C1294) 复合设备区分:
+            // A) 虚拟串口通道: 拥有有效 COM 口，或名称包含 UART / PORT / SERIAL / CDC / 串行 (如 XDS110 Class Application/User UART)
+            // B) 调试探针通道: 无 COM 口的 JTAG / SWD 调试探针 (如 XDS110 Class Debug Probe)
             else if ((vid == "0451" && (pid == "BEF3" || pid == "BEF2" || pid == "BEF0")) || nameUpper.Contains("XDS110") || nameUpper.Contains("TM4C"))
             {
-                card.FunctionType = DeviceFunctionType.Burner_XDS110;
+                bool isProbe = nameUpper.Contains("PROBE") || string.IsNullOrWhiteSpace(dev.ComPort);
+                bool isUart = !string.IsNullOrWhiteSpace(dev.ComPort) || nameUpper.Contains("UART") || nameUpper.Contains("CDC") || nameUpper.Contains("SERIAL") || nameUpper.Contains("DATA PORT") || nameUpper.Contains("串行");
+
+                if (isUart && !string.IsNullOrWhiteSpace(dev.ComPort))
+                {
+                    card.FunctionType = DeviceFunctionType.Uart_Serial;
+                }
+                else if (isProbe)
+                {
+                    card.FunctionType = DeviceFunctionType.Burner_XDS110;
+                }
+                else if (isUart)
+                {
+                    card.FunctionType = DeviceFunctionType.Uart_Serial;
+                }
+                else
+                {
+                    card.FunctionType = DeviceFunctionType.Burner_XDS110;
+                }
             }
             // 4. CH343P / 板载高速串口 / 通用串口 (CH338X 下行及所有串口)
             else if ((vid == "1A86" && (pid == "55D3" || pid == "7523" || pid == "5523")) ||
@@ -1183,18 +1217,33 @@ namespace LinkNexus
 
                 var xds110Virt = new PortDeviceModel
                 {
-                    DeviceName = "Texas Instruments XDS110 Probe (虚拟仿真)",
+                    DeviceName = "TI XDS110 Class Debug Probe (虚拟仿真)",
                     DeviceDescription = "TM4C1294 ARM Cortex-M 仿真烧录探针",
                     VidPid = "0451:BEF3",
-                    ComPort = "COM5",
-                    SerialNumber = "XDS110-VIRT-003",
-                    HardwarePath = @"USB\VID_0451&PID_BEF3\XDS110-VIRT-003",
+                    ComPort = "--",
+                    SerialNumber = "XDS110-PROBE-003",
+                    HardwarePath = @"USB\VID_0451&PID_BEF3\XDS110-PROBE-003",
                     State = DeviceState.Ready,
                     FunctionType = DeviceFunctionType.Burner_XDS110,
                     IsVirtual = true,
                     StatusMessage = "虚拟探针正常就绪 (仿真模式，支持 CoreID 读取/Flash 快速擦除)"
                 };
                 xds110Virt.SelectedChanged += OnVirtualCardSelected;
+
+                var xds110UartVirt = new PortDeviceModel
+                {
+                    DeviceName = "XDS110 Class Application/User UART (COM5) (虚拟仿真)",
+                    DeviceDescription = "TI XDS110 辅助虚拟串口通信通道",
+                    VidPid = "0451:BEF3",
+                    ComPort = "COM5",
+                    SerialNumber = "XDS110-UART-003",
+                    HardwarePath = @"USB\VID_0451&PID_BEF3\XDS110-UART-003",
+                    State = DeviceState.Ready,
+                    FunctionType = DeviceFunctionType.Uart_Serial,
+                    IsVirtual = true,
+                    StatusMessage = "虚拟串口正常就绪 (仿真模式，支持波特率切换/HEX收发/Linux CLI)"
+                };
+                xds110UartVirt.SelectedChanged += OnVirtualCardSelected;
 
                 var dapVirt = new PortDeviceModel
                 {
@@ -1214,12 +1263,13 @@ namespace LinkNexus
                 VirtualDevices.Add(ft2232Virt);
                 VirtualDevices.Add(ch343pVirt);
                 VirtualDevices.Add(xds110Virt);
+                VirtualDevices.Add(xds110UartVirt);
                 VirtualDevices.Add(dapVirt);
 
                 IsVirtualDevicesEnabled = true;
                 SelectedVirtualDevice = ft2232Virt;
 
-                AddLog("【虚拟接入功能】成功弹出 4 个虚拟核心调试引擎：FT2232、CH343P、XDS110、DAPLink！", "SUCCESS");
+                AddLog("【虚拟接入功能】成功弹出 5 个虚拟核心调试与串口实体：FT2232、CH343P、XDS110 烧录探针、XDS110 虚拟串口、DAPLink！", "SUCCESS");
                 AddLog("【功能测试就绪】您可直接点击上方虚拟卡片，测试固件烧录、扇区 Hex Dump、擦除、CoreID、串口收发与 Linux CLI！", "INFO");
             }
         }
@@ -1944,7 +1994,8 @@ namespace LinkNexus
 
         private void ProcessSendPlainText(string text)
         {
-            byte[] bytesToSend = System.Text.Encoding.UTF8.GetBytes(text + "\r\n");
+            string payload = IsAppendNewLine ? (text + "\r\n") : text;
+            byte[] bytesToSend = System.Text.Encoding.UTF8.GetBytes(payload);
             int bytesCount = bytesToSend.Length;
             SerialTxBytes += bytesCount;
 

@@ -23,7 +23,7 @@ namespace LinkNexus
         /// <summary>
         /// 小版本修改号 (xx: 两位数字)
         /// </summary>
-        public const int MinorRevision = 0;
+        public const int MinorRevision = 2;
 
         /// <summary>
         /// 是否采用字面量字母 'D' (如 26D39.0100) 替代数字星期 (如 26739.0100)

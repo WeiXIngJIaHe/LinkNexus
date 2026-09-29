@@ -1,4 +1,4 @@
-<Window x:Class="LinkNexus.MainWindow"
+﻿<Window x:Class="LinkNexus.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -12,8 +12,8 @@
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         ResizeMode="CanResize"
-        Background="#18181B"
-        Foreground="#FAFAFA"
+        Background="{DynamicResource AppBgBrush}"
+        Foreground="{DynamicResource AppTextPrimaryBrush}"
         FontFamily="Microsoft YaHei, Segoe UI, PingFang SC"
         AllowDrop="True"
         Drop="Window_Drop"
@@ -32,26 +32,10 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
 
-        <!-- 工业暗黑调色板 -->
-        <SolidColorBrush x:Key="BgDarkBrush" Color="#18181B" />
-        <SolidColorBrush x:Key="SurfaceBrush" Color="#121215" />
-        <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#1A1A20" />
-        <SolidColorBrush x:Key="BorderDarkBrush" Color="#27272A" />
-        <SolidColorBrush x:Key="BorderLightBrush" Color="#3F3F46" />
-
-        <!-- 科技状态色 -->
-        <SolidColorBrush x:Key="AccentCyanBrush" Color="#38BDF8" />
-        <SolidColorBrush x:Key="SuccessGreenBrush" Color="#10B981" />
-        <SolidColorBrush x:Key="WarningAmberBrush" Color="#F59E0B" />
-        <SolidColorBrush x:Key="ErrorRedBrush" Color="#EF4444" />
-        <SolidColorBrush x:Key="TextDimBrush" Color="#71717A" />
-        <SolidColorBrush x:Key="TextNormalBrush" Color="#D4D4D8" />
-        <SolidColorBrush x:Key="TextBrightBrush" Color="#FAFAFA" />
-
         <!-- 标题栏通用控制按钮样式 -->
         <Style x:Key="CaptionBtnStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Width" Value="44" />
             <Setter Property="Height" Value="38" />
@@ -65,11 +49,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bdr" Property="Background" Value="#27272A" />
+                                <Setter TargetName="bdr" Property="Background" Value="{DynamicResource AppSurfaceHoverBrush}" />
                                 <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bdr" Property="Background" Value="#18181B" />
+                                <Setter TargetName="bdr" Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -98,9 +82,9 @@
 
         <!-- 工业质感按钮样式 -->
         <Style x:Key="IndustrialBtnStyle" TargetType="Button">
-            <Setter Property="Background" Value="#27272A" />
-            <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource BorderDarkBrush}" />
+            <Setter Property="Background" Value="{DynamicResource IndustrialBtnBgBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource IndustrialBtnBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="10,5" />
             <Setter Property="FontSize" Value="11" />
@@ -118,11 +102,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bdr" Property="Background" Value="#3F3F46" />
-                                <Setter TargetName="bdr" Property="BorderBrush" Value="{StaticResource AccentCyanBrush}" />
+                                <Setter TargetName="bdr" Property="Background" Value="{DynamicResource IndustrialBtnHoverBgBrush}" />
+                                <Setter TargetName="bdr" Property="BorderBrush" Value="{DynamicResource AccentCyanBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bdr" Property="Background" Value="#18181B" />
+                                <Setter TargetName="bdr" Property="Background" Value="{DynamicResource IndustrialBtnPressedBgBrush}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="bdr" Property="Opacity" Value="0.4" />
@@ -134,11 +118,11 @@
             </Setter>
         </Style>
 
-        <!-- 强调型操作按钮样式 -->
+        <!-- 强调型操作按钮样式 (战术电荷青) -->
         <Style x:Key="AccentActionBtnStyle" TargetType="Button" BasedOn="{StaticResource IndustrialBtnStyle}">
-            <Setter Property="Background" Value="#1E293B" />
-            <Setter Property="BorderBrush" Value="#38BDF8" />
-            <Setter Property="Foreground" Value="#38BDF8" />
+            <Setter Property="Background" Value="{DynamicResource AppSurfaceSubtleBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentCyanBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentCyanBrush}" />
             <Setter Property="Padding" Value="12,6" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -146,12 +130,12 @@
                         <Border x:Name="bdr" Background="{TemplateBinding Background}" 
                                 BorderBrush="{TemplateBinding BorderBrush}" 
                                 BorderThickness="{TemplateBinding BorderThickness}" 
-                                CornerRadius="5">
+                                CornerRadius="4">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bdr" Property="Background" Value="#0284C7" />
+                                <Setter TargetName="bdr" Property="Background" Value="{DynamicResource AccentCyanBrush}" />
                                 <Setter Property="Foreground" Value="#FFFFFF" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
@@ -167,8 +151,8 @@
         <Style x:Key="IndustrialComboBoxItemStyle" TargetType="ComboBoxItem">
             <Setter Property="SnapsToDevicePixels" Value="True" />
             <Setter Property="Padding" Value="10,5" />
-            <Setter Property="Foreground" Value="#FAFAFA" />
-            <Setter Property="Background" Value="#18181B" />
+            <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+            <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
@@ -180,11 +164,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="itemBorder" Property="Background" Value="#27272A" />
-                                <Setter Property="Foreground" Value="#38BDF8" />
+                                <Setter TargetName="itemBorder" Property="Background" Value="{DynamicResource AppSurfaceHoverBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource AccentCyanBrush}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="itemBorder" Property="Background" Value="#0369A1" />
+                                <Setter TargetName="itemBorder" Property="Background" Value="{DynamicResource AccentCyanBrush}" />
                                 <Setter Property="Foreground" Value="#FFFFFF" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -203,25 +187,25 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="22" />
                     </Grid.ColumnDefinitions>
-                    <Path Grid.Column="1" Data="M 0 0 L 4 4 L 8 0 Z" Fill="#A1A1AA" 
+                    <Path Grid.Column="1" Data="M 0 0 L 4 4 L 8 0 Z" Fill="{DynamicResource AppTextMutedBrush}" 
                           HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Width="8" Height="5"/>
                 </Grid>
             </Border>
             <ControlTemplate.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter TargetName="btnBorder" Property="BorderBrush" Value="#38BDF8" />
-                    <Setter TargetName="btnBorder" Property="Background" Value="#27272A" />
+                    <Setter TargetName="btnBorder" Property="BorderBrush" Value="{DynamicResource AccentCyanBrush}" />
+                    <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource AppSurfaceHoverBrush}" />
                 </Trigger>
                 <Trigger Property="IsChecked" Value="True">
-                    <Setter TargetName="btnBorder" Property="BorderBrush" Value="#38BDF8" />
+                    <Setter TargetName="btnBorder" Property="BorderBrush" Value="{DynamicResource AccentCyanBrush}" />
                 </Trigger>
             </ControlTemplate.Triggers>
         </ControlTemplate>
 
         <Style x:Key="IndustrialComboBoxStyle" TargetType="ComboBox">
-            <Setter Property="Background" Value="#18181B" />
-            <Setter Property="Foreground" Value="#FAFAFA" />
-            <Setter Property="BorderBrush" Value="#27272A" />
+            <Setter Property="Background" Value="{DynamicResource AppSurfaceSubtleBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="ItemContainerStyle" Value="{StaticResource IndustrialComboBoxItemStyle}" />
             <Setter Property="SnapsToDevicePixels" Value="True" />
@@ -251,8 +235,8 @@
                                    Focusable="False" 
                                    PopupAnimation="Slide">
                                 <Border x:Name="DropDownBorder" 
-                                        Background="#18181B" 
-                                        BorderBrush="#38BDF8" 
+                                        Background="{DynamicResource AppSurfaceBrush}" 
+                                        BorderBrush="{DynamicResource AccentCyanBrush}" 
                                         BorderThickness="1" 
                                         CornerRadius="4" 
                                         MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" 
@@ -284,9 +268,9 @@
 
         <!-- 抽屉收纳模式下的迷你设备切换药丸按钮样式 -->
         <Style x:Key="MiniPillBtnStyle" TargetType="Button">
-            <Setter Property="Background" Value="#18181B" />
-            <Setter Property="Foreground" Value="#D4D4D8" />
-            <Setter Property="BorderBrush" Value="#27272A" />
+            <Setter Property="Background" Value="{DynamicResource IndustrialBtnBgBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource IndustrialBtnBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="8,3" />
             <Setter Property="FontSize" Value="10" />
@@ -303,9 +287,9 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bdr" Property="Background" Value="#27272A" />
-                                <Setter TargetName="bdr" Property="BorderBrush" Value="#38BDF8" />
-                                <Setter Property="Foreground" Value="#38BDF8" />
+                                <Setter TargetName="bdr" Property="Background" Value="{DynamicResource AppSurfaceHoverBrush}" />
+                                <Setter TargetName="bdr" Property="BorderBrush" Value="{DynamicResource AccentCyanBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource AccentCyanBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -313,35 +297,49 @@
             </Setter>
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                    <Setter Property="Background" Value="#0F2847" />
-                    <Setter Property="BorderBrush" Value="#38BDF8" />
-                    <Setter Property="Foreground" Value="#38BDF8" />
+                    <Setter Property="Background" Value="{DynamicResource CardSelectedBgBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentCyanBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource AccentCyanBrush}" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
 
-        <!-- 设备卡片模板定义 -->
+        <!-- 设备卡片模板定义 (毛玻璃亚克力质感) -->
         <DataTemplate x:Key="DeviceCardTemplate">
-            <Border Margin="0,0,10,8" Width="310" MinHeight="115" Cursor="Hand" SnapsToDevicePixels="True"
-                    CornerRadius="7" Padding="12,10">
+            <!-- 战术二次元机能硬件设备卡片 (Frosted Glass Acrylic Tactical Hardware Card) -->
+            <Border Margin="0,0,12,12" Width="316" MinHeight="118" Cursor="Hand" SnapsToDevicePixels="True"
+                    CornerRadius="8" Padding="0"
+                    Background="{DynamicResource CardGlassBgBrush}"
+                    BorderBrush="{DynamicResource CardGlassBorderBrush}" BorderThickness="1.2">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="16" Direction="270" ShadowDepth="3" Opacity="0.16" Color="#000000"/>
+                </Border.Effect>
                 <Border.Style>
                     <Style TargetType="Border">
-                        <Setter Property="Background" Value="#121215" />
-                        <Setter Property="BorderBrush" Value="#27272A" />
-                        <Setter Property="BorderThickness" Value="1.5" />
+                        <Setter Property="Background" Value="{DynamicResource CardGlassBgBrush}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource CardGlassBorderBrush}" />
+                        <Setter Property="BorderThickness" Value="1.2" />
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                <Setter Property="BorderBrush" Value="#38BDF8" />
-                                <Setter Property="Background" Value="#0F172A" />
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource CardGlassHoverBgBrush}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource CardGlassHoverBorderBrush}" />
                                 <Setter Property="Effect">
                                     <Setter.Value>
-                                        <DropShadowEffect BlurRadius="10" Direction="0" ShadowDepth="0" Opacity="0.35" Color="#38BDF8"/>
+                                        <DropShadowEffect BlurRadius="22" Direction="270" ShadowDepth="4" Opacity="0.28" Color="#38BDF8"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource AccentCyanBrush}" />
+                                <Setter Property="Background" Value="{DynamicResource CardSelectedBgBrush}" />
+                                <Setter Property="Effect">
+                                    <Setter.Value>
+                                        <DropShadowEffect BlurRadius="20" Direction="0" ShadowDepth="0" Opacity="0.45" Color="#38BDF8"/>
                                     </Setter.Value>
                                 </Setter>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding State}" Value="{x:Static local:DeviceState.Warning}">
-                                <Setter Property="BorderBrush" Value="#F59E0B" />
-                                <Setter Property="Background" Value="#1C180B" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource WarningAmberBrush}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
@@ -352,82 +350,99 @@
                 </Border.InputBindings>
 
                 <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="8" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <!-- 战术状态能量条 (Anime Tactical Accent Stripe) -->
+                        <ColumnDefinition Width="4" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-                    <Grid Grid.Row="0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+                    <!-- 左侧战术指示条 -->
+                    <Border Grid.Column="0" Background="{Binding StateStripeColor}" CornerRadius="8,0,0,8"/>
 
-                        <TextBlock Grid.Column="0" Text="{Binding DeviceName}" FontSize="12" FontWeight="Bold" Foreground="#FAFAFA" 
-                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding DeviceName}"/>
+                    <!-- 毛玻璃顶部微反光边线 (Top Specular Highlight Rim) -->
+                    <Border Grid.Column="1" Height="1" VerticalAlignment="Top" Background="{DynamicResource CardGlassHighlightBrush}" Margin="1,1,1,0" CornerRadius="0,7,0,0" IsHitTestVisible="False"/>
 
-                        <Border Grid.Column="1" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="6,0,0,0">
-                            <TextBlock Text="{Binding FunctionBadgeText}" FontSize="9" FontWeight="SemiBold" Foreground="#38BDF8"/>
-                        </Border>
-                    </Grid>
-
-                    <Border Grid.Row="1" BorderBrush="#27272A" BorderThickness="0,0,0,1" VerticalAlignment="Center" Margin="0,2"/>
-
-                    <Grid Grid.Row="2">
+                    <!-- 卡片主要内容区 -->
+                    <Grid Grid.Column="1" Margin="14,12">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="8" />
+                            <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
 
-                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,4,4">
-                            <TextBlock Text="硬件识别码" FontSize="9" Foreground="#71717A"/>
-                            <TextBlock Text="{Binding VidPid}" FontFamily="Consolas" FontSize="10" FontWeight="Bold" Foreground="#D4D4D8"/>
-                        </StackPanel>
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="4,0,0,4">
-                            <TextBlock Text="通信端口 (VCP)" FontSize="9" Foreground="#71717A"/>
-                            <TextBlock Text="{Binding ComPort}" FontFamily="Consolas" FontSize="10" FontWeight="Bold" Foreground="#38BDF8"/>
-                        </StackPanel>
+                            <TextBlock Grid.Column="0" Text="{Binding DeviceName}" FontSize="12" FontWeight="Bold" 
+                                       Foreground="{DynamicResource AppTextPrimaryBrush}" 
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding DeviceName}"/>
 
-                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,4,0">
-                            <TextBlock Text="硬件序列号" FontSize="9" Foreground="#71717A"/>
-                            <TextBlock Text="{Binding SerialNumber}" FontFamily="Consolas" FontSize="9" Foreground="#A1A1AA" TextTrimming="CharacterEllipsis"/>
-                        </StackPanel>
+                            <Border Grid.Column="1" Background="{DynamicResource AppSurfaceSubtleBrush}" 
+                                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="6,0,0,0">
+                                <TextBlock Text="{Binding FunctionBadgeText, StringFormat='[ {0} ]'}" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource AccentCyanBrush}"/>
+                            </Border>
+                        </Grid>
 
-                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="4,0,0,0">
-                            <TextBlock Text="设备状态" FontSize="9" Foreground="#71717A"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
-                                <Ellipse Width="5" Height="5" Margin="0,0,4,0" VerticalAlignment="Center">
-                                    <Ellipse.Style>
-                                        <Style TargetType="Ellipse">
-                                            <Setter Property="Fill" Value="#10B981" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding State}" Value="{x:Static local:DeviceState.Warning}">
-                                                    <Setter Property="Fill" Value="#F59E0B" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Ellipse.Style>
-                                </Ellipse>
-                                <TextBlock Text="{Binding StatusBadgeText}" FontSize="9" FontWeight="SemiBold">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="#10B981" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding State}" Value="{x:Static local:DeviceState.Warning}">
-                                                    <Setter Property="Foreground" Value="#F59E0B" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
+                        <Border Grid.Row="1" BorderBrush="{DynamicResource AppBorderSubtleBrush}" BorderThickness="0,0,0,1" VerticalAlignment="Center" Margin="0,2"/>
+
+                        <Grid Grid.Row="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,4,4">
+                                <TextBlock Text="VID:PID" FontSize="8" Foreground="{DynamicResource AppTextMutedBrush}" FontFamily="Consolas"/>
+                                <TextBlock Text="{Binding VidPid}" FontFamily="Consolas" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AppTextSecondaryBrush}"/>
                             </StackPanel>
-                        </StackPanel>
+
+                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="4,0,0,4">
+                                <TextBlock Text="端口" FontSize="8" Foreground="{DynamicResource AppTextMutedBrush}" FontFamily="Consolas"/>
+                                <TextBlock Text="{Binding ComPort}" FontFamily="Consolas" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,4,0">
+                                <TextBlock Text="序列号" FontSize="8" Foreground="{DynamicResource AppTextMutedBrush}" FontFamily="Consolas"/>
+                                <TextBlock Text="{Binding SerialNumber}" FontFamily="Consolas" FontSize="9" Foreground="{DynamicResource AppTextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="4,0,0,0">
+                                <TextBlock Text="状态" FontSize="8" Foreground="{DynamicResource AppTextMutedBrush}" FontFamily="Consolas"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                    <Ellipse Width="5" Height="5" Margin="0,0,4,0" VerticalAlignment="Center">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="{DynamicResource SuccessGreenBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding State}" Value="{x:Static local:DeviceState.Warning}">
+                                                        <Setter Property="Fill" Value="{DynamicResource WarningAmberBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <TextBlock Text="{Binding StatusBadgeText}" FontSize="9" FontWeight="SemiBold">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource SuccessGreenBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding State}" Value="{x:Static local:DeviceState.Warning}">
+                                                        <Setter Property="Foreground" Value="{DynamicResource WarningAmberBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
                     </Grid>
                 </Grid>
             </Border>
@@ -435,7 +450,7 @@
     </Window.Resources>
 
     <!-- 主窗体根容器 -->
-    <Grid Background="#18181B">
+    <Grid Background="{DynamicResource AppBgBrush}">
         <Grid.RowDefinitions>
             <!-- 行 0: 标题栏 (高 38) -->
             <RowDefinition Height="38" />
@@ -445,10 +460,90 @@
             <RowDefinition Height="32" />
         </Grid.RowDefinitions>
 
+        <!-- 二次元机能手绘线条背景与战术蓝图 (Hand-Drawn Anime Tech Line-Art & Celestial Blueprint) -->
+        <Canvas Grid.Row="0" Grid.RowSpan="3" IsHitTestVisible="False" ClipToBounds="True" Opacity="0.32">
+            <!-- 1. 左上方科技切线与网格标尺 -->
+            <Path Data="M 0,36 L 36,0 M 0,72 L 72,0 M 14,0 H 160 M 0,14 V 160" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.8" StrokeDashArray="3,3" />
+
+            <!-- 2. 战术星轨与同心刻度环 (Celestial Astrolabe & Reticle) -->
+            <Path Data="M 760,280 m -160,0 a 160,160 0 1,0 320,0 a 160,160 0 1,0 -320,0" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.7" StrokeDashArray="5,5" />
+            <Path Data="M 760,280 m -210,0 a 210,210 0 1,0 420,0 a 210,210 0 1,0 -420,0" 
+                  Stroke="{DynamicResource AppAnimeFineBrush}" StrokeThickness="0.6" StrokeDashArray="12,6" />
+            <Path Data="M 760,280 m -70,0 a 70,70 0 1,0 140,0 a 70,70 0 1,0 -140,0" 
+                  Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="0.9" Opacity="0.5" />
+            <Path Data="M 520,280 H 1000 M 760,40 V 520" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.5" StrokeDashArray="4,4" />
+
+            <!-- 3. 手绘二次元机能操纵者/少女侧颜线稿 (Hand-Drawn Anime Tech Operative Profile) -->
+            <!-- 头部与面部精细轮廓线 (额头、鼻梁、唇部、下巴与下颌角) -->
+            <Path Data="M 780,185 C 795,205 802,225 805,245 C 808,258 812,263 818,266 C 822,268 815,274 813,278 C 811,283 816,287 814,292 C 808,306 794,324 780,334 C 762,347 745,354 732,358" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="1.2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+
+            <!-- 眼睛与战术目镜细节 (睫毛弧线、瞳孔校准环、眼睑刻线与眉线) -->
+            <Path Data="M 788,242 C 796,237 805,240 811,246" 
+                  Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1.4" StrokeLineJoin="Round" StrokeStartLineCap="Round"/>
+            <Path Data="M 797,244 A 4,4 0 1,0 803,248" 
+                  Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1" Fill="{DynamicResource AccentCyanBrush}" Opacity="0.3"/>
+            <Path Data="M 793,249 C 797,251 801,251 804,249" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.8"/>
+            <Path Data="M 786,232 C 794,227 804,228 812,234" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="1" StrokeStartLineCap="Round"/>
+
+            <!-- 手绘飘逸发丝与刘海流线 (Front Bangs, Side Locks & Sweeping Back Hair) -->
+            <Path Data="M 765,175 C 778,205 794,228 798,242 M 755,190 C 768,228 782,275 776,312" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+            <Path Data="M 740,160 C 712,205 692,270 682,365 C 678,415 696,480 720,538" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="1.1" StrokeStartLineCap="Round"/>
+            <Path Data="M 722,148 C 685,195 656,280 648,395 C 644,455 662,512 688,578" 
+                  Stroke="{DynamicResource AppAnimeFineBrush}" StrokeThickness="0.8" StrokeStartLineCap="Round"/>
+            <Path Data="M 750,138 C 796,110 842,145 852,212 C 862,280 844,365 824,442 C 806,518 814,595 842,670" 
+                  Stroke="{DynamicResource AppAnimeFineBrush}" StrokeThickness="0.9" StrokeDashArray="18,3"/>
+
+            <!-- 战术通信耳麦与高科技目镜装具 (Cybernetic Headset & Acoustic Nodes) -->
+            <Path Data="M 735,255 A 24,24 0 1,1 735,303 A 24,24 0 1,1 735,255" 
+                  Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1.2"/>
+            <Path Data="M 735,266 A 13,13 0 1,1 735,292 A 13,13 0 1,1 735,266" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.8" StrokeDashArray="3,2"/>
+            <Path Data="M 730,258 C 720,205 734,158 772,135" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="1.4" StrokeStartLineCap="Round"/>
+            <Path Data="M 738,295 C 752,310 776,315 795,308 L 802,307" 
+                  Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1" StrokeStartLineCap="Round"/>
+            <Ellipse Canvas.Left="802" Canvas.Top="305" Width="4" Height="4" Fill="{DynamicResource AccentCyanBrush}"/>
+
+            <!-- 战术立领风衣与机能肩线 (Tactical Collar, Zipper Line & Armor Lapel) -->
+            <Path Data="M 732,358 C 727,382 736,406 750,420 L 722,434 C 694,448 646,472 618,520" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="1.1" StrokeStartLineCap="Round"/>
+            <Path Data="M 746,420 L 746,560" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.8" StrokeDashArray="4,3"/>
+            <Path Data="M 750,420 L 782,406 C 792,402 796,410 794,420 L 772,454 C 812,472 868,492 915,510" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="1"/>
+
+            <!-- 4. 底部微电子拓扑总线 (Tactical Bus Waveform & Circuit Traces) -->
+            <Path Data="M 0,680 H 260 L 300,640 H 580 L 610,670 H 1200" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.8" StrokeDashArray="6,4" />
+            <Path Data="M 280,640 L 290,630 H 420" 
+                  Stroke="{DynamicResource AppAnimeFineBrush}" StrokeThickness="0.6" />
+
+            <!-- 5. 战术坐标瞄准十字与刻度标记 (Tactical Reticles & Coordinate Marks) -->
+            <Path Data="M 60,220 H 74 M 67,213 V 227" Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1" Opacity="0.7"/>
+            <Path Data="M 520,140 H 534 M 527,133 V 147" Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.8" Opacity="0.5"/>
+            <Path Data="M 1040,480 H 1054 M 1047,473 V 487" Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1" Opacity="0.7"/>
+
+            <!-- 6. 极简机能技术代码微水印 -->
+            <TextBlock Text="NEXUS_SCHEMATICS // LINE_ART_07" Canvas.Left="35" Canvas.Top="230" 
+                       FontFamily="Consolas" FontSize="8" Foreground="{DynamicResource AppAnimeLineBrush}" Opacity="0.6"/>
+            <TextBlock Text="BUS_TOPOLOGY : 4_CHANNEL_ACTIVE" Canvas.Left="35" Canvas.Top="242" 
+                       FontFamily="Consolas" FontSize="8" Foreground="{DynamicResource AppAnimeLineBrush}" Opacity="0.4"/>
+            <TextBlock Text="HARDWARE_RECEPTOR // LINK_READY" Canvas.Right="40" Canvas.Bottom="70" 
+                       FontFamily="Consolas" FontSize="8" Foreground="{DynamicResource AppAnimeLineBrush}" Opacity="0.6"/>
+        </Canvas>
+
         <!-- ========================================================= -->
-        <!-- 1. 沉浸式隐形标题栏 (纯净去噪，无任何 DEBUG 按钮与冗余说明) -->
+        <!-- 1. 沉浸式隐形标题栏 (战术机能美学 + 深浅主题热重载切换) -->
         <!-- ========================================================= -->
-        <Border Grid.Row="0" Background="#121215" BorderBrush="#27272A" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderSubtleBrush}" BorderThickness="0,0,0,1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -456,45 +551,49 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- 左侧: 品牌徽标 + 主标题 -->
+                <!-- 左侧: 战术机能徽标 + 主标题 -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
                     <Path Data="M 12 2 L 2 7 L 12 12 L 22 7 Z M 2 17 L 12 22 L 22 17 M 2 12 L 12 17 L 22 12" 
-                          Stroke="{StaticResource AccentCyanBrush}" StrokeThickness="1.8" 
+                          Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1.8" 
                           HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Width="15" Height="15" Margin="0,0,9,0"/>
-                    <TextBlock Text="LinkNexus" FontSize="13" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
-                    <Border Background="#27272A" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="多协议桌面硬件调试站" FontSize="10" Foreground="#A1A1AA" VerticalAlignment="Center"/>
+                    <TextBlock Text="LinkNexus" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
+                    <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="多协议硬件中枢 [ WORKBENCH ]" FontSize="9" FontFamily="Consolas" Foreground="{DynamicResource AccentAnimePurpleBrush}" VerticalAlignment="Center"/>
                     </Border>
                 </StackPanel>
 
                 <!-- 中间: 纯净留白拖拽区 (仅在点击 5 次开启 Debug 模式时显示极简指示) -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Border Background="#1C180B" BorderBrush="#F59E0B" BorderThickness="1" CornerRadius="4" Padding="8,2" 
+                    <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource WarningAmberBrush}" BorderThickness="1" CornerRadius="4" Padding="8,2" 
                             Visibility="{Binding DebugModeTagVisibility}">
                         <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="6" Height="6" Fill="#F59E0B" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="开发者维护模式 (已解锁 ESP32 主控救砖、通道 MOS 供电控制与拓扑热重载)" FontSize="10" FontWeight="SemiBold" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                            <Ellipse Width="6" Height="6" Fill="{DynamicResource WarningAmberBrush}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="开发者维护模式 (已解锁 ESP32 主控救砖、通道 MOS 供电与拓扑重载)" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource WarningAmberBrush}" VerticalAlignment="Center"/>
                             <Button Style="{StaticResource IndustrialBtnStyle}" Content="重载配置" Height="20" Padding="6,0" FontSize="9" Margin="8,0,0,0" 
                                     Command="{Binding ReloadConfigCommand}"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
 
-                <!-- 右侧: 刷新总线与窗口控制按钮组 (无 DEBUG 开关) -->
+                <!-- 右侧: 主题切换按钮 + 刷新总线 + 窗口控制 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="刷新总线" Height="26" Padding="8,2" Margin="0,0,12,0" 
+                    <!-- 主题切换胶囊按钮 (深色/浅色) -->
+                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="{Binding ThemeButtonText}" Height="25" Padding="10,0" Margin="0,0,8,0" 
+                            Command="{Binding ToggleThemeCommand}" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="{Binding ThemeButtonToolTip}"/>
+
+                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="刷新总线" Height="25" Padding="8,0" Margin="0,0,12,0" 
                             Command="{Binding TriggerScanCommand}" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="立即触发 Windows PnP 全量设备枚举"/>
 
                     <Button Style="{StaticResource CaptionBtnStyle}" Click="BtnWindowMinimize_Click" ToolTip="最小化">
-                        <Path Data="M 0 0 H 10" Stroke="{StaticResource TextNormalBrush}" StrokeThickness="1.2" SnapsToDevicePixels="True"/>
+                        <Path Data="M 0 0 H 10" Stroke="{DynamicResource TextNormalBrush}" StrokeThickness="1.2" SnapsToDevicePixels="True"/>
                     </Button>
 
                     <Button Style="{StaticResource CaptionBtnStyle}" Click="BtnWindowMaximize_Click" ToolTip="最大化 / 还原">
-                        <Path x:Name="PathMaximizeIcon" Data="M 0 0 H 10 V 10 H 0 Z" Stroke="{StaticResource TextNormalBrush}" StrokeThickness="1.2" SnapsToDevicePixels="True"/>
+                        <Path x:Name="PathMaximizeIcon" Data="M 0 0 H 10 V 10 H 0 Z" Stroke="{DynamicResource TextNormalBrush}" StrokeThickness="1.2" SnapsToDevicePixels="True"/>
                     </Button>
 
                     <Button Style="{StaticResource CaptionCloseBtnStyle}" Click="BtnWindowClose_Click" ToolTip="关闭">
-                        <Path Data="M 0 0 L 10 10 M 10 0 L 0 10" Stroke="{StaticResource TextNormalBrush}" StrokeThickness="1.2" SnapsToDevicePixels="True"/>
+                        <Path Data="M 0 0 L 10 10 M 10 0 L 0 10" Stroke="{DynamicResource TextNormalBrush}" StrokeThickness="1.2" SnapsToDevicePixels="True"/>
                     </Button>
                 </StackPanel>
             </Grid>
@@ -509,41 +608,20 @@
             <!-- ========================================================= -->
             <Grid Visibility="{Binding IsNormalModeVisible, Converter={StaticResource BoolToVisConverter}}">
                 <Grid.RowDefinitions>
-                    <!-- 顶部: 动态平铺 CH338X 下行硬件设备卡片流 + 外部设备抽屉按钮 -->
+                    <!-- 顶部: 选定设备进入工作台后的快捷切换栏 (未选定设备时收起，将全屏空间留给全量 USB 设备大厅) -->
                     <RowDefinition Height="Auto" />
-                    <!-- 间距 -->
-                    <RowDefinition Height="12" />
-                    <!-- 下部: 选定设备独立工作页面 (烧录 / 串口 CLI / 通用设备 / 系统流) -->
+                    <!-- 下部: 选定设备独立工作页面 / 未选设备时的全量 USB 设备大厅 -->
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-            <!-- 2.1 顶部: 动态设备卡片流与抽屉入口 -->
-            <Grid Grid.Row="0">
+            <!-- 2.1 顶部: 选定设备独立工作台下的快捷切换/收纳栏 (仅在激活工作台时呈现) -->
+            <Grid Grid.Row="0" Margin="0,0,0,10" Visibility="{Binding IsToolWorkspaceActive, Converter={StaticResource BoolToVisConverter}}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- 无设备接入时的空态提示 -->
-                <Border Grid.Row="0" Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="8" Padding="14,18">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding HasConnectedDevices}" Value="False">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Path Data="M 12 2 C 6.48 2 2 6.48 2 12 C 2 17.52 6.48 22 12 22 C 17.52 22 22 17.52 22 12 C 22 6.48 17.52 2 12 2 Z M 13 17 H 11 V 15 H 13 V 17 Z M 13 13 H 11 V 7 H 13 V 13 Z"
-                              Fill="#71717A" Width="18" Height="18" Stretch="Uniform" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="当前未检测到任何 CH338X 下行核心硬件设备，请通过 USB 接口接入开发板/调试器..." FontSize="12" Foreground="#71717A" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- 核心 CH338X 下行卡片流与双态抽屉收纳体系 (核心需求: 卡片超过两行再打开工具做抽屉收纳) -->
+                <!-- 核心 CH338X 下行卡片流与双态抽屉收纳体系 (卡片超过两行时自动精简收纳为药丸栏) -->
                 <Grid Grid.Row="0" Visibility="{Binding HasConnectedDevices, Converter={StaticResource BoolToVisConverter}}">
                     <Grid.RowDefinitions>
                         <!-- 行 0: 设备抽屉 (展开全景状态 vs 精简收纳栏状态) -->
@@ -562,21 +640,21 @@
                         </Grid.RowDefinitions>
 
                         <!-- 抽屉顶部控制条 -->
-                        <Border Grid.Row="0" Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,0,8">
+                        <Border Grid.Row="0" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,0,8">
                             <Grid>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="核心接入设备总线托盘" FontSize="11" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
-                                    <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding ConnectedDevices.Count, StringFormat=共 {0} 台设备}" FontSize="10" Foreground="#38BDF8"/>
+                                    <TextBlock Text="核心接入设备总线托盘" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding ConnectedDevices.Count, StringFormat=共 {0} 台设备}" FontSize="10" Foreground="{DynamicResource AccentCyanBrush}"/>
                                     </Border>
                                     <!-- 当打开工具时，显示当前激活设备标签 -->
                                     <Border Visibility="{Binding IsToolWorkspaceActive, Converter={StaticResource BoolToVisConverter}}"
-                                            Background="#0F172A" BorderBrush="#38BDF8" BorderThickness="1" CornerRadius="4" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                            Background="{DynamicResource CardSelectedBgBrush}" BorderBrush="{DynamicResource AccentCyanBrush}" BorderThickness="1" CornerRadius="4" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal">
                                             <Ellipse Width="5" Height="5" Fill="#10B981" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="当前激活: " FontSize="10" Foreground="#71717A"/>
-                                            <TextBlock Text="{Binding SelectedDevice.DeviceName}" FontSize="10" FontWeight="Bold" Foreground="#38BDF8"/>
-                                            <TextBlock Text="{Binding SelectedDevice.ComPort, StringFormat= [{0}]}" FontSize="10" FontFamily="Consolas" Foreground="#38BDF8"/>
+                                            <TextBlock Text="当前激活: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}"/>
+                                            <TextBlock Text="{Binding SelectedDevice.DeviceName}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}"/>
+                                            <TextBlock Text="{Binding SelectedDevice.ComPort, StringFormat= [{0}]}" FontSize="10" FontFamily="Consolas" Foreground="{DynamicResource AccentCyanBrush}"/>
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
@@ -614,7 +692,7 @@
 
                     <!-- 状态 B: 设备抽屉收纳状态 (Collapsed Compact Drawer Bar - 彻底解决超过两行占位过大问题) -->
                     <Border Grid.Row="0" Visibility="{Binding IsDeviceDrawerCollapsed, Converter={StaticResource BoolToVisConverter}}"
-                            Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="10,5">
+                            Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,5">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <!-- 左侧: 抽屉徽标与当前激活工作台标签 -->
@@ -627,23 +705,23 @@
 
                             <!-- 左侧: 抽屉收纳指示 + 当前激活设备 -->
                             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,10,0">
+                                <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,10,0">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="设备托盘抽屉 (已收纳)" FontSize="11" FontWeight="Bold" Foreground="#A1A1AA" VerticalAlignment="Center"/>
-                                        <Border Background="#27272A" CornerRadius="3" Padding="4,0" Margin="6,0,0,0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding ConnectedDevices.Count, StringFormat='{}{0} 台'}" FontSize="9" Foreground="#38BDF8"/>
+                                        <TextBlock Text="设备托盘抽屉 (已收纳)" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center"/>
+                                        <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="4,0" Margin="6,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding ConnectedDevices.Count, StringFormat='{}{0} 台'}" FontSize="9" Foreground="{DynamicResource AccentCyanBrush}"/>
                                         </Border>
                                     </StackPanel>
                                 </Border>
 
                                 <!-- 当前工作台设备标签 -->
-                                <Border Background="#0F172A" BorderBrush="#38BDF8" BorderThickness="1" CornerRadius="4" Padding="8,2" Margin="0,0,10,0"
+                                <Border Background="{DynamicResource CardSelectedBgBrush}" BorderBrush="{DynamicResource AccentCyanBrush}" BorderThickness="1" CornerRadius="4" Padding="8,2" Margin="0,0,10,0"
                                         Visibility="{Binding IsToolWorkspaceActive, Converter={StaticResource BoolToVisConverter}}">
                                     <StackPanel Orientation="Horizontal">
                                         <Ellipse Width="6" Height="6" Fill="#10B981" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="工作台: " FontSize="10" Foreground="#71717A"/>
-                                        <TextBlock Text="{Binding SelectedDevice.DeviceName}" FontSize="10" FontWeight="Bold" Foreground="#38BDF8"/>
-                                        <TextBlock Text="{Binding SelectedDevice.ComPort, StringFormat= [{0}]}" FontSize="10" FontFamily="Consolas" Foreground="#38BDF8" Margin="4,0,0,0"/>
+                                        <TextBlock Text="工作台: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}"/>
+                                        <TextBlock Text="{Binding SelectedDevice.DeviceName}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}"/>
+                                        <TextBlock Text="{Binding SelectedDevice.ComPort, StringFormat= [{0}]}" FontSize="10" FontFamily="Consolas" Foreground="{DynamicResource AccentCyanBrush}" Margin="4,0,0,0"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -673,6 +751,11 @@
 
                             <!-- 右侧: 展开抽屉与工作台操作按钮 -->
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- 右侧独立内核流水与日志抽屉切换按钮 (随时手动展开/收起) -->
+                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="{Binding LogDrawerButtonText}" 
+                                        Command="{Binding ToggleLogDrawerCommand}" Height="24" Padding="8,0" FontSize="10" Margin="0,0,6,0"
+                                        ToolTip="展开/收起右侧内核操作流水与系统诊断日志抽屉"/>
+
                                 <!-- 外部 USB 设备抽屉按钮 -->
                                 <Button Visibility="{Binding HasOtherDevices, Converter={StaticResource BoolToVisConverter}}" 
                                         Style="{StaticResource IndustrialBtnStyle}" Content="{Binding OtherDevicesDrawerButtonText}" 
@@ -699,7 +782,7 @@
                     </Border>
 
                     <!-- 外部 USB 外设抽屉面板 (无论是 State A 还是 State B，均可在下方展开展示) -->
-                    <Border Grid.Row="1" Background="#0C0C0E" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" 
+                    <Border Grid.Row="1" Background="{DynamicResource AppTerminalBgBrush}" BorderBrush="{DynamicResource AppTerminalBorderBrush}" BorderThickness="1" CornerRadius="6" 
                             Padding="12,10" Margin="0,8,0,0"
                             Visibility="{Binding IsOtherDevicesDrawerOpen, Converter={StaticResource BoolToVisConverter}}">
                         <Grid>
@@ -709,7 +792,7 @@
                             </Grid.RowDefinitions>
 
                             <Grid Grid.Row="0" Margin="0,0,0,8">
-                                <TextBlock Text="操作系统识别的其他 USB 外设抽屉 (点击卡片可查看其底层硬件属性)" FontSize="11" FontWeight="Bold" Foreground="#A1A1AA" VerticalAlignment="Center"/>
+                                <TextBlock Text="系统其他 USB 外设抽屉" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center"/>
                                 <Button Style="{StaticResource IndustrialBtnStyle}" Content="✕ 收起外设抽屉" Height="22" Padding="8,0" FontSize="10" 
                                         HorizontalAlignment="Right" Command="{Binding ToggleOtherDevicesDrawerCommand}"/>
                             </Grid>
@@ -726,42 +809,55 @@
                 </Grid>
             </Grid>
 
-            <!-- 2.2 下部: 选定设备独立工作页面 -->
-            <Border Grid.Row="2" Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="8" Padding="14">
+            <!-- 2.2 下部: 选定设备独立工作页面 与 全量设备大厅 (透明底座，使底层手绘线稿与毛玻璃通透无遮挡) -->
+            <Border Grid.Row="1" Background="Transparent" BorderThickness="0" Padding="0">
                 <Grid>
-                    <!-- ========================================================= -->
-                    <!-- 独立工作页面 A: FT2232 / XDS110 / DAPLink 固件烧录与内核调试工作台 -->
-                    <!-- 独立工作页面 A: FT2232 / XDS110 / DAPLink 固件烧录与内核调试工作台 (支持垂直滚动以适配多设备堆叠) -->
-                    <!-- ========================================================= -->
-                    <ScrollViewer Visibility="{Binding IsBurnerWorkspaceVisible, Converter={StaticResource BoolToVisConverter}}"
-                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-                        <Grid Margin="0,0,6,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <!-- 左侧: 专属工作台主区 (自适应填充) -->
+                        <ColumnDefinition Width="*" />
+                        <!-- 右侧: 内核流水与系统日志独立抽屉 (可手动展开/收起) -->
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                        <!-- 行 0: 设备标题与内核运行状态 -->
-                        <Grid Grid.Row="0" Margin="0,0,0,10">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Path Data="M 13 2 L 3 14 H 12 L 11 22 L 21 10 H 12 L 13 2 Z" Fill="#38BDF8" Width="13" Height="13" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding SelectedDevice.DeviceName, StringFormat={}{0} — 独立固件烧录与片上内核工作台}" 
-                                           FontSize="13" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
-                            </StackPanel>
+                    <!-- 左侧工作台容器 -->
+                    <Grid Grid.Column="0">
+                        <!-- ========================================================= -->
+                        <!-- 独立工作页面 A: FT2232 / XDS110 / DAPLink 固件烧录与内核调试工作台 (支持垂直滚动以适配多设备堆叠) -->
+                        <!-- ========================================================= -->
+                        <ScrollViewer Visibility="{Binding IsBurnerWorkspaceVisible, Converter={StaticResource BoolToVisConverter}}"
+                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                            <Grid Margin="0,0,6,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
 
-                            <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="8,3" HorizontalAlignment="Right">
-                                <StackPanel Orientation="Horizontal">
-                                    <Ellipse Width="6" Height="6" Fill="#10B981" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding KernelStateText}" FontSize="10" FontFamily="Consolas" Foreground="#34D399"/>
+                            <!-- 行 0: 设备标题与内核运行状态 -->
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Path Data="M 13 2 L 3 14 H 12 L 11 22 L 21 10 H 12 L 13 2 Z" Fill="{DynamicResource AccentCyanBrush}" Width="13" Height="13" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding SelectedDevice.DeviceName, StringFormat={}{0} · 固件烧录与片上内核工作台}" 
+                                               FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
                                 </StackPanel>
-                            </Border>
-                        </Grid>
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="{Binding LogDrawerButtonText}" 
+                                            Command="{Binding ToggleLogDrawerCommand}" Height="24" Padding="8,0" FontSize="10" Margin="0,0,8,0"
+                                            ToolTip="展开/收起右侧内核操作流水与系统诊断日志抽屉"/>
+                                    <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="8,3">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="6" Height="6" Fill="#10B981" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding KernelStateText}" FontSize="10" FontFamily="Consolas" Foreground="{DynamicResource TerminalTextGreenBrush}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
 
                         <!-- 行 1: 固件文件拖拽放入区 (Dropzone) -->
-                        <Border Grid.Row="1" Background="#18181B" BorderBrush="#38BDF8" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,0,0,10"
+                        <Border Grid.Row="1" Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AccentCyanBrush}" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,0,0,10"
                                 AllowDrop="True" Drop="FileDropZone_Drop" DragOver="FileDropZone_DragOver">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -772,23 +868,23 @@
 
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="固件镜像:" FontSize="10" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,6,0"/>
-                                        <TextBlock Text="{Binding CurrentLoadedFile.FileName}" FontSize="11" FontWeight="Bold" Foreground="#FAFAFA" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="固件镜像:" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" Margin="0,0,6,0"/>
+                                        <TextBlock Text="{Binding CurrentLoadedFile.FileName}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                                        <TextBlock Text="大小: " FontSize="10" Foreground="#71717A"/>
-                                        <TextBlock Text="{Binding CurrentLoadedFile.FileSizeText}" FontSize="10" Foreground="#A1A1AA" Margin="0,0,12,0"/>
-                                        <TextBlock Text="CRC32: " FontSize="10" Foreground="#71717A"/>
-                                        <TextBlock Text="{Binding CurrentLoadedFile.Crc32Text}" FontFamily="Consolas" FontSize="10" Foreground="#38BDF8" Margin="0,0,12,0"/>
-                                        <TextBlock Text="匹配架构: " FontSize="10" Foreground="#71717A"/>
+                                        <TextBlock Text="大小: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}"/>
+                                        <TextBlock Text="{Binding CurrentLoadedFile.FileSizeText}" FontSize="10" Foreground="{DynamicResource AppTextSecondaryBrush}" Margin="0,0,12,0"/>
+                                        <TextBlock Text="CRC32: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}"/>
+                                        <TextBlock Text="{Binding CurrentLoadedFile.Crc32Text}" FontFamily="Consolas" FontSize="10" Foreground="{DynamicResource AccentCyanBrush}" Margin="0,0,12,0"/>
+                                        <TextBlock Text="匹配架构: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}"/>
                                         <TextBlock Text="{Binding CurrentLoadedFile.TargetChipFamily}" FontSize="10" Foreground="#10B981"/>
                                     </StackPanel>
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0">
-                                    <TextBlock Text="烧录基地址: " FontSize="10" Foreground="#71717A" VerticalAlignment="Center"/>
+                                    <TextBlock Text="烧录基地址: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding LoadBaseAddress, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="24"
-                                             Background="#121215" Foreground="#38BDF8" BorderBrush="#27272A" FontFamily="Consolas" FontSize="10" Padding="4,2" VerticalAlignment="Center"/>
+                                             Background="{DynamicResource AppSurfaceBrush}" Foreground="{DynamicResource AccentCyanBrush}" BorderBrush="{DynamicResource AppBorderBrush}" FontFamily="Consolas" FontSize="10" Padding="4,2" VerticalAlignment="Center"/>
                                 </StackPanel>
 
                                 <Button Grid.Column="2" Style="{StaticResource IndustrialBtnStyle}" Content="浏览放入固件..." Height="26" Padding="10,2"
@@ -797,7 +893,7 @@
                         </Border>
 
                         <!-- 行 2: 内核操作组件工具栏 -->
-                        <Border Grid.Row="2" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="8,6" Margin="0,0,0,10">
+                        <Border Grid.Row="2" Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8,6" Margin="0,0,0,10">
                             <WrapPanel VerticalAlignment="Center">
                                 <Button Style="{StaticResource AccentActionBtnStyle}" Content="开始执行固件烧录" Height="28" Padding="12,0" Margin="0,0,8,0"
                                         Command="{Binding StartPreviewFlashCommand}" ToolTip="执行流式写入、扇区擦除与片上 CRC32 严格校验"/>
@@ -819,11 +915,11 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <ProgressBar Grid.Row="0" Height="5" Value="{Binding FlashProgress}" Minimum="0" Maximum="100" 
-                                         Foreground="#38BDF8" Background="#27272A" BorderThickness="0" Margin="0,0,0,4"/>
+                                         Foreground="{DynamicResource AccentCyanBrush}" Background="{DynamicResource AppBorderBrush}" BorderThickness="0" Margin="0,0,0,4"/>
                             <Grid Grid.Row="1">
-                                <TextBlock Text="{Binding FlashStatusStep}" FontSize="10" Foreground="#A1A1AA" HorizontalAlignment="Left"/>
+                                <TextBlock Text="{Binding FlashStatusStep}" FontSize="10" Foreground="{DynamicResource AppTextSecondaryBrush}" HorizontalAlignment="Left"/>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <TextBlock Text="{Binding FlashSpeedText, StringFormat=传输速率: {0}}" FontSize="10" Foreground="#38BDF8" Margin="0,0,12,0"/>
+                                    <TextBlock Text="{Binding FlashSpeedText, StringFormat=传输速率: {0}}" FontSize="10" Foreground="{DynamicResource AccentCyanBrush}" Margin="0,0,12,0"/>
                                     <TextBlock Text="{Binding FlashProgress, StringFormat=进度: {0}%}" FontSize="10" FontWeight="Bold" Foreground="#10B981"/>
                                 </StackPanel>
                             </Grid>
@@ -837,18 +933,18 @@
                                 <ColumnDefinition Width="2*" />
                             </Grid.ColumnDefinitions>
 
-                            <Border Grid.Column="0" Background="#0C0C0E" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="8">
+                            <Border Grid.Column="0" Background="{DynamicResource AppTerminalBgBrush}" BorderBrush="{DynamicResource AppTerminalBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Text="扇区内存转储视窗 (Sector Hex Dump 0x08000000 - 0x08000100)" FontSize="10" FontWeight="Bold" Foreground="#FAFAFA" Margin="0,0,0,6"/>
+                                    <TextBlock Grid.Row="0" Text="扇区内存转储视窗 (Sector Hex Dump 0x08000000 - 0x08000100)" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" Margin="0,0,0,6"/>
                                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                         <ItemsControl ItemsSource="{Binding SectorHexDumpLines}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="11" Foreground="#38BDF8" Margin="0,1"/>
+                                                    <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="11" Foreground="{DynamicResource TerminalTextCyanBrush}" Margin="0,1"/>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
@@ -856,19 +952,19 @@
                                 </Grid>
                             </Border>
 
-                            <Border Grid.Column="2" Background="#0C0C0E" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="8">
+                            <Border Grid.Column="2" Background="{DynamicResource AppTerminalBgBrush}" BorderBrush="{DynamicResource AppTerminalBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Text="内核操作流水记录 (Kernel Transaction Logs)" FontSize="10" FontWeight="Bold" Foreground="#FAFAFA" Margin="0,0,0,6"/>
+                                    <TextBlock Grid.Row="0" Text="内核操作流水记录 (Kernel Transaction Logs)" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" Margin="0,0,0,6"/>
                                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                         <ItemsControl ItemsSource="{Binding Logs}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <TextBlock FontFamily="Consolas" FontSize="10" Foreground="#A1A1AA" Margin="0,1" TextWrapping="Wrap">
-                                                        <Run Text="{Binding TimeString, Mode=OneWay, StringFormat=[{0}]}" Foreground="#71717A"/>
+                                                    <TextBlock FontFamily="Consolas" FontSize="10" Foreground="{DynamicResource TerminalTextPrimaryBrush}" Margin="0,1" TextWrapping="Wrap">
+                                                        <Run Text="{Binding TimeString, Mode=OneWay, StringFormat=[{0}]}" Foreground="{DynamicResource AppTextMutedBrush}"/>
                                                         <Run Text=" "/>
                                                         <Run Text="{Binding Message, Mode=OneWay}"/>
                                                     </TextBlock>
@@ -896,7 +992,7 @@
                         </Grid.RowDefinitions>
 
                         <!-- 行 0: 串口参数工具栏与硬件引脚控制 -->
-                        <Border Grid.Row="0" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,0,8">
+                        <Border Grid.Row="0" Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,0,8">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -905,15 +1001,15 @@
 
                                 <!-- 左侧: 端口、波特率、串口开关、硬件引脚 (DTR/RTS/CTS/DSR/Reset) -->
                                 <WrapPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="通信端口: " FontSize="10" Foreground="#71717A" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding SelectedDevice.ComPort}" FontSize="12" FontWeight="Bold" Foreground="#38BDF8" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="通信端口: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding SelectedDevice.ComPort}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
 
-                                    <TextBlock Text="波特率: " FontSize="10" Foreground="#71717A" VerticalAlignment="Center"/>
+                                    <TextBlock Text="波特率: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center"/>
                                     <ComboBox ItemsSource="{Binding AvailableBaudRates}" SelectedItem="{Binding SelectedBaudRate}" 
                                               Width="88" Height="24" FontSize="10" Margin="0,0,10,0" VerticalAlignment="Center"/>
 
-                                    <Border Background="#27272A" CornerRadius="3" Padding="5,1" Margin="0,0,10,0" VerticalAlignment="Center">
-                                        <TextBlock Text="8 - None - 1" FontSize="9" Foreground="#A1A1AA"/>
+                                    <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="5,1" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <TextBlock Text="8 - None - 1" FontSize="9" Foreground="{DynamicResource AppTextSecondaryBrush}"/>
                                     </Border>
 
                                     <Button Content="{Binding PortOpenButtonText}" Height="24" Padding="10,0" FontSize="10" Margin="0,0,10,0"
@@ -966,18 +1062,18 @@
                                     </Button>
 
                                     <!-- CTS 硬件状态指示 -->
-                                    <Border Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="3" Padding="5,2" Margin="0,0,6,0" VerticalAlignment="Center" ToolTip="CTS (Clear To Send) 硬件握手就绪指示">
+                                    <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="5,2" Margin="0,0,6,0" VerticalAlignment="Center" ToolTip="CTS (Clear To Send) 硬件握手就绪指示">
                                         <StackPanel Orientation="Horizontal">
                                             <Ellipse Width="6" Height="6" Fill="#10B981" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="CTS" FontSize="9" FontWeight="Bold" Foreground="#A1A1AA"/>
+                                            <TextBlock Text="CTS" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource AppTextSecondaryBrush}"/>
                                         </StackPanel>
                                     </Border>
 
                                     <!-- DSR / DTS 硬件状态指示 -->
-                                    <Border Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="3" Padding="5,2" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="DSR / DTS (Data Set Ready) 硬件载波状态指示">
+                                    <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="5,2" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="DSR / DTS (Data Set Ready) 硬件载波状态指示">
                                         <StackPanel Orientation="Horizontal">
                                             <Ellipse Width="6" Height="6" Fill="#10B981" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="DSR(DTS)" FontSize="9" FontWeight="Bold" Foreground="#A1A1AA"/>
+                                            <TextBlock Text="DSR(DTS)" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource AppTextSecondaryBrush}"/>
                                         </StackPanel>
                                     </Border>
 
@@ -986,8 +1082,11 @@
                                             Command="{Binding TriggerMcuResetCommand}" ToolTip="执行 DTR/RTS 硬件时序脉冲复位下位机/开发板 (ESP32/STM32)"/>
                                 </WrapPanel>
 
-                                <!-- 右侧: 视窗布局切换 (智能双视窗 / 纯 CLI / 纯串口监视) -->
+                                <!-- 右侧: 视窗布局切换 (智能双视窗 / 纯 CLI / 纯串口监视 + 日志抽屉开关) -->
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="{Binding LogDrawerButtonText}" 
+                                            Command="{Binding ToggleLogDrawerCommand}" Height="22" Padding="7,0" FontSize="9" Margin="0,0,4,0"
+                                            ToolTip="展开/收起右侧系统总线与内核日志抽屉"/>
                                     <Button Style="{StaticResource IndustrialBtnStyle}" Content="智能双视窗" Height="22" Padding="7,0" FontSize="9" Margin="0,0,4,0"
                                             Command="{Binding SetSerialViewModeCommand}" CommandParameter="0"/>
                                     <Button Style="{StaticResource IndustrialBtnStyle}" Content="纯 CLI" Height="22" Padding="7,0" FontSize="9" Margin="0,0,4,0"
@@ -1017,7 +1116,7 @@
 
                                 <!-- 快捷命令注入条 -->
                                 <WrapPanel Grid.Row="0" Margin="0,0,0,6">
-                                    <TextBlock Text="快捷注入:" FontSize="9" Foreground="#71717A" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="常用指令:" FontSize="9" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                     <Button Style="{StaticResource IndustrialBtnStyle}" Content="uname -a" Height="20" Padding="5,0" FontSize="8" Margin="0,0,4,2" Command="{Binding InjectCliPresetCommand}" CommandParameter="uname -a"/>
                                     <Button Style="{StaticResource IndustrialBtnStyle}" Content="ifconfig -a" Height="20" Padding="5,0" FontSize="8" Margin="0,0,4,2" Command="{Binding InjectCliPresetCommand}" CommandParameter="ifconfig -a"/>
                                     <Button Style="{StaticResource IndustrialBtnStyle}" Content="dmesg | tail" Height="20" Padding="5,0" FontSize="8" Margin="0,0,4,2" Command="{Binding InjectCliPresetCommand}" CommandParameter="dmesg | tail -n 20"/>
@@ -1027,12 +1126,12 @@
                                 </WrapPanel>
 
                                 <!-- Linux 终端显示区 -->
-                                <Border Grid.Row="1" Background="#0C0C0E" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="8">
+                                <Border Grid.Row="1" Background="{DynamicResource AppTerminalBgBrush}" BorderBrush="{DynamicResource AppTerminalBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="8">
                                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                                         <ItemsControl ItemsSource="{Binding LinuxCliTerminalLines}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="11" Foreground="#38BDF8" Margin="0,1" TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="11" Foreground="{DynamicResource TerminalTextCyanBrush}" Margin="0,1" TextWrapping="Wrap"/>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
@@ -1041,11 +1140,11 @@
                             </Grid>
 
                             <!-- 分割栏 (仅在双视窗模式时显示) -->
-                            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="#18181B" 
+                            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceSubtleBrush}" 
                                           Visibility="{Binding IsSmartDualViewVisible, Converter={StaticResource BoolToVisConverter}}"/>
 
                             <!-- 右列: 📡 实时串口数据监视与 HEX 分析器 -->
-                            <Border Grid.Column="2" Background="#0C0C0E" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="8"
+                            <Border Grid.Column="2" Background="{DynamicResource AppTerminalBgBrush}" BorderBrush="{DynamicResource AppTerminalBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="8"
                                     Visibility="{Binding IsSerialMonitorAreaVisible, Converter={StaticResource BoolToVisConverter}}">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -1056,12 +1155,12 @@
                                     <!-- 监视器控制栏 -->
                                     <Grid Grid.Row="0" Margin="0,0,0,6">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="数据接收监视 (Rx)" FontSize="10" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
-                                            <CheckBox Content="HEX 接收" IsChecked="{Binding IsHexReceiveMode}" Foreground="#71717A" FontSize="9" Margin="10,0,0,0" VerticalAlignment="Center"/>
-                                            <CheckBox Content="时间戳" IsChecked="{Binding IsTimestampEnabled}" Foreground="#71717A" FontSize="9" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="串口实时数据监视" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
+                                            <CheckBox Content="HEX 接收" IsChecked="{Binding IsHexReceiveMode}" Foreground="{DynamicResource AppTextMutedBrush}" FontSize="9" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                            <CheckBox Content="时间戳" IsChecked="{Binding IsTimestampEnabled}" Foreground="{DynamicResource AppTextMutedBrush}" FontSize="9" Margin="6,0,0,0" VerticalAlignment="Center"/>
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding SerialTxBytes, StringFormat=TX: {0}B}" FontSize="9" Foreground="#71717A" Margin="0,0,6,0"/>
+                                            <TextBlock Text="{Binding SerialTxBytes, StringFormat=TX: {0}B}" FontSize="9" Foreground="{DynamicResource AppTextMutedBrush}" Margin="0,0,6,0"/>
                                             <TextBlock Text="{Binding SerialRxBytes, StringFormat=RX: {0}B}" FontSize="9" Foreground="#10B981" Margin="0,0,6,0"/>
                                             <Button Style="{StaticResource IndustrialBtnStyle}" Content="清空" Height="18" Padding="5,0" FontSize="8" 
                                                     Command="{Binding ClearSerialMonitorCommand}"/>
@@ -1073,7 +1172,7 @@
                                         <ItemsControl ItemsSource="{Binding SerialMonitorLines}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="10" Foreground="#34D399" Margin="0,1" TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="10" Foreground="{DynamicResource TerminalTextGreenBrush}" Margin="0,1" TextWrapping="Wrap"/>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
@@ -1083,7 +1182,7 @@
                         </Grid>
 
                         <!-- 行 2: 智能自动识别输入条 (自动识别 Linux CLI / HEX / AT / 字符串) -->
-                        <Border Grid.Row="2" Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="8,6">
+                        <Border Grid.Row="2" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="8,6">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -1093,15 +1192,15 @@
                                 <!-- 自动识别分类指示标签 -->
                                 <Grid Grid.Row="0" Margin="0,0,0,4">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border BorderBrush="{Binding DetectedInputBadgeColor}" BorderThickness="1" CornerRadius="3" Padding="6,1" Background="#18181B">
+                                        <Border BorderBrush="{Binding DetectedInputBadgeColor}" BorderThickness="1" CornerRadius="3" Padding="6,1" Background="{DynamicResource AppSurfaceSubtleBrush}">
                                             <TextBlock Text="{Binding DetectedInputType}" FontSize="9" FontWeight="Bold" Foreground="{Binding DetectedInputBadgeColor}"/>
                                         </Border>
                                     </StackPanel>
 
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <TextBlock Text="模式锁定:" FontSize="9" Foreground="#71717A" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <RadioButton Content="智能自适应" IsChecked="True" Foreground="#FAFAFA" FontSize="9" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                        <CheckBox Content="追加 \r\n" IsChecked="{Binding IsAppendNewLine}" Foreground="#71717A" FontSize="9" VerticalAlignment="Center"/>
+                                        <TextBlock Text="模式锁定:" FontSize="9" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <RadioButton Content="智能自适应" IsChecked="True" Foreground="{DynamicResource AppTextPrimaryBrush}" FontSize="9" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <CheckBox Content="追加 \r\n" IsChecked="{Binding IsAppendNewLine}" Foreground="{DynamicResource AppTextMutedBrush}" FontSize="9" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Grid>
 
@@ -1116,7 +1215,7 @@
                                     <TextBlock Grid.Column="0" Text="root@linknexus-board:~# " FontFamily="Consolas" FontSize="11" FontWeight="Bold" Foreground="#10B981" VerticalAlignment="Center" Margin="2,0,4,0"/>
                                     <TextBox Grid.Column="1" Text="{Binding SmartInputBuffer, UpdateSourceTrigger=PropertyChanged}" 
                                              KeyDown="SmartInputTextBox_KeyDown"
-                                             Height="26" Background="#18181B" Foreground="#FAFAFA" BorderBrush="#27272A" BorderThickness="1" 
+                                             Height="26" Background="{DynamicResource AppSurfaceSubtleBrush}" Foreground="{DynamicResource AppTextPrimaryBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" 
                                              FontFamily="Consolas" FontSize="11" Padding="6,3" VerticalAlignment="Center"/>
                                     <Button Grid.Column="2" Style="{StaticResource AccentActionBtnStyle}" Content="执行 / 发送 (Enter)" Height="26" Padding="14,0" FontSize="10" Margin="6,0,0,0"
                                             Command="{Binding SendSmartInputCommand}" ToolTip="自动按识别到的类型发送 (支持直接按回车键)"/>
@@ -1131,15 +1230,15 @@
                     <Grid Visibility="{Binding IsGenericWorkspaceVisible, Converter={StaticResource BoolToVisConverter}}">
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                             <Path Data="M 12 2 L 2 7 L 12 12 L 22 7 Z M 2 17 L 12 22 L 22 17 M 2 12 L 12 17 L 22 12" 
-                                  Stroke="{StaticResource AccentCyanBrush}" StrokeThickness="2" Width="40" Height="40" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,16"/>
-                            <TextBlock Text="{Binding SelectedDevice.DeviceName}" FontSize="15" FontWeight="Bold" Foreground="#FAFAFA" HorizontalAlignment="Center"/>
-                            <TextBlock Text="{Binding SelectedDevice.DeviceDescription}" FontSize="11" Foreground="#71717A" HorizontalAlignment="Center" Margin="0,4,0,16"/>
+                                  Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="2" Width="40" Height="40" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                            <TextBlock Text="{Binding SelectedDevice.DeviceName}" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{Binding SelectedDevice.DeviceDescription}" FontSize="11" Foreground="{DynamicResource AppTextMutedBrush}" HorizontalAlignment="Center" Margin="0,4,0,16"/>
 
-                            <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="16" MinWidth="420">
+                            <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="16" MinWidth="420">
                                 <StackPanel>
-                                    <TextBlock Text="{Binding SelectedDevice.VidPid, StringFormat=硬件识别码：{0}}" FontFamily="Consolas" FontSize="11" Foreground="#38BDF8"/>
-                                    <TextBlock Text="{Binding SelectedDevice.SerialNumber, StringFormat=设备序列号：{0}}" FontFamily="Consolas" FontSize="11" Foreground="#A1A1AA" Margin="0,4,0,0"/>
-                                    <TextBlock Text="{Binding SelectedDevice.HardwarePath, StringFormat=实例路径：{0}}" FontFamily="Consolas" FontSize="10" Foreground="#71717A" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding SelectedDevice.VidPid, StringFormat=硬件识别码：{0}}" FontFamily="Consolas" FontSize="11" Foreground="{DynamicResource AccentCyanBrush}"/>
+                                    <TextBlock Text="{Binding SelectedDevice.SerialNumber, StringFormat=设备序列号：{0}}" FontFamily="Consolas" FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" Margin="0,4,0,0"/>
+                                    <TextBlock Text="{Binding SelectedDevice.HardwarePath, StringFormat=实例路径：{0}}" FontFamily="Consolas" FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}" Margin="0,4,0,0" TextWrapping="Wrap"/>
                                     <TextBlock Text="{Binding SelectedDevice.StatusMessage, StringFormat=驱动状态：{0}}" FontSize="11" Foreground="#10B981" Margin="0,6,0,0"/>
                                 </StackPanel>
                             </Border>
@@ -1147,22 +1246,109 @@
                     </Grid>
 
                     <!-- ========================================================= -->
-                    <!-- 全局系统 PnP 诊断事件流终端 (未选定特定设备时呈现) -->
+                    <!-- 全量已连接 USB 硬件设备全景展示区 (未选定特定设备或关闭工作台时呈现) -->
                     <!-- ========================================================= -->
                     <Grid Visibility="{Binding IsLogsWorkspaceVisible, Converter={StaticResource BoolToVisConverter}}">
+                        <Grid.RowDefinitions>
+                            <!-- 顶栏: 标题、统计徽章、系统日志与刷新总线按钮 -->
+                            <RowDefinition Height="Auto" />
+                            <!-- 中间: 全量 USB 设备毛玻璃卡片网格 / 空态提示 -->
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!-- 顶栏控制条 -->
+                        <Border Grid.Row="0" Background="{DynamicResource CardGlassBgBrush}" BorderBrush="{DynamicResource CardGlassBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12,7" Margin="0,0,0,10">
+                            <Grid>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Path Data="M 15 7 V 2 H 9 V 7 H 3 V 15 C 3 18.3 5.7 21 9 21 H 15 C 18.3 21 21 18.3 21 15 V 7 H 15 Z M 11 4 H 13 V 7 H 11 V 4 Z M 19 15 C 19 17.2 17.2 19 15 19 H 9 C 6.8 19 5 17.2 5 15 V 9 H 19 V 15 Z" 
+                                          Fill="{DynamicResource AccentCyanBrush}" Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="已连接 USB 硬件设备" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding AllUsbDevices.Count, StringFormat='共 {0} 台设备'}" FontSize="9" FontFamily="Consolas" Foreground="{DynamicResource AccentCyanBrush}"/>
+                                    </Border>
+                                    <TextBlock Text="点击任意卡片进入专属烧录、串口调试或外设工作台" FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="刷新硬件总线" Height="24" Padding="10,0" FontSize="10" Margin="0,0,8,0"
+                                            Command="{Binding TriggerScanCommand}" ToolTip="扫描并枚举当前系统中所有物理 USB 调试与通信设备"/>
+                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="{Binding LogDrawerButtonText}" 
+                                            Command="{Binding ToggleLogDrawerCommand}" Height="24" Padding="10,0" FontSize="10" Margin="0,0,8,0"
+                                            ToolTip="展开/收起右侧系统总线与内核日志抽屉"/>
+                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="清空流水" Height="24" Padding="8,0" FontSize="10" 
+                                            Command="{Binding ClearLogsCommand}" ToolTip="清空系统内核日志"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- 主内容区: 设备存在时平铺全景卡片，无设备时展示毛玻璃空态引导 -->
+                        <Grid Grid.Row="1">
+                            <!-- A. 有设备时: 全量 USB 设备毛玻璃卡片流 -->
+                            <ScrollViewer Visibility="{Binding HasAnyUsbDevice, Converter={StaticResource BoolToVisConverter}}"
+                                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                <ItemsControl ItemsSource="{Binding AllUsbDevices}" ItemTemplate="{StaticResource DeviceCardTemplate}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <!-- B. 无设备时: 毛玻璃空态引导 -->
+                            <Border Visibility="{Binding HasNoUsbDevices, Converter={StaticResource BoolToVisConverter}}"
+                                    Background="{DynamicResource CardGlassBgBrush}" BorderBrush="{DynamicResource CardGlassBorderBrush}" BorderThickness="1.2" CornerRadius="8" Padding="24" MaxWidth="520" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="20" Direction="270" ShadowDepth="4" Opacity="0.18" Color="#000000"/>
+                                </Border.Effect>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Path Data="M 12 2 C 6.48 2 2 6.48 2 12 C 2 17.52 6.48 22 12 22 C 17.52 22 22 17.52 22 12 C 22 6.48 17.52 2 12 2 Z M 13 17 H 11 V 15 H 13 V 17 Z M 13 13 H 11 V 7 H 13 V 13 Z"
+                                          Fill="{DynamicResource AppTextMutedBrush}" Width="36" Height="36" Stretch="Uniform" Margin="0,0,0,14" HorizontalAlignment="Center" Opacity="0.8"/>
+                                    <TextBlock Text="未检测到已连接的 USB 硬件设备" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="请将 LinkNexus 核心板或目标开发板通过 USB 线缆接入主机。系统支持即插即用自动检测与热插拔更新。" 
+                                               FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,16" LineHeight="18"/>
+                                    <Button Style="{StaticResource AccentActionBtnStyle}" Content="扫描总线" 
+                                            Command="{Binding TriggerScanCommand}" Height="28" Padding="18,0" FontSize="11" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </Grid>
+
+                <!-- 右侧内核流水与系统日志独立抽屉 (可手动展开/收起，关闭工作台后不突兀弹出) -->
+                <Border Grid.Column="1" Width="380" Margin="12,0,0,0"
+                        Background="{DynamicResource AppSurfaceSubtleBrush}" 
+                        BorderBrush="{DynamicResource AppBorderBrush}" 
+                        BorderThickness="1" CornerRadius="6" Padding="10"
+                        Visibility="{Binding IsLogDrawerOpen, Converter={StaticResource BoolToVisConverter}}">
+                    <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <Grid Grid.Row="0" Margin="0,0,0,10">
-                            <TextBlock Text="Windows 全量 PnP 硬件插拔与总线拓扑监控流" FontSize="12" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="清空日志" Height="22" Padding="8,1" FontSize="10" 
-                                    HorizontalAlignment="Right" Command="{Binding ClearLogsCommand}"/>
+                        <!-- 抽屉顶栏: 标题、记录数统计、清空与关闭按钮 -->
+                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path Data="M 19 3 H 5 C 3.9 3 3 3.9 3 5 V 19 C 3 20.1 3.9 21 5 21 H 19 C 20.1 21 21 20.1 21 19 V 5 C 21 3.9 20.1 3 19 3 Z M 19 19 H 5 V 5 H 19 V 19 Z M 7 10 H 17 V 12 H 7 V 10 Z M 7 7 H 17 V 9 H 7 V 7 Z M 7 13 H 14 V 15 H 7 V 13 Z" 
+                                      Fill="{DynamicResource AccentCyanBrush}" Width="12" Height="12" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="内核流水与系统日志" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
+                                <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Logs.Count, StringFormat={}{0} 条}" FontSize="9" FontFamily="Consolas" Foreground="{DynamicResource AccentCyanBrush}"/>
+                                </Border>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="清空" Height="22" Padding="6,1" FontSize="9" Margin="0,0,4,0"
+                                        Command="{Binding ClearLogsCommand}" ToolTip="清空当前日志记录"/>
+                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="✕ 关闭" Height="22" Padding="6,1" FontSize="9"
+                                        Command="{Binding CloseLogDrawerCommand}" ToolTip="收起右侧日志抽屉"/>
+                            </StackPanel>
                         </Grid>
 
-                        <Border Grid.Row="1" Background="#0C0C0E" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="8">
+                        <!-- 抽屉内容: 自适应高对比度终端日志视窗 -->
+                        <Border Grid.Row="1" Background="{DynamicResource AppTerminalBgBrush}" BorderBrush="{DynamicResource AppTerminalBorderBrush}" BorderThickness="1" CornerRadius="5">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="6">
                                 <ItemsControl ItemsSource="{Binding Logs}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -1174,12 +1360,12 @@
                                                 </Grid.ColumnDefinitions>
 
                                                 <TextBlock Grid.Column="0" Text="{Binding TimeString, StringFormat=[{0}]}" 
-                                                           FontFamily="Consolas" FontSize="10" Foreground="#71717A" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                           FontFamily="Consolas" FontSize="9" Foreground="{DynamicResource AppTextMutedBrush}" Margin="0,0,6,0" VerticalAlignment="Center"/>
 
-                                                <Border Grid.Column="1" CornerRadius="3" Padding="4,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                <Border Grid.Column="1" CornerRadius="2" Padding="3,1" Margin="0,0,6,0" VerticalAlignment="Center">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="#27272A" />
+                                                            <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding Level}" Value="SUCCESS">
                                                                     <Setter Property="Background" Value="#064E3B" />
@@ -1193,16 +1379,16 @@
                                                             </Style.Triggers>
                                                         </Style>
                                                     </Border.Style>
-                                                    <TextBlock Text="{Binding Level}" FontSize="9" FontWeight="Bold">
+                                                    <TextBlock Text="{Binding Level}" FontSize="8" FontWeight="Bold">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="#A1A1AA" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding Level}" Value="SUCCESS">
-                                                                        <Setter Property="Foreground" Value="#34D399" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource TerminalTextGreenBrush}" />
                                                                     </DataTrigger>
                                                                     <DataTrigger Binding="{Binding Level}" Value="WARN">
-                                                                        <Setter Property="Foreground" Value="#FBBF24" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource TerminalTextAmberBrush}" />
                                                                     </DataTrigger>
                                                                     <DataTrigger Binding="{Binding Level}" Value="ERROR">
                                                                         <Setter Property="Foreground" Value="#F87171" />
@@ -1213,8 +1399,8 @@
                                                     </TextBlock>
                                                 </Border>
 
-                                                <TextBlock Grid.Column="2" Text="{Binding Message}" FontFamily="Consolas, Microsoft YaHei" FontSize="11" 
-                                                           Foreground="#D4D4D8" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Message}" FontFamily="Consolas, Microsoft YaHei" FontSize="10" 
+                                                           Foreground="{DynamicResource TerminalTextPrimaryBrush}" TextWrapping="Wrap" VerticalAlignment="Center"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -1222,9 +1408,10 @@
                             </ScrollViewer>
                         </Border>
                     </Grid>
-                </Grid>
-            </Border>
-        </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
 
         <!-- ========================================================= -->
         <!-- 视图 2: 全新 Debug 开发者工程维护与虚拟调试新页面 (进入 Debug 模式时全屏切换) -->
@@ -1244,16 +1431,16 @@
             </Grid.RowDefinitions>
 
             <!-- 行 0: Debug 专属顶栏 -->
-            <Border Grid.Row="0" Background="#121215" BorderBrush="#F59E0B" BorderThickness="1" CornerRadius="6" Padding="14,8">
+            <Border Grid.Row="0" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="#F59E0B" BorderThickness="1" CornerRadius="6" Padding="14,8">
                 <Grid>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Ellipse Width="8" Height="8" Fill="#F59E0B" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="LinkNexus 开发者工程维护总控中心 (DEBUG 专属总台)" FontSize="12" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
-                        <Border Background="#1C180B" BorderBrush="#78350F" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="LinkNexus 开发者工程维护总控中心 [DEBUG_CONSOLE]" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
+                        <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="#F59E0B" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center">
                             <TextBlock Text="ROM Bootloader &amp; Virtual Simulation Active" FontSize="9" FontFamily="Consolas" Foreground="#F59E0B"/>
                         </Border>
-                        <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding DaemonStatusText}" FontSize="9" Foreground="#A1A1AA"/>
+                        <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding DaemonStatusText}" FontSize="9" Foreground="{DynamicResource AppTextSecondaryBrush}"/>
                         </Border>
                     </StackPanel>
 
@@ -1277,7 +1464,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- 左列: 固件救砖与覆盖区 -->
-                <Border Grid.Column="0" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="12,10">
+                <Border Grid.Column="0" Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12,10">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -1285,7 +1472,7 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Text="板载各引擎固件一键救砖覆盖 (Embedded Resource Flash)" FontSize="11" FontWeight="Bold" Foreground="#FAFAFA" Margin="0,0,0,8"/>
+                        <TextBlock Grid.Row="0" Text="板载引擎固件一键救砖覆盖 [RESOURCE_FLASH]" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" Margin="0,0,0,8"/>
 
                         <WrapPanel Grid.Row="1" Margin="0,0,0,6">
                             <Button Style="{StaticResource AccentActionBtnStyle}" Content="刷入主控固件 (ESP32-S3)" Height="25" Padding="8,0" Margin="0,0,6,4"
@@ -1304,9 +1491,9 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <ProgressBar Grid.Row="0" Height="4" Value="{Binding Esp32FlashProgress}" Minimum="0" Maximum="100" 
-                                         Foreground="#F59E0B" Background="#27272A" BorderThickness="0" Margin="0,2,0,4"/>
+                                         Foreground="#F59E0B" Background="{DynamicResource AppBorderBrush}" BorderThickness="0" Margin="0,2,0,4"/>
                             <Grid Grid.Row="1">
-                                <TextBlock Text="{Binding Esp32FlashStatusStep}" FontSize="9" Foreground="#A1A1AA" HorizontalAlignment="Left"/>
+                                <TextBlock Text="{Binding Esp32FlashStatusStep}" FontSize="9" Foreground="{DynamicResource AppTextSecondaryBrush}" HorizontalAlignment="Left"/>
                                 <TextBlock Text="{Binding Esp32FlashProgress, StringFormat=进度: {0}%}" FontSize="9" FontWeight="Bold" Foreground="#F59E0B" HorizontalAlignment="Right"/>
                             </Grid>
                         </Grid>
@@ -1314,21 +1501,21 @@
                 </Border>
 
                 <!-- 右列: 4 路物理通道 MOS 供电控制矩阵 -->
-                <Border Grid.Column="2" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="12,10">
+                <Border Grid.Column="2" Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12,10">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Text="CH338X 物理下行通道 MOS 供电开通/隔离控制矩阵 (硬件保护)" FontSize="11" FontWeight="Bold" Foreground="#FAFAFA" Margin="0,0,0,8"/>
+                        <TextBlock Grid.Row="0" Text="CH338X 物理下行通道 MOS 供电控制矩阵 [POWER_GATE_MATRIX]" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" Margin="0,0,0,8"/>
 
                         <UniformGrid Grid.Row="1" Columns="4" Rows="1">
                             <!-- 通道 1: FT2232 -->
-                            <Border Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="6" Margin="0,0,4,0">
+                            <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="6" Margin="0,0,4,0">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="通道 #1: FT2232" FontSize="9" FontWeight="Bold" Foreground="#FAFAFA" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="JTAG/串口" FontSize="8" Foreground="#71717A" Margin="0,1,0,4"/>
+                                    <TextBlock Text="通道 #1: FT2232" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="JTAG/串口" FontSize="8" Foreground="{DynamicResource AppTextMutedBrush}" Margin="0,1,0,4"/>
                                     <Button Style="{StaticResource IndustrialBtnStyle}" Height="20" Padding="2,0" FontSize="9"
                                             Command="{Binding ToggleChannelPowerCommand}" CommandParameter="1">
                                         <TextBlock Text="{Binding IsChannel1PowerOn, StringFormat='MOS: {0}'}"/>
@@ -1337,10 +1524,10 @@
                             </Border>
 
                             <!-- 通道 2: DAPLink -->
-                            <Border Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="6" Margin="2,0,2,0">
+                            <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="6" Margin="2,0,2,0">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="通道 #2: DAPLink" FontSize="9" FontWeight="Bold" Foreground="#FAFAFA" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="CMSIS-DAP" FontSize="8" Foreground="#71717A" Margin="0,1,0,4"/>
+                                    <TextBlock Text="通道 #2: DAPLink" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="CMSIS-DAP" FontSize="8" Foreground="{DynamicResource AppTextMutedBrush}" Margin="0,1,0,4"/>
                                     <Button Style="{StaticResource IndustrialBtnStyle}" Height="20" Padding="2,0" FontSize="9"
                                             Command="{Binding ToggleChannelPowerCommand}" CommandParameter="2">
                                         <TextBlock Text="{Binding IsChannel2PowerOn, StringFormat='MOS: {0}'}"/>
@@ -1349,10 +1536,10 @@
                             </Border>
 
                             <!-- 通道 3: XDS110 -->
-                            <Border Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="6" Margin="2,0,2,0">
+                            <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="6" Margin="2,0,2,0">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="通道 #3: XDS110" FontSize="9" FontWeight="Bold" Foreground="#FAFAFA" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="TI 仿真探针" FontSize="8" Foreground="#71717A" Margin="0,1,0,4"/>
+                                    <TextBlock Text="通道 #3: XDS110" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="TI 仿真探针" FontSize="8" Foreground="{DynamicResource AppTextMutedBrush}" Margin="0,1,0,4"/>
                                     <Button Style="{StaticResource IndustrialBtnStyle}" Height="20" Padding="2,0" FontSize="9"
                                             Command="{Binding ToggleChannelPowerCommand}" CommandParameter="3">
                                         <TextBlock Text="{Binding IsChannel3PowerOn, StringFormat='MOS: {0}'}"/>
@@ -1361,10 +1548,10 @@
                             </Border>
 
                             <!-- 通道 4: CH343P -->
-                            <Border Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="6" Margin="4,0,0,0">
+                            <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="6" Margin="4,0,0,0">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="通道 #4: CH343P" FontSize="9" FontWeight="Bold" Foreground="#FAFAFA" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="虚拟串口/CLI" FontSize="8" Foreground="#71717A" Margin="0,1,0,4"/>
+                                    <TextBlock Text="通道 #4: CH343P" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="虚拟串口/CLI" FontSize="8" Foreground="{DynamicResource AppTextMutedBrush}" Margin="0,1,0,4"/>
                                     <Button Style="{StaticResource IndustrialBtnStyle}" Height="20" Padding="2,0" FontSize="9"
                                             Command="{Binding ToggleChannelPowerCommand}" CommandParameter="4">
                                         <TextBlock Text="{Binding IsChannel4PowerOn, StringFormat='MOS: {0}'}"/>
@@ -1377,7 +1564,7 @@
             </Grid>
 
             <!-- 行 2: 虚拟接入功能与核心引擎测试工作台 (用来测试里面的功能) -->
-            <Border Grid.Row="2" Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="8" Padding="12">
+            <Border Grid.Row="2" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
                 <Grid>
                     <Grid.RowDefinitions>
                         <!-- 虚拟接入开关总控栏 -->
@@ -1391,9 +1578,9 @@
                     <!-- 虚拟接入总控栏 -->
                     <Grid Grid.Row="0" Margin="0,0,0,8">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="虚拟接入功能 (Virtual Simulation Hub)" FontSize="12" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
-                            <Border Background="#1C180B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding VirtualDevicesStatusText}" FontSize="9" Foreground="#A1A1AA" VerticalAlignment="Center"/>
+                            <TextBlock Text="虚拟硬件仿真测试中枢 [VIRTUAL_SIMULATION_HUB]" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
+                            <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding VirtualDevicesStatusText}" FontSize="9" Foreground="{DynamicResource AccentCyanBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             </Border>
                         </StackPanel>
 
@@ -1410,12 +1597,12 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
-                            <Border Grid.Row="0" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="8,4" Margin="0,0,0,6">
+                            <Border Grid.Row="0" Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="8,4" Margin="0,0,0,6">
                                 <Grid>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="虚拟仿真核心设备总线" FontSize="10" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
-                                        <Border Background="#27272A" CornerRadius="3" Padding="4,0" Margin="6,0,0,0">
-                                            <TextBlock Text="{Binding VirtualDevices.Count, StringFormat=共 {0} 台}" FontSize="9" Foreground="#38BDF8"/>
+                                        <TextBlock Text="虚拟仿真核心设备总线 [VIRTUAL_BUS_ACTIVE]" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
+                                        <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="4,0" Margin="6,0,0,0">
+                                            <TextBlock Text="{Binding VirtualDevices.Count, StringFormat=共 {0} 台}" FontSize="9" Foreground="{DynamicResource AccentCyanBrush}"/>
                                         </Border>
                                     </StackPanel>
                                     <Button Style="{StaticResource AccentActionBtnStyle}" Command="{Binding ToggleDeviceDrawerCommand}" 
@@ -1439,7 +1626,7 @@
 
                         <!-- 状态 B: 虚拟抽屉收纳状态 (精简收纳栏) -->
                         <Border Visibility="{Binding IsDeviceDrawerCollapsed, Converter={StaticResource BoolToVisConverter}}"
-                                Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="8,4">
+                                Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="8,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
@@ -1448,12 +1635,12 @@
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text=" 虚拟设备抽屉 (已收纳)" FontSize="10" FontWeight="Bold" Foreground="#A1A1AA" VerticalAlignment="Center"/>
-                                    <Border Background="#0F172A" BorderBrush="#38BDF8" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0">
+                                    <TextBlock Text="虚拟设备抽屉 (已收纳) [DOCK_MINIMIZED]" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center"/>
+                                    <Border Background="{DynamicResource CardSelectedBgBrush}" BorderBrush="{DynamicResource AccentCyanBrush}" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0">
                                         <StackPanel Orientation="Horizontal">
                                             <Ellipse Width="5" Height="5" Fill="#10B981" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="测试工作台: " FontSize="9" Foreground="#71717A"/>
-                                            <TextBlock Text="{Binding SelectedDevice.DeviceName}" FontSize="9" FontWeight="Bold" Foreground="#38BDF8"/>
+                                            <TextBlock Text="测试工作台: " FontSize="9" Foreground="{DynamicResource AppTextMutedBrush}"/>
+                                            <TextBlock Text="{Binding SelectedDevice.DeviceName}" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}"/>
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
@@ -1490,19 +1677,19 @@
                     </Grid>
 
                     <!-- 当虚拟接入关闭时的占位引导提示 -->
-                    <Border Grid.Row="2" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="20"
+                    <Border Grid.Row="2" Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="20"
                             Visibility="{Binding IsVirtualDevicesDisabled, Converter={StaticResource BoolToVisConverter}}">
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                             <Path Data="M 12 2 C 6.48 2 2 6.48 2 12 C 2 17.52 6.48 22 12 22 C 17.52 22 22 17.52 22 12 C 22 6.48 17.52 2 12 2 Z M 13 17 H 11 V 15 H 13 V 17 Z M 13 13 H 11 V 7 H 13 V 13 Z"
-                                  Fill="#71717A" Width="36" Height="36" Stretch="Uniform" Margin="0,0,0,14" HorizontalAlignment="Center"/>
-                            <TextBlock Text="虚拟硬件链路未开启" FontSize="14" FontWeight="Bold" Foreground="#FAFAFA" HorizontalAlignment="Center"/>
-                            <TextBlock Text="点击右上角【开启虚拟硬件接入】按钮，系统将立即弹出虚拟的 FT2232、CH343P、XDS110、DAP 仿真设备，" FontSize="11" Foreground="#A1A1AA" HorizontalAlignment="Center" Margin="0,6,0,0"/>
-                            <TextBlock Text="您可免接物理硬件，直接在此测试固件拖拽烧录、Flash 扇区 Hex 转储、整片擦除、CoreID 抓取、串口通信与 Linux CLI 控制台交互等全部核心功能。" FontSize="11" Foreground="#71717A" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                  Fill="{DynamicResource AppTextMutedBrush}" Width="36" Height="36" Stretch="Uniform" Margin="0,0,0,14" HorizontalAlignment="Center"/>
+                            <TextBlock Text="虚拟硬件链路未开启" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="点击右上角【开启虚拟硬件接入】按钮，系统将立即弹出虚拟的 FT2232、CH343P、XDS110、DAP 仿真设备，" FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                            <TextBlock Text="您可免接物理硬件，直接在此测试固件拖拽烧录、Flash 扇区 Hex 转储、整片擦除、CoreID 抓取、串口通信与 Linux CLI 控制台交互等全部核心功能。" FontSize="11" Foreground="{DynamicResource AppTextMutedBrush}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                         </StackPanel>
                     </Border>
 
                     <!-- 当虚拟接入开启时展开的功能测试工作台 (用来测试里面的功能) -->
-                    <Border Grid.Row="2" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="10"
+                    <Border Grid.Row="2" Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10"
                             Visibility="{Binding IsVirtualDevicesEnabled, Converter={StaticResource BoolToVisConverter}}">
                         <Grid>
                             <!-- A. 虚拟烧录设备测试 (FT2232 / DAPLink / XDS110，带垂直滚动支持) -->
@@ -1520,18 +1707,18 @@
                                 <!-- 行 0: 设备标题与内核运行状态 -->
                                 <Grid Grid.Row="0" Margin="0,0,0,8">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Path Data="M 13 2 L 3 14 H 12 L 11 22 L 21 10 H 12 L 13 2 Z" Fill="#38BDF8" Width="12" Height="12" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <Path Data="M 13 2 L 3 14 H 12 L 11 22 L 21 10 H 12 L 13 2 Z" Fill="{DynamicResource AccentCyanBrush}" Width="12" Height="12" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                         <TextBlock Text="{Binding SelectedDevice.DeviceName, StringFormat=测试台：{0}}" 
-                                                   FontSize="12" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
+                                                   FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
                                     </StackPanel>
 
-                                    <Border Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
-                                        <TextBlock Text="{Binding KernelStateText}" FontSize="9" FontFamily="Consolas" Foreground="#34D399"/>
+                                    <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
+                                        <TextBlock Text="{Binding KernelStateText}" FontSize="9" FontFamily="Consolas" Foreground="{DynamicResource TerminalTextGreenBrush}"/>
                                     </Border>
                                 </Grid>
 
                                 <!-- 行 1: 固件文件放入区 -->
-                                <Border Grid.Row="1" Background="#121215" BorderBrush="#38BDF8" BorderThickness="1" CornerRadius="5" Padding="10,6" Margin="0,0,0,8"
+                                <Border Grid.Row="1" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AccentCyanBrush}" BorderThickness="1" CornerRadius="5" Padding="10,6" Margin="0,0,0,8"
                                         AllowDrop="True" Drop="FileDropZone_Drop" DragOver="FileDropZone_DragOver">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -1542,23 +1729,23 @@
 
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="固件镜像:" FontSize="9" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,6,0"/>
-                                                <TextBlock Text="{Binding CurrentLoadedFile.FileName}" FontSize="10" FontWeight="Bold" Foreground="#FAFAFA" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="固件镜像 (Firmware):" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" Margin="0,0,6,0"/>
+                                                <TextBlock Text="{Binding CurrentLoadedFile.FileName}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                                <TextBlock Text="大小: " FontSize="9" Foreground="#71717A"/>
-                                                <TextBlock Text="{Binding CurrentLoadedFile.FileSizeText}" FontSize="9" Foreground="#A1A1AA" Margin="0,0,8,0"/>
-                                                <TextBlock Text="CRC32: " FontSize="9" Foreground="#71717A"/>
-                                                <TextBlock Text="{Binding CurrentLoadedFile.Crc32Text}" FontFamily="Consolas" FontSize="9" Foreground="#38BDF8" Margin="0,0,8,0"/>
-                                                <TextBlock Text="匹配架构: " FontSize="9" Foreground="#71717A"/>
+                                                <TextBlock Text="大小: " FontSize="9" Foreground="{DynamicResource AppTextMutedBrush}"/>
+                                                <TextBlock Text="{Binding CurrentLoadedFile.FileSizeText}" FontSize="9" Foreground="{DynamicResource AppTextSecondaryBrush}" Margin="0,0,8,0"/>
+                                                <TextBlock Text="CRC32: " FontSize="9" Foreground="{DynamicResource AppTextMutedBrush}"/>
+                                                <TextBlock Text="{Binding CurrentLoadedFile.Crc32Text}" FontFamily="Consolas" FontSize="9" Foreground="{DynamicResource AccentCyanBrush}" Margin="0,0,8,0"/>
+                                                <TextBlock Text="匹配架构: " FontSize="9" Foreground="{DynamicResource AppTextMutedBrush}"/>
                                                 <TextBlock Text="{Binding CurrentLoadedFile.TargetChipFamily}" FontSize="9" Foreground="#10B981"/>
                                             </StackPanel>
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0">
-                                            <TextBlock Text="烧录基地址: " FontSize="9" Foreground="#71717A" VerticalAlignment="Center"/>
+                                            <TextBlock Text="烧录基地址: " FontSize="9" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center"/>
                                             <TextBox Text="{Binding LoadBaseAddress, UpdateSourceTrigger=PropertyChanged}" Width="80" Height="22"
-                                                     Background="#18181B" Foreground="#38BDF8" BorderBrush="#27272A" FontFamily="Consolas" FontSize="9" Padding="4,2" VerticalAlignment="Center"/>
+                                                     Background="{DynamicResource AppSurfaceSubtleBrush}" Foreground="{DynamicResource AccentCyanBrush}" BorderBrush="{DynamicResource AppBorderBrush}" FontFamily="Consolas" FontSize="9" Padding="4,2" VerticalAlignment="Center"/>
                                         </StackPanel>
 
                                         <Button Grid.Column="2" Style="{StaticResource IndustrialBtnStyle}" Content="浏览放入固件..." Height="24" Padding="8,1" FontSize="10"
@@ -1567,7 +1754,7 @@
                                 </Border>
 
                                 <!-- 行 2: 内核操作组件工具栏 -->
-                                <Border Grid.Row="2" Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="6,4" Margin="0,0,0,8">
+                                <Border Grid.Row="2" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="6,4" Margin="0,0,0,8">
                                     <WrapPanel VerticalAlignment="Center">
                                         <Button Style="{StaticResource AccentActionBtnStyle}" Content="开始执行固件烧录" Height="24" Padding="10,0" FontSize="10" Margin="0,0,6,0"
                                                 Command="{Binding StartPreviewFlashCommand}" ToolTip="执行流式写入、扇区擦除与片上 CRC32 严格校验"/>
@@ -1589,11 +1776,11 @@
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
                                     <ProgressBar Grid.Row="0" Height="4" Value="{Binding FlashProgress}" Minimum="0" Maximum="100" 
-                                                 Foreground="#38BDF8" Background="#27272A" BorderThickness="0" Margin="0,0,0,3"/>
+                                                 Foreground="{DynamicResource AccentCyanBrush}" Background="{DynamicResource AppBorderBrush}" BorderThickness="0" Margin="0,0,0,3"/>
                                     <Grid Grid.Row="1">
-                                        <TextBlock Text="{Binding FlashStatusStep}" FontSize="9" Foreground="#A1A1AA" HorizontalAlignment="Left"/>
+                                        <TextBlock Text="{Binding FlashStatusStep}" FontSize="9" Foreground="{DynamicResource AppTextSecondaryBrush}" HorizontalAlignment="Left"/>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                            <TextBlock Text="{Binding FlashSpeedText, StringFormat=传输速率: {0}}" FontSize="9" Foreground="#38BDF8" Margin="0,0,10,0"/>
+                                            <TextBlock Text="{Binding FlashSpeedText, StringFormat=传输速率: {0}}" FontSize="9" Foreground="{DynamicResource AccentCyanBrush}" Margin="0,0,10,0"/>
                                             <TextBlock Text="{Binding FlashProgress, StringFormat=进度: {0}%}" FontSize="9" FontWeight="Bold" Foreground="#10B981"/>
                                         </StackPanel>
                                     </Grid>
@@ -1607,18 +1794,18 @@
                                         <ColumnDefinition Width="2*" />
                                     </Grid.ColumnDefinitions>
 
-                                    <Border Grid.Column="0" Background="#0C0C0E" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="6">
+                                    <Border Grid.Column="0" Background="{DynamicResource AppTerminalBgBrush}" BorderBrush="{DynamicResource AppTerminalBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="6">
                                         <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="*" />
                                             </Grid.RowDefinitions>
-                                            <TextBlock Grid.Row="0" Text="Flash 存储扇区 Hex Dump 数据转储 (前 256 字节)" FontSize="9" FontWeight="Bold" Foreground="#FAFAFA" Margin="0,0,0,4"/>
+                                            <TextBlock Grid.Row="0" Text="Flash 存储扇区 Hex Dump 数据转储 (前 256 字节)" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" Margin="0,0,0,4"/>
                                             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                                 <ItemsControl ItemsSource="{Binding SectorHexDumpLines}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="10" Foreground="#38BDF8" Margin="0,1"/>
+                                                            <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="10" Foreground="{DynamicResource TerminalTextCyanBrush}" Margin="0,1"/>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
@@ -1626,18 +1813,18 @@
                                         </Grid>
                                     </Border>
 
-                                    <Border Grid.Column="2" Background="#0C0C0E" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="6">
+                                    <Border Grid.Column="2" Background="{DynamicResource AppTerminalBgBrush}" BorderBrush="{DynamicResource AppTerminalBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="6">
                                         <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="*" />
                                             </Grid.RowDefinitions>
-                                            <TextBlock Grid.Row="0" Text="内核操作流水线与状态日志" FontSize="9" FontWeight="Bold" Foreground="#FAFAFA" Margin="0,0,0,4"/>
+                                            <TextBlock Grid.Row="0" Text="内核操作流水线与状态日志" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" Margin="0,0,0,4"/>
                                             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                                 <ItemsControl ItemsSource="{Binding Logs}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <TextBlock Text="{Binding Message}" FontFamily="Consolas" FontSize="10" Foreground="#A1A1AA" Margin="0,1"/>
+                                                            <TextBlock Text="{Binding Message}" FontFamily="Consolas" FontSize="10" Foreground="{DynamicResource TerminalTextPrimaryBrush}" Margin="0,1"/>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
@@ -1660,7 +1847,7 @@
                                 </Grid.RowDefinitions>
 
                                 <!-- 行 0: 串口参数工具栏与硬件引脚控制 -->
-                                <Border Grid.Row="0" Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="5" Padding="8,5" Margin="0,0,0,8">
+                                <Border Grid.Row="0" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="8,5" Margin="0,0,0,8">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -1669,15 +1856,15 @@
 
                                         <!-- 左侧: 端口、波特率、串口开关、硬件引脚 (DTR/RTS/CTS/DSR/Reset) -->
                                         <WrapPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="通信端口: " FontSize="9" Foreground="#71717A" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding SelectedDevice.ComPort}" FontSize="11" FontWeight="Bold" Foreground="#38BDF8" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <TextBlock Text="通信端口: " FontSize="9" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding SelectedDevice.ComPort}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
 
-                                            <TextBlock Text="波特率: " FontSize="9" Foreground="#71717A" VerticalAlignment="Center"/>
+                                            <TextBlock Text="波特率: " FontSize="9" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center"/>
                                             <ComboBox ItemsSource="{Binding AvailableBaudRates}" SelectedItem="{Binding SelectedBaudRate}" 
                                                       Width="80" Height="22" FontSize="9" Margin="0,0,10,0" VerticalAlignment="Center"/>
 
-                                            <Border Background="#27272A" CornerRadius="3" Padding="5,1" Margin="0,0,10,0" VerticalAlignment="Center">
-                                                <TextBlock Text="8 - None - 1" FontSize="9" Foreground="#A1A1AA"/>
+                                            <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="5,1" Margin="0,0,10,0" VerticalAlignment="Center">
+                                                <TextBlock Text="8 - None - 1" FontSize="9" Foreground="{DynamicResource AppTextSecondaryBrush}"/>
                                             </Border>
 
                                             <Button Content="{Binding PortOpenButtonText}" Height="22" Padding="8,0" FontSize="9" Margin="0,0,10,0"
@@ -1730,18 +1917,18 @@
                                             </Button>
 
                                             <!-- CTS 硬件状态指示 -->
-                                            <Border Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="3" Padding="4,1" Margin="0,0,5,0" VerticalAlignment="Center" ToolTip="CTS (Clear To Send) 硬件握手就绪指示">
+                                            <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="4,1" Margin="0,0,5,0" VerticalAlignment="Center" ToolTip="CTS (Clear To Send) 硬件握手就绪指示">
                                                 <StackPanel Orientation="Horizontal">
                                                     <Ellipse Width="5" Height="5" Fill="#10B981" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                                                    <TextBlock Text="CTS" FontSize="8" FontWeight="Bold" Foreground="#A1A1AA"/>
+                                                    <TextBlock Text="CTS" FontSize="8" FontWeight="Bold" Foreground="{DynamicResource AppTextSecondaryBrush}"/>
                                                 </StackPanel>
                                             </Border>
 
                                             <!-- DSR / DTS 硬件状态指示 -->
-                                            <Border Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="3" Padding="4,1" Margin="0,0,6,0" VerticalAlignment="Center" ToolTip="DSR / DTS (Data Set Ready) 硬件载波状态指示">
+                                            <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="4,1" Margin="0,0,6,0" VerticalAlignment="Center" ToolTip="DSR / DTS (Data Set Ready) 硬件载波状态指示">
                                                 <StackPanel Orientation="Horizontal">
                                                     <Ellipse Width="5" Height="5" Fill="#10B981" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                                                    <TextBlock Text="DSR(DTS)" FontSize="8" FontWeight="Bold" Foreground="#A1A1AA"/>
+                                                    <TextBlock Text="DSR(DTS)" FontSize="8" FontWeight="Bold" Foreground="{DynamicResource AppTextSecondaryBrush}"/>
                                                 </StackPanel>
                                             </Border>
 
@@ -1781,7 +1968,7 @@
 
                                         <!-- 快捷命令注入条 -->
                                         <WrapPanel Grid.Row="0" Margin="0,0,0,4">
-                                            <TextBlock Text="快捷注入:" FontSize="8" Foreground="#71717A" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="常用指令:" FontSize="8" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
                                             <Button Style="{StaticResource IndustrialBtnStyle}" Content="uname -a" Height="18" Padding="4,0" FontSize="8" Margin="0,0,3,2" Command="{Binding InjectCliPresetCommand}" CommandParameter="uname -a"/>
                                             <Button Style="{StaticResource IndustrialBtnStyle}" Content="ifconfig -a" Height="18" Padding="4,0" FontSize="8" Margin="0,0,3,2" Command="{Binding InjectCliPresetCommand}" CommandParameter="ifconfig -a"/>
                                             <Button Style="{StaticResource IndustrialBtnStyle}" Content="dmesg | tail" Height="18" Padding="4,0" FontSize="8" Margin="0,0,3,2" Command="{Binding InjectCliPresetCommand}" CommandParameter="dmesg | tail -n 20"/>
@@ -1791,12 +1978,12 @@
                                         </WrapPanel>
 
                                         <!-- Linux 终端显示区 -->
-                                        <Border Grid.Row="1" Background="#0C0C0E" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="6">
+                                        <Border Grid.Row="1" Background="{DynamicResource AppTerminalBgBrush}" BorderBrush="{DynamicResource AppTerminalBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="6">
                                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                                 <ItemsControl ItemsSource="{Binding LinuxCliTerminalLines}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="10" Foreground="#38BDF8" Margin="0,1" TextWrapping="Wrap"/>
+                                                            <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="10" Foreground="{DynamicResource TerminalTextCyanBrush}" Margin="0,1" TextWrapping="Wrap"/>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
@@ -1805,11 +1992,11 @@
                                     </Grid>
 
                                     <!-- 分割栏 (仅在双视窗模式时显示) -->
-                                    <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="#18181B" 
+                                    <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceSubtleBrush}" 
                                                   Visibility="{Binding IsSmartDualViewVisible, Converter={StaticResource BoolToVisConverter}}"/>
 
                                     <!-- 右列: 📡 实时串口数据监视与 HEX 分析器 -->
-                                    <Border Grid.Column="2" Background="#0C0C0E" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="6"
+                                    <Border Grid.Column="2" Background="{DynamicResource AppTerminalBgBrush}" BorderBrush="{DynamicResource AppTerminalBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="6"
                                             Visibility="{Binding IsSerialMonitorAreaVisible, Converter={StaticResource BoolToVisConverter}}">
                                         <Grid>
                                             <Grid.RowDefinitions>
@@ -1820,12 +2007,12 @@
                                             <!-- 监视器控制栏 -->
                                             <Grid Grid.Row="0" Margin="0,0,0,4">
                                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <TextBlock Text="数据接收监视 (Rx)" FontSize="9" FontWeight="Bold" Foreground="#FAFAFA" VerticalAlignment="Center"/>
-                                                    <CheckBox Content="HEX" IsChecked="{Binding IsHexReceiveMode}" Foreground="#71717A" FontSize="8" Margin="6,0,0,0" VerticalAlignment="Center"/>
-                                                    <CheckBox Content="时间戳" IsChecked="{Binding IsTimestampEnabled}" Foreground="#71717A" FontSize="8" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="串口实时数据监视 [RX_MONITOR]" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
+                                                    <CheckBox Content="HEX" IsChecked="{Binding IsHexReceiveMode}" Foreground="{DynamicResource AppTextMutedBrush}" FontSize="8" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                                    <CheckBox Content="时间戳" IsChecked="{Binding IsTimestampEnabled}" Foreground="{DynamicResource AppTextMutedBrush}" FontSize="8" Margin="4,0,0,0" VerticalAlignment="Center"/>
                                                 </StackPanel>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding SerialTxBytes, StringFormat=TX: {0}B}" FontSize="8" Foreground="#71717A" Margin="0,0,4,0"/>
+                                                    <TextBlock Text="{Binding SerialTxBytes, StringFormat=TX: {0}B}" FontSize="8" Foreground="{DynamicResource AppTextMutedBrush}" Margin="0,0,4,0"/>
                                                     <TextBlock Text="{Binding SerialRxBytes, StringFormat=RX: {0}B}" FontSize="8" Foreground="#10B981" Margin="0,0,4,0"/>
                                                     <Button Style="{StaticResource IndustrialBtnStyle}" Content="清空" Height="16" Padding="4,0" FontSize="8" 
                                                             Command="{Binding ClearSerialMonitorCommand}"/>
@@ -1837,7 +2024,7 @@
                                                 <ItemsControl ItemsSource="{Binding SerialMonitorLines}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="9" Foreground="#34D399" Margin="0,1" TextWrapping="Wrap"/>
+                                                            <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="9" Foreground="{DynamicResource TerminalTextGreenBrush}" Margin="0,1" TextWrapping="Wrap"/>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
@@ -1847,7 +2034,7 @@
                                 </Grid>
 
                                 <!-- 行 2: 智能自动识别输入条 (自动识别 Linux CLI / HEX / AT / 字符串) -->
-                                <Border Grid.Row="2" Background="#121215" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="6,4">
+                                <Border Grid.Row="2" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="6,4">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
@@ -1857,15 +2044,15 @@
                                         <!-- 自动识别分类指示标签 -->
                                         <Grid Grid.Row="0" Margin="0,0,0,3">
                                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Border BorderBrush="{Binding DetectedInputBadgeColor}" BorderThickness="1" CornerRadius="2" Padding="4,1" Background="#18181B">
+                                                <Border BorderBrush="{Binding DetectedInputBadgeColor}" BorderThickness="1" CornerRadius="2" Padding="4,1" Background="{DynamicResource AppSurfaceSubtleBrush}">
                                                     <TextBlock Text="{Binding DetectedInputType}" FontSize="8" FontWeight="Bold" Foreground="{Binding DetectedInputBadgeColor}"/>
                                                 </Border>
                                             </StackPanel>
 
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                <TextBlock Text="模式锁定:" FontSize="8" Foreground="#71717A" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                <RadioButton Content="🤖 智能自适应" IsChecked="True" Foreground="#FAFAFA" FontSize="8" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                                <CheckBox Content="追加 \r\n" IsChecked="{Binding IsAppendNewLine}" Foreground="#71717A" FontSize="8" VerticalAlignment="Center"/>
+                                                <TextBlock Text="模式锁定:" FontSize="8" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                <RadioButton Content="🤖 智能自适应" IsChecked="True" Foreground="{DynamicResource AppTextPrimaryBrush}" FontSize="8" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                                <CheckBox Content="追加 \r\n" IsChecked="{Binding IsAppendNewLine}" Foreground="{DynamicResource AppTextMutedBrush}" FontSize="8" VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </Grid>
 
@@ -1880,7 +2067,7 @@
                                             <TextBlock Grid.Column="0" Text="root@linknexus-board:~# " FontFamily="Consolas" FontSize="10" FontWeight="Bold" Foreground="#10B981" VerticalAlignment="Center" Margin="2,0,3,0"/>
                                             <TextBox Grid.Column="1" Text="{Binding SmartInputBuffer, UpdateSourceTrigger=PropertyChanged}" 
                                                      KeyDown="SmartInputTextBox_KeyDown"
-                                                     Height="22" Background="#18181B" Foreground="#FAFAFA" BorderBrush="#27272A" BorderThickness="1" 
+                                                     Height="22" Background="{DynamicResource AppSurfaceSubtleBrush}" Foreground="{DynamicResource AppTextPrimaryBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" 
                                                      FontFamily="Consolas" FontSize="10" Padding="4,2" VerticalAlignment="Center"/>
                                             <Button Grid.Column="2" Style="{StaticResource AccentActionBtnStyle}" Content="▶ 执行 / 发送 (Enter)" Height="22" Padding="10,0" FontSize="9" Margin="4,0,0,0"
                                                     Command="{Binding SendSmartInputCommand}" ToolTip="自动按识别到的类型发送 (支持直接按回车键)"/>
@@ -1896,22 +2083,22 @@
     </Grid>
 
         <!-- ========================================================= -->
-        <!-- 3. 底部状态与版本号条 (左下角 ESP32 守护服务三态，右下角 5 次暗门) -->
+        <!-- 3. 底部状态与版本号条 (战术二次元风格) (左下角 ESP32 守护服务三态，右下角 5 次暗门) -->
         <!-- ========================================================= -->
-        <Border Grid.Row="2" Background="#121215" BorderBrush="#27272A" BorderThickness="0,1,0,0" Padding="14,0">
+        <Border Grid.Row="2" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0" Padding="14,0">
             <Grid>
                 <!-- 左下角: LinkNexus 物理拓扑守护服务状态 (ESP32 隐藏驱动：绿/红/黄) -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
                     <Ellipse Width="7" Height="7" Fill="{Binding DaemonStatusDotColor}" Margin="0,0,7,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding DaemonStatusText}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding DaemonStatusText}" FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- 右下角: 规范工程版本号 (1.5秒内连续点击5次触发开发者模式，无其他入口) -->
                 <Button Style="{StaticResource CaptionBtnStyle}" Height="24" Width="Auto" Padding="8,0" HorizontalAlignment="Right"
                         Command="{Binding VersionClickCommand}" 
                         ToolTip="工程规范版本号：vXXxx.YYWW (XXX) | 连续点击 5 次切换开发者维护模式">
-                    <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="7,2">
-                        <TextBlock Text="{Binding VersionString}" FontFamily="Consolas, Segoe UI" FontSize="10" FontWeight="Bold" Foreground="#38BDF8"/>
+                    <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="7,2">
+                        <TextBlock Text="{Binding VersionString}" FontFamily="Consolas, Segoe UI" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}"/>
                     </Border>
                 </Button>
             </Grid>

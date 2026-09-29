@@ -4,7 +4,65 @@
              xmlns:local="clr-namespace:LinkNexus"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-        <!-- 全局工业暗黑滚动条/滑条样式 (彻底解决所有下拉框、终端与视窗中的白灰滑条冲突 Bug) -->
+        <!-- 默认调色板 (默认初始化为赛博暗黑主题，后续由 ThemeManager 动态更新) -->
+        <SolidColorBrush x:Key="AppBgBrush" Color="#0B0C10" />
+        <SolidColorBrush x:Key="AppSurfaceBrush" Color="#13151F" />
+        <SolidColorBrush x:Key="AppSurfaceSubtleBrush" Color="#1A1D2B" />
+        <SolidColorBrush x:Key="AppSurfaceHoverBrush" Color="#23273A" />
+        <SolidColorBrush x:Key="AppBorderBrush" Color="#262A3D" />
+        <SolidColorBrush x:Key="AppBorderSubtleBrush" Color="#1C2030" />
+        <SolidColorBrush x:Key="AppBorderActiveBrush" Color="#38BDF8" />
+        <SolidColorBrush x:Key="BorderDarkBrush" Color="#262A3D" />
+        
+        <SolidColorBrush x:Key="AppTextPrimaryBrush" Color="#F8FAFC" />
+        <SolidColorBrush x:Key="AppTextSecondaryBrush" Color="#94A3B8" />
+        <SolidColorBrush x:Key="AppTextMutedBrush" Color="#64748B" />
+        <SolidColorBrush x:Key="TextBrightBrush" Color="#FAFAFA" />
+        <SolidColorBrush x:Key="TextNormalBrush" Color="#D4D4D8" />
+        <SolidColorBrush x:Key="TextDimBrush" Color="#71717A" />
+
+        <SolidColorBrush x:Key="AccentCyanBrush" Color="#38BDF8" />
+        <SolidColorBrush x:Key="AccentAnimePurpleBrush" Color="#818CF8" />
+        <SolidColorBrush x:Key="AccentAnimePinkBrush" Color="#F43F5E" />
+        <SolidColorBrush x:Key="AccentAmberBrush" Color="#F59E0B" />
+        
+        <SolidColorBrush x:Key="SuccessGreenBrush" Color="#10B981" />
+        <SolidColorBrush x:Key="WarningAmberBrush" Color="#F59E0B" />
+        <SolidColorBrush x:Key="ErrorRedBrush" Color="#EF4444" />
+
+        <SolidColorBrush x:Key="CardBgBrush" Color="#141724" />
+        <SolidColorBrush x:Key="CardBorderBrush" Color="#262A3D" />
+        <SolidColorBrush x:Key="CardSelectedBgBrush" Color="#162036" />
+        <SolidColorBrush x:Key="CardSelectedBorderBrush" Color="#38BDF8" />
+        <SolidColorBrush x:Key="CardGlassBgBrush" Color="#D9141826" />
+        <SolidColorBrush x:Key="CardGlassBorderBrush" Color="#3338BDF8" />
+        <SolidColorBrush x:Key="CardGlassHighlightBrush" Color="#1AFFFFFF" />
+        <SolidColorBrush x:Key="CardGlassHoverBgBrush" Color="#E61A2033" />
+        <SolidColorBrush x:Key="CardGlassHoverBorderBrush" Color="#8038BDF8" />
+
+        <SolidColorBrush x:Key="IndustrialBtnBgBrush" Color="#1E2235" />
+        <SolidColorBrush x:Key="IndustrialBtnBorderBrush" Color="#2E344E" />
+        <SolidColorBrush x:Key="IndustrialBtnHoverBgBrush" Color="#2B314B" />
+        <SolidColorBrush x:Key="IndustrialBtnPressedBgBrush" Color="#161927" />
+        <SolidColorBrush x:Key="InputBgBrush" Color="#0F111A" />
+
+        <SolidColorBrush x:Key="AppTerminalBgBrush" Color="#07080D" />
+        <SolidColorBrush x:Key="AppTerminalBorderBrush" Color="#1F2438" />
+        <SolidColorBrush x:Key="TerminalTextPrimaryBrush" Color="#F8FAFC" />
+        <SolidColorBrush x:Key="TerminalTextCyanBrush" Color="#38BDF8" />
+        <SolidColorBrush x:Key="TerminalTextGreenBrush" Color="#34D399" />
+        <SolidColorBrush x:Key="TerminalTextAmberBrush" Color="#FBBF24" />
+        <SolidColorBrush x:Key="TerminalTextMutedBrush" Color="#64748B" />
+
+        <SolidColorBrush x:Key="AppAnimeLineBrush" Color="#1E293B" />
+        <SolidColorBrush x:Key="AppAnimeGlowBrush" Color="#38BDF8" />
+        <SolidColorBrush x:Key="AppAnimeFineBrush" Color="#1A2234" />
+
+        <SolidColorBrush x:Key="ScrollBarTrackBrush" Color="#10121A" />
+        <SolidColorBrush x:Key="ScrollBarThumbBrush" Color="#2E344E" />
+        <SolidColorBrush x:Key="ScrollBarThumbHoverBrush" Color="#3F476B" />
+
+        <!-- 全局工业暗黑/白瓷二次元极简滚动条样式 -->
         <Style x:Key="IndustrialScrollBarThumbStyle" TargetType="{x:Type Thumb}">
             <Setter Property="SnapsToDevicePixels" Value="True"/>
             <Setter Property="OverridesDefaultStyle" Value="True"/>
@@ -14,15 +72,15 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Thumb}">
                         <Border x:Name="thumbBorder"
-                                Background="#3F3F46"
+                                Background="{DynamicResource ScrollBarThumbBrush}"
                                 CornerRadius="3"
                                 Margin="1,0"/>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="thumbBorder" Property="Background" Value="#52525B"/>
+                                <Setter TargetName="thumbBorder" Property="Background" Value="{DynamicResource ScrollBarThumbHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="thumbBorder" Property="Background" Value="#38BDF8"/>
+                                <Setter TargetName="thumbBorder" Property="Background" Value="{DynamicResource AccentCyanBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -39,15 +97,15 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Thumb}">
                         <Border x:Name="thumbBorder"
-                                Background="#3F3F46"
+                                Background="{DynamicResource ScrollBarThumbBrush}"
                                 CornerRadius="3"
                                 Margin="0,1"/>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="thumbBorder" Property="Background" Value="#52525B"/>
+                                <Setter TargetName="thumbBorder" Property="Background" Value="{DynamicResource ScrollBarThumbHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="thumbBorder" Property="Background" Value="#38BDF8"/>
+                                <Setter TargetName="thumbBorder" Property="Background" Value="{DynamicResource AccentCyanBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -76,7 +134,7 @@
                 <Trigger Property="Orientation" Value="Vertical">
                     <Setter Property="Width" Value="8"/>
                     <Setter Property="Height" Value="Auto"/>
-                    <Setter Property="Background" Value="#18181B"/>
+                    <Setter Property="Background" Value="{DynamicResource ScrollBarTrackBrush}"/>
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="{x:Type ScrollBar}">
@@ -100,7 +158,7 @@
                 <Trigger Property="Orientation" Value="Horizontal">
                     <Setter Property="Width" Value="Auto"/>
                     <Setter Property="Height" Value="8"/>
-                    <Setter Property="Background" Value="#18181B"/>
+                    <Setter Property="Background" Value="{DynamicResource ScrollBarTrackBrush}"/>
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="{x:Type ScrollBar}">
@@ -128,3 +186,4 @@
         <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource IndustrialScrollBarStyle}"/>
     </Application.Resources>
 </Application>
+

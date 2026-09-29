@@ -206,8 +206,15 @@ namespace LinkNexus
         /// </summary>
         public ObservableCollection<PortDeviceModel> OtherDevices { get; } = new();
 
+        /// <summary>
+        /// 全量已检测 USB 硬件设备集合 (用于未选定工作台或关闭工作台时全景展示)
+        /// </summary>
+        public ObservableCollection<PortDeviceModel> AllUsbDevices { get; } = new();
+
         public bool HasConnectedDevices => ConnectedDevices.Count > 0;
         public bool HasOtherDevices => OtherDevices.Count > 0;
+        public bool HasAnyUsbDevice => AllUsbDevices.Count > 0;
+        public bool HasNoUsbDevices => !HasAnyUsbDevice;
 
         /// <summary>
         /// 抽屉开关状态
@@ -228,7 +235,60 @@ namespace LinkNexus
         }
 
         public string OtherDevicesDrawerButtonText =>
-            $"系统其他设备 ({OtherDevices.Count}) {(IsOtherDevicesDrawerOpen ? "▴ 收起" : "▾ 展开")}";
+            $"其他外设 ({OtherDevices.Count}) {(IsOtherDevicesDrawerOpen ? "收起" : "展开")}";
+
+        #region 主题与深浅色模式切换 (Theme & Aesthetic Switching)
+
+        public bool IsDarkMode => ThemeManager.IsDarkMode;
+
+        public string ThemeButtonText => IsDarkMode ? "深色" : "浅色";
+
+        public string ThemeButtonToolTip => IsDarkMode ? "当前为深色模式，点击切换至浅色模式" : "当前为浅色模式，点击切换至深色模式";
+
+        public ICommand ToggleThemeCommand { get; }
+
+        private void ToggleTheme()
+        {
+            ThemeManager.ApplyTheme(!ThemeManager.IsDarkMode);
+            OnPropertyChanged(nameof(IsDarkMode));
+            OnPropertyChanged(nameof(ThemeButtonText));
+            OnPropertyChanged(nameof(ThemeButtonToolTip));
+        }
+
+        #endregion
+
+        #region 主工作台右侧内核流水与日志抽屉体系 (Log & Kernel Drawer)
+
+        private bool _isLogDrawerOpen = false;
+
+        /// <summary>
+        /// 主工作台右侧内核操作流水与日志抽屉是否展开
+        /// 针对需求：抽屉放置于右侧，点击关闭后需手动再次开启，避免操作完成后突兀弹出打扰用户
+        /// </summary>
+        public bool IsLogDrawerOpen
+        {
+            get => _isLogDrawerOpen;
+            set
+            {
+                if (_isLogDrawerOpen != value)
+                {
+                    _isLogDrawerOpen = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(LogDrawerButtonText));
+                    OnPropertyChanged(nameof(IsLogDrawerClosed));
+                }
+            }
+        }
+
+        public bool IsLogDrawerClosed => !_isLogDrawerOpen;
+
+        public string LogDrawerButtonText => IsLogDrawerOpen ? "收起日志" : $"系统日志 ({Logs.Count})";
+
+        public ICommand ToggleLogDrawerCommand { get; }
+        public ICommand CloseLogDrawerCommand { get; }
+        public ICommand OpenLogDrawerCommand { get; }
+
+        #endregion
 
         #region 核心设备托盘抽屉收纳体系 (解决卡片超过两行打开工具时占用比例过大问题)
 
@@ -914,6 +974,7 @@ namespace LinkNexus
             {
                 SelectedDevice = null;
                 IsDeviceDrawerCollapsed = false;
+                IsLogDrawerOpen = false;
             });
             ExitDebugModeCommand = new RelayCommand(() => IsDebugMode = false);
             ToggleVirtualDevicesCommand = new RelayCommand(OnToggleVirtualDevices);
@@ -921,6 +982,10 @@ namespace LinkNexus
             {
                 if (p is PortDeviceModel dev) SelectedVirtualDevice = dev;
             });
+            ToggleThemeCommand = new RelayCommand(ToggleTheme);
+            ToggleLogDrawerCommand = new RelayCommand(() => IsLogDrawerOpen = !IsLogDrawerOpen);
+            CloseLogDrawerCommand = new RelayCommand(() => IsLogDrawerOpen = false);
+            OpenLogDrawerCommand = new RelayCommand(() => IsLogDrawerOpen = true);
 
             // 串口硬件引脚与智能自动识别命令绑定
             ToggleDtrCommand = new RelayCommand(() => IsDtrEnable = !IsDtrEnable);
@@ -1074,15 +1139,28 @@ namespace LinkNexus
                 OtherDevices.Add(card);
             }
 
+            // 同步到全量已检测 USB 硬件设备集合
+            AllUsbDevices.Clear();
+            foreach (var card in ConnectedDevices)
+            {
+                AllUsbDevices.Add(card);
+            }
+            foreach (var card in OtherDevices)
+            {
+                AllUsbDevices.Add(card);
+            }
+
             OnPropertyChanged(nameof(HasConnectedDevices));
             OnPropertyChanged(nameof(HasOtherDevices));
+            OnPropertyChanged(nameof(HasAnyUsbDevice));
+            OnPropertyChanged(nameof(HasNoUsbDevices));
             OnPropertyChanged(nameof(OtherDevicesDrawerButtonText));
             OnPropertyChanged(nameof(AreCardsExceedingTwoRows));
 
-            // 保持当前选中的设备或默认选中第一个
-            if (SelectedDevice == null || (!ConnectedDevices.Contains(SelectedDevice) && !OtherDevices.Contains(SelectedDevice)))
+            // 如果当前有选中的设备，且该设备已拔出，则清空选中（返回全部设备展示）
+            if (SelectedDevice != null && !ConnectedDevices.Contains(SelectedDevice) && !OtherDevices.Contains(SelectedDevice))
             {
-                SelectedDevice = ConnectedDevices.FirstOrDefault() ?? OtherDevices.FirstOrDefault();
+                SelectedDevice = null;
             }
         }
 
@@ -2315,6 +2393,7 @@ namespace LinkNexus
                 });
 
                 while (Logs.Count > 300) Logs.RemoveAt(0);
+                OnPropertyChanged(nameof(LogDrawerButtonText));
             });
         }
 

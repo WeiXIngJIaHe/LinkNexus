@@ -49,6 +49,7 @@ namespace LinkNexus
 
             // 4. 二次元 / 赛博机能专属强调色 (深浅色点缀色适量区分，浅色偏战术深海蓝与品红)
             SetBrush(res, "AccentCyanBrush", isDark ? "#38BDF8" : "#2563EB");          // 深色苍穹青 / 浅色皇家战术蓝
+            SetBrush(res, "AccentActionTextBrush", isDark ? "#38BDF8" : "#2563EB");    // 强调按钮文本/图标前景色
             SetBrush(res, "AccentAnimePurpleBrush", isDark ? "#818CF8" : "#6366F1");   // 幻灵紫 / 靛蓝
             SetBrush(res, "AccentAnimePinkBrush", isDark ? "#F43F5E" : "#E11D48");     // 绯樱粉 / 战术赤红
             SetBrush(res, "AccentAmberBrush", isDark ? "#F59E0B" : "#D97706");         // 战术橙 / 深琥珀

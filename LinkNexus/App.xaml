@@ -22,6 +22,7 @@
         <SolidColorBrush x:Key="TextDimBrush" Color="#71717A" />
 
         <SolidColorBrush x:Key="AccentCyanBrush" Color="#38BDF8" />
+        <SolidColorBrush x:Key="AccentActionTextBrush" Color="#38BDF8" />
         <SolidColorBrush x:Key="AccentAnimePurpleBrush" Color="#818CF8" />
         <SolidColorBrush x:Key="AccentAnimePinkBrush" Color="#F43F5E" />
         <SolidColorBrush x:Key="AccentAmberBrush" Color="#F59E0B" />

@@ -6,9 +6,9 @@
 ![.NET Version](https://img.shields.io/badge/.NET-10.0-512BD4?style=for-the-badge&logo=dotnet)
 ![Architecture](https://img.shields.io/badge/Architecture-WPF%20%7C%20MVVM%20%7C%20Win32%20PnP-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Version](https://img.shields.io/badge/Release-v0107.2639%20(PRE)-38BDF8?style=for-the-badge)
+![Version](https://img.shields.io/badge/Release-v0.12--preview.2641-38BDF8?style=for-the-badge)
 
-**面向嵌入式软硬件调试的高质感桌面中枢，支持 Windows PnP 动态设备流、流式固件烧录、智能串口 CLI 与硬件拓扑安全控制**
+**面向嵌入式软硬件调试的高质感桌面中枢，支持 Windows PnP 动态设备流、流式固件烧录、智能串口 CLI、硬件拓扑安全控制与 MCP (Model Context Protocol) AI Agent 架构体系**
 
 [功能规格说明书](README_FUNCTIONAL.md) • [硬件端口重映射指南](README_PortMapping.md) • [快速构建](#快速构建与运行) • [开发者调试模式](#开发者维护模式-debug-mode-与虚拟接入)
 
@@ -23,6 +23,7 @@
 **LinkNexus** 聚焦以下核心体验：
 - **Windows PnP 真实枚举与动态流**：直接展示 Windows 设备管理器识别的友好名称，不添加虚假通道前缀；设备插拔毫秒级同步，未连接设备不占位。
 - **全量 USB 设备全景大厅**：关闭具体工作台或刚启动时，主区域完整平铺所有已连接 USB 硬件的毛玻璃卡片，支持一键直达对应工作页面；无设备时呈现精致磨砂引导。
+- **微交互流光感知体系**：左下角守护服务启动与拓扑探测时配备微型战术滑动条；“刷新总线”按钮与设备大厅底栏配备 VS Code 风格 2px 细线流光加载条，提供 700ms 舒适反馈窗口，杜绝闪频。
 - **专属工作台自适应路由**：
   * **固件烧录与内核调试**（FT2232 / XDS110 / DAPLink）：固件拖拽、CRC32 校验、架构解析、流式写入、256 字节 Flash 扇区 Hex Dump、整片擦除、CoreID 读取与复位；
   * **串口与 Linux 终端**（CH343P / 通用串口）：暗黑波特率自适应切换、DTR/RTS 硬件流控、CTS/DSR 状态指示、MCU 硬件复位脉冲、文本/HEX/Linux CLI/AT 智能自适应识别分流；
@@ -102,17 +103,16 @@ flowchart TD
 
 LinkNexus 采用严格的工程规范版本号定义：
 
-$$\mathbf{v[XX][xx].[YY][WW]\ (XXX)}$$
+$$\mathbf{v[X].[xx]-[AAA].[YY][WW]}$$
 
 | 字段 | 含义 | 说明 | 示例 |
 | :---: | :--- | :--- | :---: |
-| `XX` | 主版本号 (Major) | 架构级或重大重构主版本 (两位补零) | `01` |
-| `xx` | 次版本号 (Minor) | 功能特性迭代或小版本更新 (两位补零) | `00` |
-| `YY` | 年份后两位 (Year) | 如 2026 年记为 `26` | `26` |
-| `WW` | 自然周数 (Week) | ISO 8601 标准自然周 (01 ~ 53) | `39` |
-| `XXX` | 发布阶段代码 | `PRE` (预发布/工程版) / `REL` (正式版) / `RC_` (候选版) | `PRE` |
+| `X` | 大版本号 (Major) | 架构级或重大版本推进 (不补零) | `0`、`1` |
+| `xx` | 小版本修改号 (Minor) | 功能特性迭代或小版本更新 (两位补零) | `10` |
+| `AAA` | 修订与发布阶段 (Stage) | 语义化阶段标识：`preview` / `beta` / `release` | `preview` |
+| `YYWW` | 年周数 (Year-Week) | 年份后两位 + ISO 8601 自然周数 (01 ~ 53) | `2641` (2026年第41周) |
 
-> 当前基线版本：**`v0107.2639 (PRE)`**
+> 当前工程基线版本：**`v0.10-preview.2641`**
 
 ---
 
@@ -176,7 +176,7 @@ LinkNexus/
 | :--- | :--- | :--- |
 | **连击 5 次版本号** | 激活开发者调试模式 | 1.5 秒内快速点击右下角规范版本号区域 (开启/关闭) |
 | **全窗口拖拽文件** | 固件载入与架构识别 | 拖入 `.bin` / `.hex` / `.json` 文件，自动激活调试模式并解析 CRC32 |
-| **标题栏刷新按钮** | 强制刷新总线 | 立即触发一次系统全量 Windows PnP 设备树扫描 |
+| **设备大厅刷新按钮** | 强制刷新总线 | 立即触发一次系统全量 Windows PnP 设备树扫描与拓扑枚举 |
 
 ---
 

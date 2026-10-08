@@ -1,4 +1,4 @@
-﻿<Window x:Class="LinkNexus.MainWindow"
+<Window x:Class="LinkNexus.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -575,14 +575,28 @@
                     </Border>
                 </StackPanel>
 
-                <!-- 右侧: 主题切换按钮 + 刷新总线 + 窗口控制 -->
+                <!-- 右侧: 主题切换按钮 + 窗口控制 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- 主题切换胶囊按钮 (深色/浅色) -->
-                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="{Binding ThemeButtonText}" Height="25" Padding="10,0" Margin="0,0,8,0" 
-                            Command="{Binding ToggleThemeCommand}" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="{Binding ThemeButtonToolTip}"/>
+                    <!-- 主题切换图形按钮 (深色显示月牙，浅色显示太阳，无纯文字，解决视觉割裂) -->
+                    <Button Style="{StaticResource IndustrialBtnStyle}" Width="32" Height="25" Padding="0" Margin="0,0,12,0" 
+                            Command="{Binding ToggleThemeCommand}" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="{Binding ThemeButtonToolTip}">
+                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <!-- 深色模式: 精致月牙矢量图标 (Moon) -->
+                            <Path Width="13" Height="13" Stretch="Uniform"
+                                  Visibility="{Binding IsDarkMode, Converter={StaticResource BoolToVisConverter}}"
+                                  Stroke="{DynamicResource TextNormalBrush}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M 11.5 8.2 A 5.5 5.5 0 1 1 5.8 2.5 A 4.5 4.5 0 0 0 11.5 8.2 Z" 
+                                  Fill="{DynamicResource AppSurfaceHoverBrush}" SnapsToDevicePixels="True"/>
+                            
+                            <!-- 浅色模式: 极简太阳与八向光芒矢量图标 (Sun) -->
+                            <Path Width="13" Height="13" Stretch="Uniform"
+                                  Visibility="{Binding IsLightMode, Converter={StaticResource BoolToVisConverter}}"
+                                  Stroke="{DynamicResource WarningAmberBrush}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M 8 3.5 A 3.5 3.5 0 1 0 8 10.5 A 3.5 3.5 0 1 0 8 3.5 Z M 8 1 V 2.2 M 8 11.8 V 13 M 1 7 H 2.2 M 11.8 7 H 13 M 3.05 3.05 L 3.9 3.9 M 10.1 10.1 L 10.95 10.95 M 3.05 10.95 L 3.9 10.1 M 10.1 3.9 L 10.95 3.05"
+                                  Fill="Transparent" SnapsToDevicePixels="True"/>
+                        </Grid>
+                    </Button>
 
-                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="刷新总线" Height="25" Padding="8,0" Margin="0,0,12,0" 
-                            Command="{Binding TriggerScanCommand}" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="立即触发 Windows PnP 全量设备枚举"/>
 
                     <Button Style="{StaticResource CaptionBtnStyle}" Click="BtnWindowMinimize_Click" ToolTip="最小化">
                         <Path Data="M 0 0 H 10" Stroke="{DynamicResource TextNormalBrush}" StrokeThickness="1.2" SnapsToDevicePixels="True"/>
@@ -662,16 +676,28 @@
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                     <!-- 外部 USB 设备抽屉按钮 -->
                                     <Button Visibility="{Binding HasOtherDevices, Converter={StaticResource BoolToVisConverter}}" 
-                                            Style="{StaticResource IndustrialBtnStyle}" Content="{Binding OtherDevicesDrawerButtonText}" 
-                                            Command="{Binding ToggleOtherDevicesDrawerCommand}" Height="24" Padding="10,0" FontSize="10" Margin="0,0,8,0"
-                                            ToolTip="点击展开/收起操作系统枚举到的其他通用 USB 外设"/>
+                                            Style="{StaticResource IndustrialBtnStyle}" 
+                                            Command="{Binding ToggleOtherDevicesDrawerCommand}" Height="24" Padding="8,0" FontSize="10" Margin="0,0,8,0"
+                                            ToolTip="展开/收起操作系统枚举到的其他通用 USB 外设">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <!-- 外设分层图标 -->
+                                            <Path Data="M 1 2 H 4.5 L 6 3.5 H 11 V 9.5 H 1 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2" 
+                                                  Fill="Transparent" Width="11" Height="10" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding OtherDevices.Count, StringFormat=其他外设 ({0})}" FontSize="10" VerticalAlignment="Center"/>
+                                            <Path Visibility="{Binding IsOtherDevicesDrawerOpen, Converter={StaticResource BoolToVisConverter}}"
+                                                  Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                            <Path Visibility="{Binding IsOtherDevicesDrawerCollapsed, Converter={StaticResource BoolToVisConverter}}"
+                                                  Data="M 1 1.5 L 5 6.5 L 9 1.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
 
                                     <!-- 抽屉收纳按钮 (支持随时收起卡片) -->
                                     <Button Style="{StaticResource AccentActionBtnStyle}" 
                                             Command="{Binding ToggleDeviceDrawerCommand}" Height="24" Padding="10,0" FontSize="10"
                                             ToolTip="点击将上方设备卡片收纳入抽屉，释放更多工作空间给下方工作台">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="▲ 收起设备抽屉" FontSize="10" FontWeight="SemiBold"/>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="8" Height="6" Stretch="Uniform" SnapsToDevicePixels="True" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBlock Text="收起设备抽屉" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -752,30 +778,54 @@
                             <!-- 右侧: 展开抽屉与工作台操作按钮 -->
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                 <!-- 右侧独立内核流水与日志抽屉切换按钮 (随时手动展开/收起) -->
-                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="{Binding LogDrawerButtonText}" 
+                                <Button Style="{StaticResource IndustrialBtnStyle}" 
                                         Command="{Binding ToggleLogDrawerCommand}" Height="24" Padding="8,0" FontSize="10" Margin="0,0,6,0"
-                                        ToolTip="展开/收起右侧内核操作流水与系统诊断日志抽屉"/>
+                                        ToolTip="展开/收起右侧内核操作流水与系统诊断日志抽屉">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Data="M 1 1 H 11 V 9 H 1 Z M 3 3.5 L 5 5 L 3 6.5 M 6 6.5 H 8.5" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2"
+                                              Width="11" Height="9" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Logs.Count, StringFormat=内核流水 ({0})}" FontSize="10" VerticalAlignment="Center"/>
+                                        <Path Visibility="{Binding IsLogDrawerOpen, Converter={StaticResource BoolToVisConverter}}"
+                                              Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                        <Path Visibility="{Binding IsLogDrawerClosed, Converter={StaticResource BoolToVisConverter}}"
+                                              Data="M 1 1.5 L 5 6.5 L 9 1.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
 
                                 <!-- 外部 USB 设备抽屉按钮 -->
                                 <Button Visibility="{Binding HasOtherDevices, Converter={StaticResource BoolToVisConverter}}" 
-                                        Style="{StaticResource IndustrialBtnStyle}" Content="{Binding OtherDevicesDrawerButtonText}" 
+                                        Style="{StaticResource IndustrialBtnStyle}" 
                                         Command="{Binding ToggleOtherDevicesDrawerCommand}" Height="24" Padding="8,0" FontSize="10" Margin="0,0,6,0"
-                                        ToolTip="点击展开/收起操作系统枚举到的其他通用 USB 外设"/>
+                                        ToolTip="展开/收起操作系统枚举到的其他通用 USB 外设">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Data="M 1 2 H 4.5 L 6 3.5 H 11 V 9.5 H 1 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2" 
+                                              Fill="Transparent" Width="11" Height="10" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding OtherDevices.Count, StringFormat=其他外设 ({0})}" FontSize="10" VerticalAlignment="Center"/>
+                                        <Path Visibility="{Binding IsOtherDevicesDrawerOpen, Converter={StaticResource BoolToVisConverter}}"
+                                              Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                        <Path Visibility="{Binding IsOtherDevicesDrawerCollapsed, Converter={StaticResource BoolToVisConverter}}"
+                                              Data="M 1 1.5 L 5 6.5 L 9 1.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
 
-                                <!-- 展开设备抽屉按钮 -->
+                                <!-- 展开设备抽屉按钮 (补齐文字与图标) -->
                                 <Button Style="{StaticResource AccentActionBtnStyle}" Command="{Binding ToggleDeviceDrawerCommand}" 
                                         Height="24" Padding="10,0" FontSize="10" Margin="0,0,6,0"
                                         ToolTip="展开核心设备卡片全景抽屉">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="▼" FontSize="10" FontWeight="SemiBold"/>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Data="M 1 1.5 L 5 6.5 L 9 1.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="8" Height="6" Stretch="Uniform" SnapsToDevicePixels="True" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                        <TextBlock Text="展开设备抽屉" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
 
                                 <!-- 关闭当前工作台返回概览 -->
                                 <Button Visibility="{Binding IsToolWorkspaceActive, Converter={StaticResource BoolToVisConverter}}"
                                         Style="{StaticResource IndustrialBtnStyle}" Command="{Binding CloseWorkspaceCommand}" 
-                                        Height="24" Padding="8,0" FontSize="10" ToolTip="关闭当前工作台，返回设备总览与系统日志">
-                                    <TextBlock Text="✕ 关闭" FontSize="10"/>
+                                        Height="24" Padding="8,0" FontSize="10" ToolTip="关闭当前工作台，返回设备大厅">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Data="M 1 1 L 7 7 M 7 1 L 1 7" Stroke="{DynamicResource TextNormalBrush}" StrokeThickness="1.2" Width="8" Height="8" Stretch="Uniform" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="关闭工作台" FontSize="10" VerticalAlignment="Center"/>
+                                    </StackPanel>
                                 </Button>
                             </StackPanel>
                         </Grid>
@@ -792,9 +842,13 @@
                             </Grid.RowDefinitions>
 
                             <Grid Grid.Row="0" Margin="0,0,0,8">
-                                <TextBlock Text="系统其他 USB 外设抽屉" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center"/>
-                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="✕ 收起外设抽屉" Height="22" Padding="8,0" FontSize="10" 
-                                        HorizontalAlignment="Right" Command="{Binding ToggleOtherDevicesDrawerCommand}"/>
+                                <Button Style="{StaticResource IndustrialBtnStyle}" Height="22" Padding="8,0" FontSize="10" 
+                                        HorizontalAlignment="Right" Command="{Binding ToggleOtherDevicesDrawerCommand}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="8" Height="6" Stretch="Uniform" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="收起外设抽屉" FontSize="10" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
                             </Grid>
 
                             <ItemsControl Grid.Row="1" ItemsSource="{Binding OtherDevices}" ItemTemplate="{StaticResource DeviceCardTemplate}">
@@ -844,9 +898,19 @@
                                 </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="{Binding LogDrawerButtonText}" 
+                                    <Button Style="{StaticResource IndustrialBtnStyle}" 
                                             Command="{Binding ToggleLogDrawerCommand}" Height="24" Padding="8,0" FontSize="10" Margin="0,0,8,0"
-                                            ToolTip="展开/收起右侧内核操作流水与系统诊断日志抽屉"/>
+                                            ToolTip="展开/收起右侧内核操作流水与系统诊断日志抽屉">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Data="M 1 1 H 11 V 9 H 1 Z M 3 3.5 L 5 5 L 3 6.5 M 6 6.5 H 8.5" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2"
+                                                  Width="11" Height="9" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding Logs.Count, StringFormat=内核流水 ({0})}" FontSize="10" VerticalAlignment="Center"/>
+                                            <Path Visibility="{Binding IsLogDrawerOpen, Converter={StaticResource BoolToVisConverter}}"
+                                                  Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                            <Path Visibility="{Binding IsLogDrawerClosed, Converter={StaticResource BoolToVisConverter}}"
+                                                  Data="M 1 1.5 L 5 6.5 L 9 1.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
                                     <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="8,3">
                                         <StackPanel Orientation="Horizontal">
                                             <Ellipse Width="6" Height="6" Fill="#10B981" Margin="0,0,6,0" VerticalAlignment="Center"/>
@@ -1084,9 +1148,19 @@
 
                                 <!-- 右侧: 视窗布局切换 (智能双视窗 / 纯 CLI / 纯串口监视 + 日志抽屉开关) -->
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="{Binding LogDrawerButtonText}" 
+                                    <Button Style="{StaticResource IndustrialBtnStyle}" 
                                             Command="{Binding ToggleLogDrawerCommand}" Height="22" Padding="7,0" FontSize="9" Margin="0,0,4,0"
-                                            ToolTip="展开/收起右侧系统总线与内核日志抽屉"/>
+                                            ToolTip="展开/收起右侧系统总线与内核日志抽屉">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Data="M 1 1 H 11 V 9 H 1 Z M 3 3.5 L 5 5 L 3 6.5 M 6 6.5 H 8.5" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2"
+                                                  Width="10" Height="8" Stretch="Uniform" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding LogDrawerButtonText}" FontSize="9" VerticalAlignment="Center"/>
+                                            <Path Visibility="{Binding IsLogDrawerOpen, Converter={StaticResource BoolToVisConverter}}"
+                                                  Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="6" Height="4" Stretch="Uniform" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                            <Path Visibility="{Binding IsLogDrawerClosed, Converter={StaticResource BoolToVisConverter}}"
+                                                  Data="M 1 1.5 L 5 6.5 L 9 1.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="6" Height="4" Stretch="Uniform" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
                                     <Button Style="{StaticResource IndustrialBtnStyle}" Content="智能双视窗" Height="22" Padding="7,0" FontSize="9" Margin="0,0,4,0"
                                             Command="{Binding SetSerialViewModeCommand}" CommandParameter="0"/>
                                     <Button Style="{StaticResource IndustrialBtnStyle}" Content="纯 CLI" Height="22" Padding="7,0" FontSize="9" Margin="0,0,4,0"
@@ -1107,7 +1181,7 @@
                                 <ColumnDefinition Width="2*" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- 左列: 🐧 Linux 卡片机 CLI 交互终端 -->
+                            <!-- 左列: Linux 卡片机 CLI 交互终端 -->
                             <Grid Grid.Column="0" Visibility="{Binding IsLinuxCliAreaVisible, Converter={StaticResource BoolToVisConverter}}">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -1143,7 +1217,7 @@
                             <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceSubtleBrush}" 
                                           Visibility="{Binding IsSmartDualViewVisible, Converter={StaticResource BoolToVisConverter}}"/>
 
-                            <!-- 右列: 📡 实时串口数据监视与 HEX 分析器 -->
+                            <!-- 右列: 实时串口数据监视与 HEX 分析器 -->
                             <Border Grid.Column="2" Background="{DynamicResource AppTerminalBgBrush}" BorderBrush="{DynamicResource AppTerminalBorderBrush}" BorderThickness="1" CornerRadius="5" Padding="8"
                                     Visibility="{Binding IsSerialMonitorAreaVisible, Converter={StaticResource BoolToVisConverter}}">
                                 <Grid>
@@ -1256,28 +1330,130 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <!-- 顶栏控制条 -->
+                        <!-- 顶栏控制条 (集成整宽 VS Code 细线流光加载指示槽) -->
                         <Border Grid.Row="0" Background="{DynamicResource CardGlassBgBrush}" BorderBrush="{DynamicResource CardGlassBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12,7" Margin="0,0,0,10">
                             <Grid>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Path Data="M 15 7 V 2 H 9 V 7 H 3 V 15 C 3 18.3 5.7 21 9 21 H 15 C 18.3 21 21 18.3 21 15 V 7 H 15 Z M 11 4 H 13 V 7 H 11 V 4 Z M 19 15 C 19 17.2 17.2 19 15 19 H 9 C 6.8 19 5 17.2 5 15 V 9 H 19 V 15 Z" 
-                                          Fill="{DynamicResource AccentCyanBrush}" Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="已连接 USB 硬件设备" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
-                                    <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding AllUsbDevices.Count, StringFormat='共 {0} 台设备'}" FontSize="9" FontFamily="Consolas" Foreground="{DynamicResource AccentCyanBrush}"/>
-                                    </Border>
-                                    <TextBlock Text="点击任意卡片进入专属烧录、串口调试或外设工作台" FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center" Margin="12,0,0,0"/>
-                                </StackPanel>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
 
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="刷新硬件总线" Height="24" Padding="10,0" FontSize="10" Margin="0,0,8,0"
-                                            Command="{Binding TriggerScanCommand}" ToolTip="扫描并枚举当前系统中所有物理 USB 调试与通信设备"/>
-                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="{Binding LogDrawerButtonText}" 
-                                            Command="{Binding ToggleLogDrawerCommand}" Height="24" Padding="10,0" FontSize="10" Margin="0,0,8,0"
-                                            ToolTip="展开/收起右侧系统总线与内核日志抽屉"/>
-                                    <Button Style="{StaticResource IndustrialBtnStyle}" Content="清空流水" Height="24" Padding="8,0" FontSize="10" 
-                                            Command="{Binding ClearLogsCommand}" ToolTip="清空系统内核日志"/>
-                                </StackPanel>
+                                <!-- 控制条主体 -->
+                                <Grid Grid.Row="0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Data="M 15 7 V 2 H 9 V 7 H 3 V 15 C 3 18.3 5.7 21 9 21 H 15 C 18.3 21 21 18.3 21 15 V 7 H 15 Z M 11 4 H 13 V 7 H 11 V 4 Z M 19 15 C 19 17.2 17.2 19 15 19 H 9 C 6.8 19 5 17.2 5 15 V 9 H 19 V 15 Z" 
+                                              Fill="{DynamicResource AccentCyanBrush}" Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="已连接 USB 硬件设备" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
+                                        <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding AllUsbDevices.Count, StringFormat='共 {0} 台设备'}" FontSize="9" FontFamily="Consolas" Foreground="{DynamicResource AccentCyanBrush}"/>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <!-- 刷新硬件总线按钮 (含 VS Code 细线流光条) -->
+                                        <Grid Margin="0,0,8,0" VerticalAlignment="Center">
+                                            <Button Style="{StaticResource IndustrialBtnStyle}" Height="24" Padding="8,0" FontSize="10"
+                                                    Command="{Binding TriggerScanCommand}" ToolTip="扫描并枚举当前系统中所有物理 USB 调试与通信设备">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Path Data="M 1 4 A 5 5 0 0 1 10.5 4 M 10.5 1 V 4 H 7.5 M 11 8 A 5 5 0 0 1 1.5 8 M 1.5 11 V 8 H 4.5"
+                                                          Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                          Width="11" Height="10" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="刷新总线" FontSize="10" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Grid Height="2" VerticalAlignment="Bottom" Margin="1,0,1,1" ClipToBounds="True"
+                                                  Visibility="{Binding IsRefreshingDevices, Converter={StaticResource BoolToVisConverter}}">
+                                                <Rectangle Fill="{DynamicResource AppBorderBrush}" Opacity="0.3"/>
+                                                <Border x:Name="HallBtnGlowBar" Width="36" Height="2" HorizontalAlignment="Left"
+                                                        Background="{DynamicResource AccentCyanBrush}">
+                                                    <Border.OpacityMask>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                            <GradientStop Color="Transparent" Offset="0.0"/>
+                                                            <GradientStop Color="#FFFFFF" Offset="0.5"/>
+                                                            <GradientStop Color="Transparent" Offset="1.0"/>
+                                                        </LinearGradientBrush>
+                                                    </Border.OpacityMask>
+                                                    <Border.RenderTransform>
+                                                        <TranslateTransform x:Name="HallBtnGlowTransform" X="-40"/>
+                                                    </Border.RenderTransform>
+                                                    <Border.Triggers>
+                                                        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                                            <BeginStoryboard>
+                                                                <Storyboard RepeatBehavior="Forever">
+                                                                    <DoubleAnimation Storyboard.TargetName="HallBtnGlowTransform"
+                                                                                     Storyboard.TargetProperty="X"
+                                                                                     From="-40" To="85" Duration="0:0:0.85">
+                                                                        <DoubleAnimation.EasingFunction>
+                                                                            <CubicEase EasingMode="EaseInOut"/>
+                                                                        </DoubleAnimation.EasingFunction>
+                                                                    </DoubleAnimation>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </EventTrigger>
+                                                    </Border.Triggers>
+                                                </Border>
+                                            </Grid>
+                                        </Grid>
+
+                                        <!-- 内核流水抽屉按钮 (带终端图标与 Chevron 箭头) -->
+                                        <Button Style="{StaticResource IndustrialBtnStyle}" 
+                                                Command="{Binding ToggleLogDrawerCommand}" Height="24" Padding="8,0" FontSize="10" Margin="0,0,8,0"
+                                                ToolTip="展开/收起右侧系统总线与内核日志抽屉">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Path Data="M 1 1 H 11 V 9 H 1 Z M 3 3.5 L 5 5 L 3 6.5 M 6 6.5 H 8.5" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2"
+                                                      Width="11" Height="9" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Logs.Count, StringFormat=内核流水 ({0})}" FontSize="10" VerticalAlignment="Center"/>
+                                                <Path Visibility="{Binding IsLogDrawerOpen, Converter={StaticResource BoolToVisConverter}}"
+                                                      Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                                <Path Visibility="{Binding IsLogDrawerClosed, Converter={StaticResource BoolToVisConverter}}"
+                                                      Data="M 1 1.5 L 5 6.5 L 9 1.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+
+                                        <!-- 清空流水按钮 (带垃圾桶清除图标) -->
+                                        <Button Style="{StaticResource IndustrialBtnStyle}" 
+                                                Command="{Binding ClearLogsCommand}" Height="24" Padding="8,0" FontSize="10" 
+                                                ToolTip="清空系统内核日志">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Path Data="M 2 3 H 10 M 4 3 V 1.5 H 8 V 3 M 3 3 V 10 H 9 V 3" Stroke="{DynamicResource TextNormalBrush}" StrokeThickness="1.2" Width="9" Height="9" Stretch="Uniform" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="清空流水" FontSize="10" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- 顶栏底部整宽 VS Code 细线加载条 (当全局扫描时呈现) -->
+                                <Grid Grid.Row="1" Height="2" Margin="-12,6,-12,-7" ClipToBounds="True"
+                                      Visibility="{Binding IsRefreshingDevices, Converter={StaticResource BoolToVisConverter}}">
+                                    <Rectangle Fill="{DynamicResource AppBorderBrush}" Opacity="0.2"/>
+                                    <Border Width="160" Height="2" HorizontalAlignment="Left" Background="{DynamicResource AccentCyanBrush}">
+                                        <Border.OpacityMask>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                <GradientStop Color="Transparent" Offset="0.0"/>
+                                                <GradientStop Color="#FFFFFF" Offset="0.5"/>
+                                                <GradientStop Color="Transparent" Offset="1.0"/>
+                                            </LinearGradientBrush>
+                                        </Border.OpacityMask>
+                                        <Border.RenderTransform>
+                                            <TranslateTransform x:Name="HallFullWidthGlowTransform" X="-160"/>
+                                        </Border.RenderTransform>
+                                        <Border.Triggers>
+                                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                                <BeginStoryboard>
+                                                    <Storyboard RepeatBehavior="Forever">
+                                                        <DoubleAnimation Storyboard.TargetName="HallFullWidthGlowTransform"
+                                                                         Storyboard.TargetProperty="X"
+                                                                         From="-160" To="1400" Duration="0:0:1.3">
+                                                            <DoubleAnimation.EasingFunction>
+                                                                <CubicEase EasingMode="EaseInOut"/>
+                                                            </DoubleAnimation.EasingFunction>
+                                                        </DoubleAnimation>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </EventTrigger>
+                                        </Border.Triggers>
+                                    </Border>
+                                </Grid>
                             </Grid>
                         </Border>
 
@@ -1339,10 +1515,20 @@
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="清空" Height="22" Padding="6,1" FontSize="9" Margin="0,0,4,0"
-                                        Command="{Binding ClearLogsCommand}" ToolTip="清空当前日志记录"/>
-                                <Button Style="{StaticResource IndustrialBtnStyle}" Content="✕ 关闭" Height="22" Padding="6,1" FontSize="9"
-                                        Command="{Binding CloseLogDrawerCommand}" ToolTip="收起右侧日志抽屉"/>
+                                <Button Style="{StaticResource IndustrialBtnStyle}" Height="22" Padding="6,1" FontSize="9" Margin="0,0,4,0"
+                                        Command="{Binding ClearLogsCommand}" ToolTip="清空当前日志记录">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Data="M 2 3 H 10 M 4 3 V 1.5 H 8 V 3 M 3 3 V 10 H 9 V 3" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2" Width="8" Height="8" Stretch="Uniform" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="清空" FontSize="9" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource IndustrialBtnStyle}" Height="22" Padding="6,1" FontSize="9"
+                                        Command="{Binding CloseLogDrawerCommand}" ToolTip="收起右侧日志抽屉">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="收起" FontSize="9" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
                             </StackPanel>
                         </Grid>
 
@@ -1447,7 +1633,7 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <Button Style="{StaticResource IndustrialBtnStyle}" Content="重载硬件配置" Height="24" Padding="10,0" FontSize="10" Margin="0,0,8,0"
                                 Command="{Binding ReloadConfigCommand}" ToolTip="热重载 HardwareConfig.json 配置文件"/>
-                        <Button Style="{StaticResource AccentActionBtnStyle}" Content="✕ 退出 Debug 模式" Height="24" Padding="10,0" FontSize="10"
+                        <Button Style="{StaticResource AccentActionBtnStyle}" Content="退出 Debug 模式" Height="24" Padding="10,0" FontSize="10"
                                 Command="{Binding ExitDebugModeCommand}" ToolTip="返回正常物理设备极简监控模式"/>
                     </StackPanel>
                 </Grid>
@@ -1608,7 +1794,10 @@
                                     <Button Style="{StaticResource AccentActionBtnStyle}" Command="{Binding ToggleDeviceDrawerCommand}" 
                                             Height="20" Padding="8,0" FontSize="9" HorizontalAlignment="Right"
                                             ToolTip="收起虚拟设备卡片，将完整屏幕空间留给下方测试工作台">
-                                        <TextBlock Text="▲ 收起虚拟卡片抽屉" FontSize="9" FontWeight="SemiBold"/>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" SnapsToDevicePixels="True" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <TextBlock Text="收起虚拟卡片抽屉" FontSize="9" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </Button>
                                 </Grid>
                             </Border>
@@ -1670,7 +1859,10 @@
                                 <Button Grid.Column="2" Style="{StaticResource AccentActionBtnStyle}" Command="{Binding ToggleDeviceDrawerCommand}" 
                                         Height="22" Padding="8,0" FontSize="9"
                                         ToolTip="展开虚拟设备卡片全景抽屉">
-                                    <TextBlock Text="▼ 展开虚拟卡片抽屉" FontSize="9" FontWeight="SemiBold"/>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Data="M 1 1.5 L 5 6.5 L 9 1.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" SnapsToDevicePixels="True" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBlock Text="展开虚拟卡片抽屉" FontSize="9" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </StackPanel>
                                 </Button>
                             </Grid>
                         </Border>
@@ -1933,17 +2125,17 @@
                                             </Border>
 
                                             <!-- 硬件复位脉冲 -->
-                                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="⚡ DTR/RTS 脉冲复位" Height="22" Padding="6,0" FontSize="9"
+                                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="DTR/RTS 脉冲复位" Height="22" Padding="6,0" FontSize="9"
                                                     Command="{Binding TriggerMcuResetCommand}" ToolTip="执行 DTR/RTS 硬件时序脉冲复位下位机/开发板 (ESP32/STM32)"/>
                                         </WrapPanel>
 
                                         <!-- 右侧: 视窗布局切换 (智能双视窗 / 纯 CLI / 纯串口监视) -->
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="🤖 智能双视窗" Height="20" Padding="5,0" FontSize="8" Margin="0,0,3,0"
+                                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="智能双视窗" Height="20" Padding="5,0" FontSize="8" Margin="0,0,3,0"
                                                     Command="{Binding SetSerialViewModeCommand}" CommandParameter="0"/>
-                                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="🐧 纯 CLI" Height="20" Padding="5,0" FontSize="8" Margin="0,0,3,0"
+                                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="纯 CLI" Height="20" Padding="5,0" FontSize="8" Margin="0,0,3,0"
                                                     Command="{Binding SetSerialViewModeCommand}" CommandParameter="1"/>
-                                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="📡 纯串口监视" Height="20" Padding="5,0" FontSize="8"
+                                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="纯串口监视" Height="20" Padding="5,0" FontSize="8"
                                                     Command="{Binding SetSerialViewModeCommand}" CommandParameter="2"/>
                                         </StackPanel>
                                     </Grid>
@@ -1959,7 +2151,7 @@
                                         <ColumnDefinition Width="2*" />
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- 左列: 🐧 Linux 卡片机 CLI 交互终端 -->
+                                    <!-- 左列: Linux 卡片机 CLI 交互终端 -->
                                     <Grid Grid.Column="0" Visibility="{Binding IsLinuxCliAreaVisible, Converter={StaticResource BoolToVisConverter}}">
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
@@ -1995,7 +2187,7 @@
                                     <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceSubtleBrush}" 
                                                   Visibility="{Binding IsSmartDualViewVisible, Converter={StaticResource BoolToVisConverter}}"/>
 
-                                    <!-- 右列: 📡 实时串口数据监视与 HEX 分析器 -->
+                                    <!-- 右列: 实时串口数据监视与 HEX 分析器 -->
                                     <Border Grid.Column="2" Background="{DynamicResource AppTerminalBgBrush}" BorderBrush="{DynamicResource AppTerminalBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="6"
                                             Visibility="{Binding IsSerialMonitorAreaVisible, Converter={StaticResource BoolToVisConverter}}">
                                         <Grid>
@@ -2051,7 +2243,7 @@
 
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                 <TextBlock Text="模式锁定:" FontSize="8" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                <RadioButton Content="🤖 智能自适应" IsChecked="True" Foreground="{DynamicResource AppTextPrimaryBrush}" FontSize="8" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                                <RadioButton Content="智能自适应" IsChecked="True" Foreground="{DynamicResource AppTextPrimaryBrush}" FontSize="8" Margin="0,0,4,0" VerticalAlignment="Center"/>
                                                 <CheckBox Content="追加 \r\n" IsChecked="{Binding IsAppendNewLine}" Foreground="{DynamicResource AppTextMutedBrush}" FontSize="8" VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </Grid>
@@ -2069,7 +2261,7 @@
                                                      KeyDown="SmartInputTextBox_KeyDown"
                                                      Height="22" Background="{DynamicResource AppSurfaceSubtleBrush}" Foreground="{DynamicResource AppTextPrimaryBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" 
                                                      FontFamily="Consolas" FontSize="10" Padding="4,2" VerticalAlignment="Center"/>
-                                            <Button Grid.Column="2" Style="{StaticResource AccentActionBtnStyle}" Content="▶ 执行 / 发送 (Enter)" Height="22" Padding="10,0" FontSize="9" Margin="4,0,0,0"
+                                            <Button Grid.Column="2" Style="{StaticResource AccentActionBtnStyle}" Content="执行 / 发送 (Enter)" Height="22" Padding="10,0" FontSize="9" Margin="4,0,0,0"
                                                     Command="{Binding SendSmartInputCommand}" ToolTip="自动按识别到的类型发送 (支持直接按回车键)"/>
                                         </Grid>
                                     </Grid>
@@ -2087,10 +2279,45 @@
         <!-- ========================================================= -->
         <Border Grid.Row="2" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0" Padding="14,0">
             <Grid>
-                <!-- 左下角: LinkNexus 物理拓扑守护服务状态 (ESP32 隐藏驱动：绿/红/黄) -->
+                <!-- 左下角: LinkNexus 物理拓扑守护服务状态 (ESP32 隐藏驱动：绿/红/黄 + 启动枚举流光滑动条) -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
                     <Ellipse Width="7" Height="7" Fill="{Binding DaemonStatusDotColor}" Margin="0,0,7,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding DaemonStatusText}" FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center"/>
+
+                    <!-- 开启软件时枚举 ESP32 状态的微型流光滑动条动画 (VS Code 风格) -->
+                    <Border Margin="10,0,0,0" Width="68" Height="3" VerticalAlignment="Center" CornerRadius="1.5" ClipToBounds="True"
+                            Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0.6"
+                            Visibility="{Binding IsDaemonEnumerating, Converter={StaticResource BoolToVisConverter}}"
+                            ToolTip="正在枚举 ESP32 物理拓扑链路与总线设备...">
+                        <Border x:Name="DaemonScanBar" Width="26" Height="3" CornerRadius="1.5" HorizontalAlignment="Left"
+                                Background="{DynamicResource AccentCyanBrush}">
+                            <Border.OpacityMask>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="Transparent" Offset="0.0"/>
+                                    <GradientStop Color="#FFFFFF" Offset="0.5"/>
+                                    <GradientStop Color="Transparent" Offset="1.0"/>
+                                </LinearGradientBrush>
+                            </Border.OpacityMask>
+                            <Border.RenderTransform>
+                                <TranslateTransform x:Name="DaemonScanTransform" X="-30"/>
+                            </Border.RenderTransform>
+                            <Border.Triggers>
+                                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetName="DaemonScanTransform"
+                                                             Storyboard.TargetProperty="X"
+                                                             From="-30" To="70" Duration="0:0:0.95">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <SineEase EasingMode="EaseInOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Border.Triggers>
+                        </Border>
+                    </Border>
                 </StackPanel>
 
                 <!-- 右下角: 规范工程版本号 (1.5秒内连续点击5次触发开发者模式，无其他入口) -->

@@ -12,6 +12,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using LinkNexus.Mcp;
 
 namespace LinkNexus
 {
@@ -144,11 +145,16 @@ namespace LinkNexus
         private bool _isDebugMode = false;
         private PortDeviceModel? _selectedDevice;
 
-        // ESP32-S3 核心主控状态
+        // ESP32-S3 核心主控状态与枚举动效
         private bool _isEsp32Online = false;
         private PortDeviceModel? _esp32DeviceModel;
-        private string _daemonStatusDotColor = "#EF4444"; // 默认未连接为红色
-        private string _daemonStatusText = "LinkNexus 物理拓扑守护服务：离线";
+        private bool _isDaemonEnumerating = true; // 开启软件时默认探测
+        private string _daemonStatusDotColor = "#38BDF8"; // 启动枚举中为流光青色
+        private string _daemonStatusText = "LinkNexus 物理拓扑守护服务：正在探测链路...";
+
+        // 刷新总线与 VSCode 流光加载状态
+        private bool _isRefreshingDevices = false;
+        private DateTime _scanStartTime = DateTime.UtcNow;
 
         // 抽屉状态
         private bool _isOtherDevicesDrawerOpen = false;
@@ -206,8 +212,15 @@ namespace LinkNexus
         /// </summary>
         public ObservableCollection<PortDeviceModel> OtherDevices { get; } = new();
 
+        /// <summary>
+        /// 全量已检测 USB 硬件设备集合 (用于未选定工作台或关闭工作台时全景展示)
+        /// </summary>
+        public ObservableCollection<PortDeviceModel> AllUsbDevices { get; } = new();
+
         public bool HasConnectedDevices => ConnectedDevices.Count > 0;
         public bool HasOtherDevices => OtherDevices.Count > 0;
+        public bool HasAnyUsbDevice => AllUsbDevices.Count > 0;
+        public bool HasNoUsbDevices => !HasAnyUsbDevice;
 
         /// <summary>
         /// 抽屉开关状态
@@ -222,13 +235,71 @@ namespace LinkNexus
                     _isOtherDevicesDrawerOpen = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(OtherDevicesDrawerButtonText));
+                    OnPropertyChanged(nameof(IsOtherDevicesDrawerCollapsed));
                     OnPropertyChanged(nameof(AreCardsExceedingTwoRows));
                 }
             }
         }
 
+        public bool IsOtherDevicesDrawerCollapsed => !IsOtherDevicesDrawerOpen;
+
         public string OtherDevicesDrawerButtonText =>
-            $"系统其他设备 ({OtherDevices.Count}) {(IsOtherDevicesDrawerOpen ? "▴ 收起" : "▾ 展开")}";
+            $"其他外设 ({OtherDevices.Count}) {(IsOtherDevicesDrawerOpen ? "收起" : "展开")}";
+
+        #region 主题与深浅色模式切换 (Theme & Aesthetic Switching)
+
+        public bool IsDarkMode => ThemeManager.IsDarkMode;
+        public bool IsLightMode => !ThemeManager.IsDarkMode;
+
+        public string ThemeButtonText => IsDarkMode ? "深色" : "浅色";
+
+        public string ThemeButtonToolTip => IsDarkMode ? "当前为战术深色模式，点击切换至白瓷明昼模式" : "当前为白瓷明昼模式，点击切换至战术深色模式";
+
+        public ICommand ToggleThemeCommand { get; }
+
+        private void ToggleTheme()
+        {
+            ThemeManager.ApplyTheme(!ThemeManager.IsDarkMode);
+            OnPropertyChanged(nameof(IsDarkMode));
+            OnPropertyChanged(nameof(IsLightMode));
+            OnPropertyChanged(nameof(ThemeButtonText));
+            OnPropertyChanged(nameof(ThemeButtonToolTip));
+        }
+
+        #endregion
+
+        #region 主工作台右侧内核流水与日志抽屉体系 (Log & Kernel Drawer)
+
+        private bool _isLogDrawerOpen = false;
+
+        /// <summary>
+        /// 主工作台右侧内核操作流水与日志抽屉是否展开
+        /// 针对需求：抽屉放置于右侧，点击关闭后需手动再次开启，避免操作完成后突兀弹出打扰用户
+        /// </summary>
+        public bool IsLogDrawerOpen
+        {
+            get => _isLogDrawerOpen;
+            set
+            {
+                if (_isLogDrawerOpen != value)
+                {
+                    _isLogDrawerOpen = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(LogDrawerButtonText));
+                    OnPropertyChanged(nameof(IsLogDrawerClosed));
+                }
+            }
+        }
+
+        public bool IsLogDrawerClosed => !_isLogDrawerOpen;
+
+        public string LogDrawerButtonText => IsLogDrawerOpen ? "收起日志" : $"系统日志 ({Logs.Count})";
+
+        public ICommand ToggleLogDrawerCommand { get; }
+        public ICommand CloseLogDrawerCommand { get; }
+        public ICommand OpenLogDrawerCommand { get; }
+
+        #endregion
 
         #region 核心设备托盘抽屉收纳体系 (解决卡片超过两行打开工具时占用比例过大问题)
 
@@ -371,7 +442,14 @@ namespace LinkNexus
             set { if (_isEsp32Online != value) { _isEsp32Online = value; OnPropertyChanged(); } }
         }
 
-        public string VersionString => GenerateVersionString(VersionInfo.MajorVersion, VersionInfo.MinorRevision, "PRE");
+        public string VersionString => VersionInfo.CurrentVersion;
+
+        /// <summary>
+        /// Model Context Protocol (MCP) 服务中枢 (预留给 v1.00 后接入 AI Agent 进行硬件调度)
+        /// </summary>
+        public McpServerBridge McpBridge { get; } = new();
+
+        private readonly McpIpcServer _mcpIpcServer;
 
         public string DaemonStatusDotColor
         {
@@ -384,6 +462,41 @@ namespace LinkNexus
             get => _daemonStatusText;
             set { if (_daemonStatusText != value) { _daemonStatusText = value; OnPropertyChanged(); } }
         }
+
+        /// <summary>
+        /// 是否正在枚举/探测 ESP32 守护服务与物理拓扑链路 (用于驱动左下角微型流光滑动条动画)
+        /// </summary>
+        public bool IsDaemonEnumerating
+        {
+            get => _isDaemonEnumerating;
+            set
+            {
+                if (_isDaemonEnumerating != value)
+                {
+                    _isDaemonEnumerating = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 是否正在刷新总线与枚举设备列表 (用于驱动类似 VS Code 插件生效样式的细线流光条)
+        /// </summary>
+        public bool IsRefreshingDevices
+        {
+            get => _isRefreshingDevices;
+            set
+            {
+                if (_isRefreshingDevices != value)
+                {
+                    _isRefreshingDevices = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(RefreshButtonText));
+                }
+            }
+        }
+
+        public string RefreshButtonText => "刷新总线";
 
         /// <summary>
         /// 调试模式开关 (仅通过连续点击 5 次版本号触发)
@@ -889,7 +1002,7 @@ namespace LinkNexus
 
             // 基础命令绑定
             VersionClickCommand = new RelayCommand(OnVersionClicked);
-            TriggerScanCommand = new RelayCommand(() => _usbMonitor.TriggerDebouncedRefresh());
+            TriggerScanCommand = new RelayCommand(OnTriggerScan);
             ClearLogsCommand = new RelayCommand(() => Logs.Clear());
             BrowseFileCommand = new RelayCommand(OnBrowseFile);
             StartPreviewFlashCommand = new RelayCommand(OnStartPreviewFlash);
@@ -914,6 +1027,7 @@ namespace LinkNexus
             {
                 SelectedDevice = null;
                 IsDeviceDrawerCollapsed = false;
+                IsLogDrawerOpen = false;
             });
             ExitDebugModeCommand = new RelayCommand(() => IsDebugMode = false);
             ToggleVirtualDevicesCommand = new RelayCommand(OnToggleVirtualDevices);
@@ -921,6 +1035,16 @@ namespace LinkNexus
             {
                 if (p is PortDeviceModel dev) SelectedVirtualDevice = dev;
             });
+            ToggleThemeCommand = new RelayCommand(ToggleTheme);
+            ThemeManager.ThemeChanged += _ =>
+            {
+                OnPropertyChanged(nameof(IsDarkMode));
+                OnPropertyChanged(nameof(IsLightMode));
+                OnPropertyChanged(nameof(ThemeButtonToolTip));
+            };
+            ToggleLogDrawerCommand = new RelayCommand(() => IsLogDrawerOpen = !IsLogDrawerOpen);
+            CloseLogDrawerCommand = new RelayCommand(() => IsLogDrawerOpen = false);
+            OpenLogDrawerCommand = new RelayCommand(() => IsLogDrawerOpen = true);
 
             // 串口硬件引脚与智能自动识别命令绑定
             ToggleDtrCommand = new RelayCommand(() => IsDtrEnable = !IsDtrEnable);
@@ -944,7 +1068,30 @@ namespace LinkNexus
 
             InitDefaultDumpsAndCli();
 
-            AddLog($"LinkNexus 工业控制台已启动，加载规范版本号：{VersionString}", "SUCCESS");
+            // 预留 MCP (Model Context Protocol) 框架数据源绑定
+            McpBridge.BindHardwareContext(
+                devicesProvider: () => ConnectedDevices,
+                isEsp32OnlineProvider: () => IsEsp32Online,
+                daemonStatusTextProvider: () => DaemonStatusText,
+                mosPowerSwitchHandler: (channel, enable) =>
+                {
+                    _dispatcher.Invoke(() =>
+                    {
+                        switch (channel)
+                        {
+                            case 1: IsChannel1PowerOn = enable; break;
+                            case 2: IsChannel2PowerOn = enable; break;
+                            case 3: IsChannel3PowerOn = enable; break;
+                            case 4: IsChannel4PowerOn = enable; break;
+                        }
+                    });
+                });
+
+            // 启动本地命名管道 IPC 服务，随时响应外部 AI Agent 或 Stdio 命令行透传请求
+            _mcpIpcServer = new McpIpcServer(McpBridge);
+            _mcpIpcServer.Start();
+
+            AddLog($"LinkNexus 工业控制台已启动，加载规范版本号：{VersionString} (MCP 管道 IPC 监听已就绪)", "SUCCESS");
             AddLog("等待系统底层 USB PnP 拓扑动态枚举...", "INFO");
         }
 
@@ -1074,16 +1221,51 @@ namespace LinkNexus
                 OtherDevices.Add(card);
             }
 
+            // 同步到全量已检测 USB 硬件设备集合
+            AllUsbDevices.Clear();
+            foreach (var card in ConnectedDevices)
+            {
+                AllUsbDevices.Add(card);
+            }
+            foreach (var card in OtherDevices)
+            {
+                AllUsbDevices.Add(card);
+            }
+
             OnPropertyChanged(nameof(HasConnectedDevices));
             OnPropertyChanged(nameof(HasOtherDevices));
+            OnPropertyChanged(nameof(HasAnyUsbDevice));
+            OnPropertyChanged(nameof(HasNoUsbDevices));
             OnPropertyChanged(nameof(OtherDevicesDrawerButtonText));
             OnPropertyChanged(nameof(AreCardsExceedingTwoRows));
 
-            // 保持当前选中的设备或默认选中第一个
-            if (SelectedDevice == null || (!ConnectedDevices.Contains(SelectedDevice) && !OtherDevices.Contains(SelectedDevice)))
+            // 如果当前有选中的设备，且该设备已拔出，则清空选中（返回全部设备展示）
+            if (SelectedDevice != null && !ConnectedDevices.Contains(SelectedDevice) && !OtherDevices.Contains(SelectedDevice))
             {
-                SelectedDevice = ConnectedDevices.FirstOrDefault() ?? OtherDevices.FirstOrDefault();
+                SelectedDevice = null;
             }
+
+            CompleteScanAnimationAsync();
+        }
+
+        private void OnTriggerScan()
+        {
+            if (IsRefreshingDevices) return;
+            IsRefreshingDevices = true;
+            IsDaemonEnumerating = true;
+            _scanStartTime = DateTime.UtcNow;
+            _usbMonitor.TriggerDebouncedRefresh();
+        }
+
+        private async void CompleteScanAnimationAsync()
+        {
+            var elapsed = DateTime.UtcNow - _scanStartTime;
+            if (elapsed.TotalMilliseconds < 700)
+            {
+                await Task.Delay(700 - (int)elapsed.TotalMilliseconds);
+            }
+            IsDaemonEnumerating = false;
+            IsRefreshingDevices = false;
         }
 
         private PortDeviceModel ClassifyDevice(DiscoveredUsbDevice dev)
@@ -2291,16 +2473,9 @@ namespace LinkNexus
             AddLog($"[底层维护] 硬件拓扑与引脚映射热重载成功！版本：{HardwareConfigManager.Instance.CurrentConfig.Version}", "SUCCESS");
         }
 
-        public static string GenerateVersionString(int major = 1, int minor = 0, string stage = "PRE")
+        public static string GenerateVersionString(int major = VersionInfo.MajorVersion, int minor = VersionInfo.MinorRevision, string stage = VersionInfo.Stage, string? yearWeek = VersionInfo.TargetYearWeek)
         {
-            var now = DateTime.Now;
-            string xxMajor = (major % 100).ToString("D2");
-            string xxMinor = (minor % 100).ToString("D2");
-            string yy = (now.Year % 100).ToString("D2");
-            var cal = CultureInfo.InvariantCulture.Calendar;
-            int ww = cal.GetWeekOfYear(now, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
-
-            return $"v{xxMajor}{xxMinor}.{yy}{ww:D2} ({stage})";
+            return VersionInfo.Format(major, minor, stage, yearWeek);
         }
 
         public void AddLog(string message, string level = "INFO")
@@ -2315,6 +2490,7 @@ namespace LinkNexus
                 });
 
                 while (Logs.Count > 300) Logs.RemoveAt(0);
+                OnPropertyChanged(nameof(LogDrawerButtonText));
             });
         }
 

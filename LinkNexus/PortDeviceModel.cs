@@ -77,6 +77,7 @@ namespace LinkNexus
             SelectCommand = new RelayCommand(() => IsSelected = true);
             TogglePortEnableCommand = new RelayCommand(OnTogglePortEnable);
             ToggleSimulateStateCommand = new RelayCommand(OnToggleSimulateState);
+            ThemeManager.ThemeChanged += _ => OnPropertyChanged(nameof(StateStripeColor));
         }
 
         /// <summary>
@@ -115,6 +116,7 @@ namespace LinkNexus
                     OnPropertyChanged(nameof(IsWarning));
                     OnPropertyChanged(nameof(IsReady));
                     OnPropertyChanged(nameof(StatusBadgeText));
+                    OnPropertyChanged(nameof(StateStripeColor));
                 }
             }
         }
@@ -122,6 +124,8 @@ namespace LinkNexus
         public bool IsUnplugged => State == DeviceState.Unplugged;
         public bool IsWarning => State == DeviceState.Warning;
         public bool IsReady => State == DeviceState.Ready;
+
+        public string StateStripeColor => ThemeManager.GetStripeColor(State.ToString());
 
         public string StatusBadgeText => State switch
         {

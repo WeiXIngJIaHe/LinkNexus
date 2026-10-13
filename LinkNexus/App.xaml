@@ -1,8 +1,7 @@
 <Application x:Class="LinkNexus.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:LinkNexus"
-             StartupUri="MainWindow.xaml">
+             xmlns:local="clr-namespace:LinkNexus">
     <Application.Resources>
         <!-- 默认调色板 (默认初始化为赛博暗黑主题，后续由 ThemeManager 动态更新) -->
         <SolidColorBrush x:Key="AppBgBrush" Color="#0B0C10" />

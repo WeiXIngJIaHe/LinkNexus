@@ -54,7 +54,12 @@ namespace LinkNexus.Mcp.Tools
                     includeOffline = prop.GetBoolean();
                 }
 
-                var rawDevices = _devicesProvider?.Invoke() ?? Enumerable.Empty<PortDeviceModel>();
+                var rawDevices = _devicesProvider?.Invoke()?.ToList();
+                if (rawDevices == null || rawDevices.Count == 0)
+                {
+                    rawDevices = ScanPhysicalDevicesFallback();
+                }
+
                 var filtered = rawDevices.Where(d => includeOffline || d.State != DeviceState.Unplugged).ToList();
 
                 var payload = filtered.Select(d => new
@@ -80,6 +85,49 @@ namespace LinkNexus.Mcp.Tools
             {
                 return Task.FromResult(McpToolCallResult.Text($"枚举硬件设备失败: {ex.Message}", isError: true));
             }
+        }
+
+        private static List<PortDeviceModel> ScanPhysicalDevicesFallback()
+        {
+            var list = new List<PortDeviceModel>();
+            try
+            {
+                using var monitor = new UsbMonitorService();
+                var discovered = monitor.ScanCurrentDevices();
+                foreach (var d in discovered)
+                {
+                    var model = new PortDeviceModel
+                    {
+                        DeviceName = string.IsNullOrWhiteSpace(d.Name) ? d.Description : d.Name,
+                        DeviceDescription = d.Description,
+                        VidPid = d.VidPid,
+                        ComPort = string.IsNullOrWhiteSpace(d.ComPort) ? "--" : d.ComPort,
+                        SerialNumber = string.IsNullOrWhiteSpace(d.SerialNumber) ? "--" : d.SerialNumber,
+                        HardwarePath = d.HardwarePath,
+                        State = d.HasDriverIssue ? DeviceState.Warning : DeviceState.Ready,
+                        FunctionType = !string.IsNullOrWhiteSpace(d.ComPort) ? DeviceFunctionType.Uart_Serial : DeviceFunctionType.GenericUsb
+                    };
+                    list.Add(model);
+                }
+            }
+            catch
+            {
+                try
+                {
+                    foreach (var port in System.IO.Ports.SerialPort.GetPortNames())
+                    {
+                        list.Add(new PortDeviceModel
+                        {
+                            DeviceName = $"物理串行设备 ({port})",
+                            ComPort = port,
+                            FunctionType = DeviceFunctionType.Uart_Serial,
+                            State = DeviceState.Ready
+                        });
+                    }
+                }
+                catch { }
+            }
+            return list;
         }
     }
 }

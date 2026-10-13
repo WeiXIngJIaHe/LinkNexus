@@ -6,11 +6,11 @@
 ![.NET Version](https://img.shields.io/badge/.NET-10.0-512BD4?style=for-the-badge&logo=dotnet)
 ![Architecture](https://img.shields.io/badge/Architecture-WPF%20%7C%20MVVM%20%7C%20Win32%20PnP-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Version](https://img.shields.io/badge/Release-v0.12--preview.2641-38BDF8?style=for-the-badge)
+![Version](https://img.shields.io/badge/Release-v0.13--preview.2641-38BDF8?style=for-the-badge)
 
 **面向嵌入式软硬件调试的高质感桌面中枢，支持 Windows PnP 动态设备流、流式固件烧录、智能串口 CLI、硬件拓扑安全控制与 MCP (Model Context Protocol) AI Agent 架构体系**
 
-[功能规格说明书](README_FUNCTIONAL.md) • [硬件端口重映射指南](README_PortMapping.md) • [快速构建](#快速构建与运行) • [开发者调试模式](#开发者维护模式-debug-mode-与虚拟接入)
+[功能规格说明书](README_FUNCTIONAL.md) • [硬件端口重映射指南](README_PortMapping.md) • [ESP32-S3 下位机固件文档](firmware/README.md) • [快速构建](#快速构建与运行) • [开发者调试模式](#开发者维护模式-debug-mode-与虚拟接入)
 
 </div>
 
@@ -151,7 +151,7 @@ Publish.bat
 
 ```text
 LinkNexus/
-├── LinkNexus/
+├── LinkNexus/                       # Windows 上位机工程 (.NET 10.0 WPF)
 │   ├── MainWindow.xaml              # 极简暗黑工业风格主界面布局 (三态卡片流/互锁区/调试台)
 │   ├── MainWindow.xaml.cs           # Win32 原生 WndProc 接管、拖拽事件与功能选项卡路由
 │   ├── MainViewModel.cs             # MVVM 反应式调度、CRC32 计算、仿真器状态机与命令绑定
@@ -161,6 +161,12 @@ LinkNexus/
 │   ├── HardwareConfig.json          # 物理端口拓扑映射、引脚分配与解耦配置文件
 │   ├── ProtocolEngine.cs            # ESP32-S3 全双工二进制防粘包协议编解码引擎
 │   └── LinkNexus.csproj             # .NET 10.0 WPF 现代化工程定义文件
+├── firmware/                        # ESP32-S3 下位机嵌入式固件 (ESP-IDF v5.x / C++17)
+│   ├── include/                     # 双核任务、互斥锁、遥测与协议头文件
+│   ├── src/                         # 模块化 C++ 实现
+│   ├── platformio.ini               # PlatformIO 构建配置
+│   ├── CMakeLists.txt               # ESP-IDF 顶层构建配置
+│   └── README.md                    # 固件专属架构说明与协议技术文档
 ├── docs/
 │   ├── README_FUNCTIONAL.md         # 详细功能规格与界面、监听转发底层技术规范书
 │   └── README_PortMapping.md        # PCB 硬件工程师端口映射与跳线适配指南

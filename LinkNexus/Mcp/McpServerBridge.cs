@@ -49,6 +49,7 @@ namespace LinkNexus.Mcp
             RegisterTool(new SendSerialCommandTool());
             RegisterTool(new FlashKernelTool());
             RegisterTool(new ControlMosPowerTool());
+            RegisterTool(new ReadLogsTool());
         }
 
         /// <summary>
@@ -58,7 +59,9 @@ namespace LinkNexus.Mcp
             Func<IEnumerable<PortDeviceModel>>? devicesProvider,
             Func<bool>? isEsp32OnlineProvider,
             Func<string>? daemonStatusTextProvider,
-            Action<int, bool>? mosPowerSwitchHandler = null)
+            Action<int, bool>? mosPowerSwitchHandler = null,
+            Func<IEnumerable<LogMessageItem>>? logsProvider = null,
+            Func<IEnumerable<string>>? serialLogsProvider = null)
         {
             if (devicesProvider != null)
             {
@@ -71,6 +74,10 @@ namespace LinkNexus.Mcp
             if (mosPowerSwitchHandler != null)
             {
                 RegisterTool(new ControlMosPowerTool(mosPowerSwitchHandler));
+            }
+            if (logsProvider != null || serialLogsProvider != null)
+            {
+                RegisterTool(new ReadLogsTool(logsProvider, serialLogsProvider));
             }
         }
 

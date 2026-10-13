@@ -1070,7 +1070,7 @@ namespace LinkNexus
 
             // 预留 MCP (Model Context Protocol) 框架数据源绑定
             McpBridge.BindHardwareContext(
-                devicesProvider: () => ConnectedDevices,
+                devicesProvider: () => AllUsbDevices.Count > 0 ? AllUsbDevices : ConnectedDevices,
                 isEsp32OnlineProvider: () => IsEsp32Online,
                 daemonStatusTextProvider: () => DaemonStatusText,
                 mosPowerSwitchHandler: (channel, enable) =>
@@ -1085,7 +1085,9 @@ namespace LinkNexus
                             case 4: IsChannel4PowerOn = enable; break;
                         }
                     });
-                });
+                },
+                logsProvider: () => Logs,
+                serialLogsProvider: () => SerialMonitorLines);
 
             // 启动本地命名管道 IPC 服务，随时响应外部 AI Agent 或 Stdio 命令行透传请求
             _mcpIpcServer = new McpIpcServer(McpBridge);

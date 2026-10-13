@@ -35,7 +35,7 @@ namespace LinkNexus.Mcp
                 tcpClient = new TcpClient();
                 using var cts = new CancellationTokenSource(McpIpcConstants.ConnectTimeoutMs);
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, cancellationToken);
-                await tcpClient.ConnectAsync(McpIpcConstants.LoopbackHost, McpIpcConstants.DefaultPort, linkedCts.Token);
+                await tcpClient.ConnectAsync(System.Net.IPAddress.Loopback, McpIpcConstants.DefaultPort, linkedCts.Token);
             }
             catch
             {
@@ -86,21 +86,74 @@ namespace LinkNexus.Mcp
         private static async Task RunStandaloneModeAsync(CancellationToken cancellationToken)
         {
             var bridge = new McpServerBridge();
-            bridge.BindHardwareContext(
-                devicesProvider: () => new[]
+            var standaloneLogs = new List<LogMessageItem>
+            {
+                new LogMessageItem
                 {
-                    new PortDeviceModel
+                    Timestamp = DateTime.Now,
+                    Level = "INFO",
+                    Message = $"LinkNexus 独立无头 MCP 服务已就绪 (版本：{VersionInfo.CurrentVersion})"
+                }
+            };
+
+            List<PortDeviceModel>? cachedDevices = null;
+            DateTime lastScanTime = DateTime.MinValue;
+
+            List<PortDeviceModel> GetRealDevices()
+            {
+                if (cachedDevices != null && (DateTime.UtcNow - lastScanTime).TotalSeconds < 3)
+                {
+                    return cachedDevices;
+                }
+
+                var list = new List<PortDeviceModel>();
+                try
+                {
+                    using var monitor = new UsbMonitorService();
+                    var discovered = monitor.ScanCurrentDevices();
+                    foreach (var d in discovered)
                     {
-                        DeviceName = "LinkNexus 嵌入式主控 (无头模式)",
-                        FunctionType = DeviceFunctionType.Controller_ESP32,
-                        State = DeviceState.Ready,
-                        VidPid = "VID:303A PID:1001",
-                        SerialNumber = "LN-DAEMON-STANDALONE",
-                        ComPort = "COM3"
+                        list.Add(new PortDeviceModel
+                        {
+                            DeviceName = string.IsNullOrWhiteSpace(d.Name) ? d.Description : d.Name,
+                            DeviceDescription = d.Description,
+                            VidPid = d.VidPid,
+                            ComPort = string.IsNullOrWhiteSpace(d.ComPort) ? "--" : d.ComPort,
+                            SerialNumber = string.IsNullOrWhiteSpace(d.SerialNumber) ? "--" : d.SerialNumber,
+                            HardwarePath = d.HardwarePath,
+                            State = d.HasDriverIssue ? DeviceState.Warning : DeviceState.Ready,
+                            FunctionType = !string.IsNullOrWhiteSpace(d.ComPort) ? DeviceFunctionType.Uart_Serial : DeviceFunctionType.GenericUsb
+                        });
                     }
+                }
+                catch
+                {
+                    foreach (var port in System.IO.Ports.SerialPort.GetPortNames())
+                    {
+                        list.Add(new PortDeviceModel
+                        {
+                            DeviceName = $"串行硬件设备 ({port})",
+                            ComPort = port,
+                            FunctionType = DeviceFunctionType.Uart_Serial,
+                            State = DeviceState.Ready
+                        });
+                    }
+                }
+
+                cachedDevices = list;
+                lastScanTime = DateTime.UtcNow;
+                return cachedDevices;
+            }
+
+            bridge.BindHardwareContext(
+                devicesProvider: GetRealDevices,
+                isEsp32OnlineProvider: () =>
+                {
+                    var devs = GetRealDevices();
+                    return devs.Any(d => d.DeviceName.Contains("ESP32", StringComparison.OrdinalIgnoreCase) || d.VidPid.Contains("303A"));
                 },
-                isEsp32OnlineProvider: () => true,
-                daemonStatusTextProvider: () => "LinkNexus 独立守护服务正常 (无头模式)");
+                daemonStatusTextProvider: () => "LinkNexus 物理拓扑守护服务正常 (独立无头模式)",
+                logsProvider: () => standaloneLogs);
 
             while (!cancellationToken.IsCancellationRequested)
             {

@@ -16,20 +16,21 @@ namespace LinkNexus
     {
         protected override void OnStartup(StartupEventArgs e)
         {
-            // 检查是否由外部 AI Agent 以 --mcp 参数拉起
-            if (e.Args.Any(a => a.Equals("--mcp", StringComparison.OrdinalIgnoreCase) || a.Equals("/mcp", StringComparison.OrdinalIgnoreCase)))
+            var cmdArgs = Environment.GetCommandLineArgs();
+            bool isMcp = cmdArgs.Any(a => a.Equals("--mcp", StringComparison.OrdinalIgnoreCase) || a.Equals("/mcp", StringComparison.OrdinalIgnoreCase));
+
+            if (isMcp)
             {
-                // 无头模式启动，清空 StartupUri 阻止弹出桌面窗口
-                StartupUri = null;
                 ShutdownMode = ShutdownMode.OnExplicitShutdown;
                 Task.Run(async () =>
                 {
                     try
                     {
-                        await McpStdioHandler.RunAsync(e.Args);
+                        await McpStdioHandler.RunAsync(cmdArgs);
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        Console.Error.WriteLine(ex);
                     }
                     finally
                     {
@@ -41,6 +42,7 @@ namespace LinkNexus
 
             base.OnStartup(e);
             ThemeManager.ApplyTheme(true);
+            new MainWindow().Show();
         }
     }
 }

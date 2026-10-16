@@ -17,6 +17,7 @@ namespace LinkNexus
         public static Esp32CommService Instance => _instance.Value;
 
         private SerialPort? _serialPort;
+        private System.Net.Sockets.TcpClient? _tcpClient;
         private readonly ProtocolEngine _protocolEngine = new();
         private CancellationTokenSource? _cts;
         private Task? _readTask;
@@ -40,6 +41,8 @@ namespace LinkNexus
         public event Action<string>? LogMessage;
         public event Action<byte, bool>? PowerControlAckReceived;
         public event Action<byte>? HeartbeatAckReceived;
+        public event Action<string>? CliResponseReceived;
+        public event Action<Esp32WifiStatus>? WifiStatusReceived;
 
         public Esp32CommService()
         {
@@ -101,7 +104,7 @@ namespace LinkNexus
 
                 _serialPort.Open();
                 _cts = new CancellationTokenSource();
-                _readTask = Task.Run(() => ReadLoopAsync(_serialPort, _cts.Token));
+                _readTask = Task.Run(() => ReadStreamLoopAsync(_serialPort.BaseStream, () => _serialPort != null && _serialPort.IsOpen, _cts.Token));
 
                 IsConnected = true;
                 IsSimulationMode = false;
@@ -126,7 +129,52 @@ namespace LinkNexus
         }
 
         /// <summary>
-        /// 断开连接并释放串口
+        /// 通过 Wi-Fi TCP 无线调试端口 (默认 8266) 直连 ESP32-S3 下位机
+        /// </summary>
+        public bool ConnectTcp(string host, int port = 8266)
+        {
+            Disconnect();
+
+            try
+            {
+                _tcpClient = new System.Net.Sockets.TcpClient();
+                var connectTask = _tcpClient.ConnectAsync(host, port);
+                if (!connectTask.Wait(2500))
+                {
+                    _tcpClient.Close();
+                    _tcpClient = null;
+                    LogMessage?.Invoke($"[无线调试] 连接目标 {host}:{port} 超时 (2500ms)，切换至仿真模式。");
+                    SetSimulationMode(true, "无线调试连接超时 (仿真模式)");
+                    return false;
+                }
+
+                _cts = new CancellationTokenSource();
+                var stream = _tcpClient.GetStream();
+                _readTask = Task.Run(() => ReadStreamLoopAsync(stream, () => _tcpClient != null && _tcpClient.Connected, _cts.Token));
+
+                IsConnected = true;
+                IsSimulationMode = false;
+                _simTelemetryTimer.Stop();
+                ConnectedPortName = $"TCP://{host}:{port}";
+                _lastReceiveTime = DateTime.Now;
+
+                _heartbeatTimer.Start();
+                ConnectionStateChanged?.Invoke(true, $"已建立 ESP32-S3 无线调试会话 ({host}:{port})");
+                LogMessage?.Invoke($"[无线调试] 成功接入 ESP32-S3 网络调试服务 {host}:{port}，全双工二进制协议已就绪。");
+
+                SendHeartbeat(0x01);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogMessage?.Invoke($"[无线调试] TCP 连接失败: {ex.Message}，切换至仿真模式。");
+                SetSimulationMode(true, "无线调试失败 (仿真模式)");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 断开连接并释放串口与网络会话
         /// </summary>
         public void Disconnect()
         {
@@ -137,6 +185,20 @@ namespace LinkNexus
                 _cts.Cancel();
                 _cts.Dispose();
                 _cts = null;
+            }
+
+            if (_tcpClient != null)
+            {
+                try
+                {
+                    if (_tcpClient.Connected)
+                    {
+                        _tcpClient.Close();
+                    }
+                    _tcpClient.Dispose();
+                }
+                catch { }
+                _tcpClient = null;
             }
 
             if (_serialPort != null)
@@ -172,17 +234,17 @@ namespace LinkNexus
         }
 
         /// <summary>
-        /// 异步数据流读取循环，完全独立于 UI 主线程
+        /// 异步数据流读取循环，完全独立于 UI 主线程，兼容串口与 TCP 网络流
         /// </summary>
-        private async Task ReadLoopAsync(SerialPort port, CancellationToken token)
+        private async Task ReadStreamLoopAsync(System.IO.Stream stream, Func<bool> isAlive, CancellationToken token)
         {
             byte[] readBuffer = new byte[512];
 
-            while (!token.IsCancellationRequested && port.IsOpen)
+            while (!token.IsCancellationRequested && isAlive())
             {
                 try
                 {
-                    int bytesRead = await port.BaseStream.ReadAsync(readBuffer, 0, readBuffer.Length, token);
+                    int bytesRead = await stream.ReadAsync(readBuffer, 0, readBuffer.Length, token);
                     if (bytesRead > 0)
                     {
                         _lastReceiveTime = DateTime.Now;
@@ -238,15 +300,28 @@ namespace LinkNexus
                         PowerControlAckReceived?.Invoke(chIndex, state);
                     }
                     break;
+
+                case ProtocolCommand.WifiControl:
+                    var wifiStatus = ProtocolEngine.ParseWifiStatusPayload(payload);
+                    if (wifiStatus != null)
+                    {
+                        WifiStatusReceived?.Invoke(wifiStatus);
+                    }
+                    break;
+
+                case ProtocolCommand.CliTransfer:
+                    string cliText = Encoding.UTF8.GetString(payload);
+                    CliResponseReceived?.Invoke(cliText);
+                    break;
             }
         }
 
         /// <summary>
-        /// 发送通用二进制帧
+        /// 发送通用二进制帧 (支持 TCP 与串口双通道)
         /// </summary>
         public bool SendPacket(byte[] packet)
         {
-            if (!IsConnected || _serialPort == null || !_serialPort.IsOpen)
+            if (!IsConnected)
             {
                 return false;
             }
@@ -255,8 +330,20 @@ namespace LinkNexus
             {
                 try
                 {
-                    _serialPort.Write(packet, 0, packet.Length);
-                    return true;
+                    if (_tcpClient != null && _tcpClient.Connected)
+                    {
+                        var stream = _tcpClient.GetStream();
+                        stream.Write(packet, 0, packet.Length);
+                        return true;
+                    }
+
+                    if (_serialPort != null && _serialPort.IsOpen)
+                    {
+                        _serialPort.Write(packet, 0, packet.Length);
+                        return true;
+                    }
+
+                    return false;
                 }
                 catch (Exception ex)
                 {
@@ -304,6 +391,34 @@ namespace LinkNexus
             {
                 LogMessage?.Invoke($"[屏幕同步] 已将卡片通道 {activeChannelIndex} 与设备 [{deviceName}] 状态推送至 ESP32 屏幕");
             }
+        }
+
+        /// <summary>
+        /// 发送 0x50 ESP32 CLI 文本命令并调度应答
+        /// </summary>
+        public bool SendCliCommand(string command)
+        {
+            byte[] packet = ProtocolEngine.BuildCliPacket(command);
+            bool sent = SendPacket(packet);
+            if (sent)
+            {
+                LogMessage?.Invoke($"[ESP32 CLI] 已向下位机发送命令: {command}");
+            }
+            return sent;
+        }
+
+        /// <summary>
+        /// 发送 0x40 Wi-Fi 模式与网络控制命令
+        /// </summary>
+        public bool SendWifiControl(byte action, string ssid = "", string password = "", byte channel = 1)
+        {
+            byte[] packet = ProtocolEngine.BuildWifiControlPacket(action, ssid, password, channel);
+            bool sent = SendPacket(packet);
+            if (sent)
+            {
+                LogMessage?.Invoke($"[Wi-Fi控制] 下发网络动作 0x{action:X2}, SSID='{ssid}'");
+            }
+            return sent;
         }
 
         /// <summary>

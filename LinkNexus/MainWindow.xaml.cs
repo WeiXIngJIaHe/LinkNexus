@@ -144,6 +144,51 @@ namespace LinkNexus
             }
         }
 
+        /// <summary>
+        /// 双击“正常就绪”唤醒 ESP32-S3 无线调试与网络控制 CLI 终端
+        /// </summary>
+        private void OnStatusBadgeMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+            {
+                if (_viewModel.OpenEsp32CliCommand.CanExecute(null))
+                {
+                    _viewModel.OpenEsp32CliCommand.Execute(null);
+                }
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// ESP32-S3 CLI 输入框 Enter 回车发送
+        /// </summary>
+        private void Esp32CliInputTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                if (_viewModel.SendEsp32CliCommand.CanExecute(null))
+                {
+                    _viewModel.SendEsp32CliCommand.Execute(null);
+                }
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// 全局 Esc 快捷键关闭 ESP32-S3 CLI 悬浮终端
+        /// </summary>
+        private void Window_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape && _viewModel.IsEsp32CliOpen)
+            {
+                if (_viewModel.CloseEsp32CliCommand.CanExecute(null))
+                {
+                    _viewModel.CloseEsp32CliCommand.Execute(null);
+                }
+                e.Handled = true;
+            }
+        }
+
         #endregion
 
         private void MainWindow_Closed(object? sender, EventArgs e)

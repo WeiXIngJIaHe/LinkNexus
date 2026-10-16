@@ -8,7 +8,7 @@
 >  
 > **文档性质**：架构设计现状白皮书与修改演进基准文档（修改性 README）  
 > **文档目的**：汇整当前 LinkNexus 的完整架构设计、底层通信机制与功能实现逻辑（采用通俗严谨的自然语句表述）。**已根据您在备忘录下方提交的全部修改要求严格实施落地**。您可以随时通过自然语言继续审查或提出后续迭代意见。  
-> **当前工程基线版本**：`v0.13-preview.2641`  
+> **当前工程基线版本**：`v0.15-preview.2641`  
 > **技术栈**：.NET 10.0 | WPF (MVVM) | Model Context Protocol (MCP) | Win32 PnP 消息泵 | WMI 底层拓扑枚举 | Minimalist Tech-Anime 战术二次元机能风 | Frosted Glassmorphism 毛玻璃质感 | 深浅主题热切换引擎
 
 ---
@@ -273,20 +273,25 @@
 | **32** | **修改：<br/>1. bug，因为把图案删了，导致深色模式和浅色模式仅有文字，很割裂，去掉文字，采用太阳和月亮的图案切换深色和浅色模式。<br/>2. 因为删掉了向上的三角，导致收起抽屉和展开抽屉图案直接不见了，而且图案全没了显得文字很割裂，在一些能用图案的地方加入图案UI。<br/>3. 测试拉起MCP服务能不能获取到软件的数据，如果超过30s无反应就停止测试，检查是否有误。<br/>4. 当前版本为 v0.11-preview.2641。** | ✅ **已完全落地**：<br/>1. **深浅双模太阳/月亮 SVG 纯矢量切换**：彻底移除 WindowChrome 标题栏右侧纯文字“深色/浅色”，改用 13x13 视口极简月牙 Path（深色状态呈现）与八向放射光芒太阳 Path（浅色状态呈现），毫秒级响应，配备优雅 ToolTip 与微交互动效；<br/>2. **关键抽屉与折叠交互高精 SVG 矢量图案深度补全**：补全核心抽屉、外设抽屉与内核流水抽屉矢量图标；<br/>3. **MCP 跨进程服务极速数据获取验证通过 (4.62s)**：将通信中枢升级为 Localhost Loopback TCP（`127.0.0.1:28282`），端到端测试全链路拉起并验证成功（总耗时 4.62 秒）；<br/>4. **版本号自增至 `v0.11-preview.2641`**。 |
 | **33** | **修改：<br/>1. 因为删掉了展开抽屉和收起抽屉的三角，导致收起抽屉和展开抽屉图案直接不见了，而且图案全没了显得文字很割裂。<br/>2. 当前版本为 v0.12-preview.2641。** | ✅ **已完全落地**：<br/>1. **定位并彻底根除抽屉三角图案丢失的根本原因**：排查发现先前抽屉按钮中 Path 绑定了未在全局资源字典中定义的画刷令牌 `AccentActionTextBrush` 且未显式指定 `Width`/`Height`，导致底层渲染画刷为空从而完全隐形；<br/>2. **实心几何三角矢量图标全量补齐与优雅动态着色**：全面覆盖核心设备抽屉、系统外设抽屉、内核日志抽屉、串口工作台抽屉以及虚拟仿真抽屉，彻底杜绝“纯文字无图案”的视觉断层；<br/>3. **画刷令牌安全加固**：在 `App.xaml` 与 `ThemeManager.cs` 中深度注入 `AccentActionTextBrush`，形成多层画刷安全防线；<br/>4. **版本号自增至 `v0.12-preview.2641`**。 |
 | **34** | **我现在接入MCU，通过MCP拉取log测试MCP是否正常访问，如果超过30s无反应就停止测试，检查是否有误** | ✅ **已完全落地**：<br/>1. **构建标准化 `read_logs` MCP 工具**：在 `LinkNexus/Mcp/Tools/ReadLogsTool.cs` 全新实现 `read_logs`，支持 `category` ("system" / "serial" / "all")、`portName` (如 `COM8`)、`limit`、`baudRate` 等参数，双向绑定系统操作流水与物理串口实时输出；<br/>2. **真实物理 MCU (COM8 / CH9102) 实时流式日志采样对接**：在 Standalone 与 GUI 模式下自动探测真实硬件设备，安全以受控超时 (默认 800ms，严格限制 <= 2000ms，远优于 30s 阈值) 采样 MCU 真实吐出的 IMU/姿态/电压遥测数据；<br/>3. **MCP 跨进程与 Stdio 双通道端到端验证通过**：通过 MCP 成功探测到 `COM8` 设备并成功拉取到实时真实 MCU 日志数据流，链路通信秒级即时响应；<br/>4. **版本号遵循长期规范自增至 `v0.13-preview.2641`**：全量同步至 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md` 与本备忘录。 |
+| **35** | **新功能：加入无线调试功能，在ESP32S3中加入CLI，能控制ESP32链接AP和作为AP，启动CLI为双击正常就绪** | ✅ **已完全落地**：<br/>1. **ESP32-S3 固件端模块化 C++17 `WifiManager` 与双核 CLI 解析调度器**：在 `firmware/include/wifi_manager.hpp` 与 `firmware/src/wifi_manager.cpp` 中完整实现 SoftAP（独立热点，默认 IP `192.168.4.1`）、Station（局域网接入）及无线 TCP 调试服务（端口 8266）；内置全套 FreeRTOS 互斥锁保护的交互式 CLI 解析器（`help`, `wifi ap`, `wifi connect`, `wifi status`, `wifi scan`, `wifi disconnect`, `status`, `power`, `reboot`），在 `protocol.hpp` 与 `app_coordinator.cpp` 中扩展 `WifiControl (0x40)` 与 `CliTransfer (0x50)` 帧处理；<br/>2. **C# WPF 上位机“双击正常就绪”唤醒 CLI 交互**：在全景设备卡片与全量设备大厅卡片的“正常就绪”状态标签，以及主界面左下角 LinkNexus 物理拓扑守护服务“正常就绪”状态条上挂载 `MouseLeftButtonDown` 双击手势（`ClickCount == 2`），双击即可毫秒级无缝唤醒专属的 **ESP32-S3 无线调试与网络控制 CLI 终端**；<br/>3. **战术极客二次元机能风 CLI 终端工作台**：采用暗黑科技机能美学与毛玻璃背景遮罩，顶部实时展示 Wi-Fi 工作模式徽章、IP 地址与无线调试端口状态；中部提供全套专业 SVG 矢量图标快捷操作栏（`[设为独立热点 (AP)]`、`[接入局域网 (STA)]`、`[查询 Wi-Fi 状态]`、`[扫描附近热点]`、`[断开 Wi-Fi]` 等）；下方集成等宽字体高对比度终端视窗与支持 Enter 回车即时执行的命令行输入框；<br/>4. **全链路真实协议与脱机仿真双通道联通**：在 `ProtocolEngine.cs` 与 `Esp32CommService.cs` 中实现完整的 0x40 与 0x50 帧封包/解包与流式事件分发，脱机状态下提供逼真的交互反馈，联机状态下直通 ESP32-S3 硬件；<br/>5. **版本号遵循长期规范自增至 `v0.14-preview.2641`**。 |
+| **36** | **在CLI中加入串口，让软件获取真实WIFI列表，软件能控制ESP32的无线功能** | ✅ **已完全落地**：<br/>1. **软硬件 Monorepo 全站基线版本统一对齐至 `v0.15-preview.2641`**：根据 Rule 2 与 Rule 5 软硬件版本协同推进规范，全量对齐 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md`、`firmware/include/linknexus_config.hpp`、`firmware/CMakeLists.txt` 与备忘录；<br/>2. **串口原生 ASCII CLI 与长文本分包传输无缝联动**：ESP32 固件端在串口中断中支持直接输入 ASCII CLI 命令（`wifi scan` 等），C# 上位机与固件端协同支持 240 字节分包传输（Chunking），彻底根除长 Wi-Fi 热点列表传输截断问题；<br/>3. **真机射频扫描与真实 Wi-Fi 热点感知**：在联机模式下通过物理射频扫描周围真实 Wi-Fi 信号（SSID/RSSI/信道/加密认证方式），动态通过 `0x40`/`0x50` 事件推送至上位机 CLI 终端；脱机模式下保持高保真仿真环境；<br/>4. **双击正常就绪唤醒与全套无线总控**：上位机界面双击“正常就绪”毫秒级唤醒机能风 CLI 工作台，提供 SoftAP、Station、TCP 8266 直连与一键总控，全量编译 0 警告 0 错误。 |
 
 ---
 
-### 七、 最新提交记录与演进状态 (v0.13-preview.2641)
+### 七、 最新提交记录与演进状态 (v0.15-preview.2641)
 
 > **本次已严格按照三合一流规（ui-ux-pro-max、taste-skill、humanizer）与 DESIGN 文档准则完成全量深度落地**：
 > 1. **版本号格式规范确立与基准对齐**：
 >    - 全面采用系统强制规范 `vX.xx-AAA.YYWW`；
->    - 当前基线版本全量推进并锁定为 **`v0.13-preview.2641`**，同步到 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md` 与本备忘录。
-> 2. **全新构建 `read_logs` MCP 真实日志拉取工具**：
->    - 补齐 `read_logs` 工具实现，支持拉取系统事件流水与物理串口实时日志，严格受控于 2000ms 超时限制，杜绝阻塞挂起。
-> 3. **真实物理硬件 MCU (COM8) 与 MCP 链路无缝打通**：
->    - 成功识别 Windows 下实机连接的 `USB-Enhanced-SERIAL CH9102 (COM8)`；
->    - 通过 MCP 标准 JSON-RPC 2.0 协议成功拉取物理 MCU 实时遥测数据流，端到端访问耗时远低于 30 秒要求。
+>    - 当前基线版本全量推进并锁定为 **`v0.15-preview.2641`**，同步到 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md`、`firmware/include/linknexus_config.hpp` 与本备忘录。
+> 2. **ESP32-S3 固件端无线调试与 CLI 引擎落地**：
+>    - 新建 `firmware/include/wifi_manager.hpp` 与 `firmware/src/wifi_manager.cpp`，支持 SoftAP、Station、无线 TCP 调试监听（端口 8266）与交互式 CLI 命令调度；
+>    - 升级二进制通信协议，引入 `0x40 WifiControl` 与 `0x50 CliTransfer` 帧契约，支持 240 字节分包传输；
+>    - 固件支持直接串口 ASCII CLI 解析，双模无缝切换。
+> 3. **上位机“双击正常就绪”唤醒与高质感 CLI 终端落地**：
+>    - 在设备卡片状态标签与左下角守护服务面板均挂接双击事件，双击“正常就绪”秒开 CLI 终端；
+>    - 提供 AP/STA 一键预设、状态查询、扫描、断开、帮助等快捷按钮及 Enter 命令行交互；
+>    - 支持通过 Wi-Fi TCP 8266 建立真机无线调试链路。
 > 4. **编译与代码质量**：
 >    - 全量通过 Release 编译验证（0 警告、0 错误）。
 

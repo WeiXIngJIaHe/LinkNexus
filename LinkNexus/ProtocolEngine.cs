@@ -28,6 +28,31 @@ namespace LinkNexus
         /// 0x30: 通道供电控制开关
         /// </summary>
         public const byte PowerControl = 0x30;
+
+        /// <summary>
+        /// 0x40: Wi-Fi 工作模式与无线调试配置 (AP / STA / 状态查询)
+        /// </summary>
+        public const byte WifiControl = 0x40;
+
+        /// <summary>
+        /// 0x50: ESP32 CLI 交互式调试文本传输 (上位机双向交互)
+        /// </summary>
+        public const byte CliTransfer = 0x50;
+    }
+
+    /// <summary>
+    /// ESP32-S3 Wi-Fi 与无线调试运行状态数据包
+    /// </summary>
+    public class Esp32WifiStatus
+    {
+        public byte Mode { get; set; } // 0: Off, 1: SoftAP, 2: Station
+        public string Ssid { get; set; } = string.Empty;
+        public string IpAddress { get; set; } = string.Empty;
+        public sbyte Rssi { get; set; }
+        public byte Channel { get; set; } = 1;
+        public byte ConnectedClients { get; set; }
+        public bool IsWirelessDebugActive { get; set; }
+        public ushort WirelessDebugPort { get; set; } = 8266;
     }
 
     /// <summary>
@@ -156,6 +181,94 @@ namespace LinkNexus
             }
 
             return PackFrame(ProtocolCommand.ScreenSync, payload);
+        }
+
+        /// <summary>
+        /// 构建 0x50 ESP32 CLI 交互式文本传输包
+        /// </summary>
+        public static byte[] BuildCliPacket(string command)
+        {
+            byte[] cmdBytes = Encoding.UTF8.GetBytes(command ?? string.Empty);
+            return PackFrame(ProtocolCommand.CliTransfer, cmdBytes);
+        }
+
+        /// <summary>
+        /// 构建 0x40 Wi-Fi 模式与网络控制包
+        /// </summary>
+        /// <param name="action">0: 查询状态, 1: 启动 SoftAP, 2: 连接 Station, 3: 断开 Wi-Fi, 4: 扫描热点</param>
+        /// <param name="ssid">SSID 名称</param>
+        /// <param name="password">Wi-Fi 密码</param>
+        /// <param name="channel">信道 (1~13)</param>
+        public static byte[] BuildWifiControlPacket(byte action, string ssid = "", string password = "", byte channel = 1)
+        {
+            byte[] ssidBytes = Encoding.UTF8.GetBytes(ssid ?? string.Empty);
+            byte[] pwdBytes = Encoding.UTF8.GetBytes(password ?? string.Empty);
+            int ssidLen = Math.Min(ssidBytes.Length, 32);
+            int pwdLen = Math.Min(pwdBytes.Length, 64);
+
+            byte[] payload = new byte[4 + ssidLen + pwdLen];
+            payload[0] = action;
+            payload[1] = channel;
+            payload[2] = (byte)ssidLen;
+            if (ssidLen > 0)
+            {
+                Buffer.BlockCopy(ssidBytes, 0, payload, 3, ssidLen);
+            }
+            payload[3 + ssidLen] = (byte)pwdLen;
+            if (pwdLen > 0)
+            {
+                Buffer.BlockCopy(pwdBytes, 0, payload, 4 + ssidLen, pwdLen);
+            }
+
+            return PackFrame(ProtocolCommand.WifiControl, payload);
+        }
+
+        /// <summary>
+        /// 解析 0x40 Wi-Fi 状态响应包
+        /// 格式：[模式 1B] + [信道 1B] + [RSSI 1B] + [客户端数 1B] + [调试端口 2B (LE)] + [SSID长度 1B] + [SSID] + [IP长度 1B] + [IP]
+        /// </summary>
+        public static Esp32WifiStatus? ParseWifiStatusPayload(byte[] payload)
+        {
+            if (payload == null || payload.Length < 6) return null;
+
+            try
+            {
+                var status = new Esp32WifiStatus
+                {
+                    Mode = payload[0],
+                    Channel = payload[1],
+                    Rssi = (sbyte)payload[2],
+                    ConnectedClients = payload[3],
+                    WirelessDebugPort = BitConverter.ToUInt16(payload, 4),
+                    IsWirelessDebugActive = payload[0] != 0 // 只要启动 AP 或 STA，无线调试即自动开启
+                };
+
+                int offset = 6;
+                if (payload.Length > offset)
+                {
+                    int ssidLen = payload[offset++];
+                    if (ssidLen > 0 && payload.Length >= offset + ssidLen)
+                    {
+                        status.Ssid = Encoding.UTF8.GetString(payload, offset, ssidLen);
+                        offset += ssidLen;
+                    }
+                }
+
+                if (payload.Length > offset)
+                {
+                    int ipLen = payload[offset++];
+                    if (ipLen > 0 && payload.Length >= offset + ipLen)
+                    {
+                        status.IpAddress = Encoding.UTF8.GetString(payload, offset, ipLen);
+                    }
+                }
+
+                return status;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>

@@ -200,6 +200,22 @@ namespace LinkNexus
 
         #endregion
 
+        #region ESP32-S3 无线调试与网络控制 CLI 状态
+
+        private bool _isEsp32CliOpen = false;
+        private string _esp32CliInput = string.Empty;
+        private string _esp32WifiMode = "SoftAP (独立热点)";
+        private string _esp32WifiSsid = "LinkNexus-ESP32-S3";
+        private string _esp32WifiIp = "192.168.4.1";
+        private bool _isWirelessDebugListening = true;
+        private int _wirelessDebugPort = 8266;
+        private string _esp32WifiRssiText = "-32 dBm (本机)";
+        private string _esp32WifiClientCount = "0 台";
+
+        public ObservableCollection<string> Esp32CliTerminalLines { get; } = new();
+
+        #endregion
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         /// <summary>
@@ -431,6 +447,64 @@ namespace LinkNexus
         public bool IsEsp32WorkspaceVisible => SelectedDevice?.IsEsp32Device ?? false;
         public bool IsGenericWorkspaceVisible => SelectedDevice != null && !SelectedDevice.IsBurnerDevice && !SelectedDevice.IsUartDevice && !SelectedDevice.IsEsp32Device;
         public bool IsLogsWorkspaceVisible => SelectedDevice == null;
+
+        #endregion
+
+        #region ESP32-S3 CLI 与无线调试属性
+
+        public bool IsEsp32CliOpen
+        {
+            get => _isEsp32CliOpen;
+            set { if (_isEsp32CliOpen != value) { _isEsp32CliOpen = value; OnPropertyChanged(); } }
+        }
+
+        public string Esp32CliInput
+        {
+            get => _esp32CliInput;
+            set { if (_esp32CliInput != value) { _esp32CliInput = value; OnPropertyChanged(); } }
+        }
+
+        public string Esp32WifiMode
+        {
+            get => _esp32WifiMode;
+            set { if (_esp32WifiMode != value) { _esp32WifiMode = value; OnPropertyChanged(); } }
+        }
+
+        public string Esp32WifiSsid
+        {
+            get => _esp32WifiSsid;
+            set { if (_esp32WifiSsid != value) { _esp32WifiSsid = value; OnPropertyChanged(); } }
+        }
+
+        public string Esp32WifiIp
+        {
+            get => _esp32WifiIp;
+            set { if (_esp32WifiIp != value) { _esp32WifiIp = value; OnPropertyChanged(); } }
+        }
+
+        public bool IsWirelessDebugListening
+        {
+            get => _isWirelessDebugListening;
+            set { if (_isWirelessDebugListening != value) { _isWirelessDebugListening = value; OnPropertyChanged(); } }
+        }
+
+        public int WirelessDebugPort
+        {
+            get => _wirelessDebugPort;
+            set { if (_wirelessDebugPort != value) { _wirelessDebugPort = value; OnPropertyChanged(); } }
+        }
+
+        public string Esp32WifiRssiText
+        {
+            get => _esp32WifiRssiText;
+            set { if (_esp32WifiRssiText != value) { _esp32WifiRssiText = value; OnPropertyChanged(); } }
+        }
+
+        public string Esp32WifiClientCount
+        {
+            get => _esp32WifiClientCount;
+            set { if (_esp32WifiClientCount != value) { _esp32WifiClientCount = value; OnPropertyChanged(); } }
+        }
 
         #endregion
 
@@ -990,6 +1064,19 @@ namespace LinkNexus
         public ICommand SendIna236TelemetryCommand { get; }
         public ICommand SendMosControlPacketCommand { get; }
 
+        // ESP32-S3 CLI 与无线调试控制命令
+        public ICommand OpenEsp32CliCommand { get; }
+        public ICommand CloseEsp32CliCommand { get; }
+        public ICommand SendEsp32CliCommand { get; }
+        public ICommand SetWifiApPresetCommand { get; }
+        public ICommand SetWifiStaPresetCommand { get; }
+        public ICommand QueryWifiStatusPresetCommand { get; }
+        public ICommand ScanWifiPresetCommand { get; }
+        public ICommand DisconnectWifiPresetCommand { get; }
+        public ICommand ConnectWirelessTcpCommand { get; }
+        public ICommand HelpCliPresetCommand { get; }
+        public ICommand ClearCliTerminalCommand { get; }
+
         #endregion
 
         public MainViewModel(UsbMonitorService usbMonitor)
@@ -1065,6 +1152,47 @@ namespace LinkNexus
             SendHeartbeatPacketCommand = new RelayCommand(() => OnSendEsp32Packet(0x01, "0x01 心跳租约握手"));
             SendIna236TelemetryCommand = new RelayCommand(() => OnSendEsp32Packet(0x10, "0x10 INA236 母线遥测采集"));
             SendMosControlPacketCommand = new RelayCommand(() => OnSendEsp32Packet(0x30, "0x30 通道 MOS 供电控制"));
+
+            // ESP32-S3 CLI 与无线调试命令绑定
+            OpenEsp32CliCommand = new RelayCommand(OpenEsp32Cli);
+            CloseEsp32CliCommand = new RelayCommand(CloseEsp32Cli);
+            SendEsp32CliCommand = new RelayCommand(OnSendEsp32Cli);
+            SetWifiApPresetCommand = new RelayCommand(() => ExecuteEsp32Cli("wifi ap LinkNexus-ESP32-S3 12345678"));
+            SetWifiStaPresetCommand = new RelayCommand(() => ExecuteEsp32Cli("wifi connect LabRouter_5G pass8888"));
+            QueryWifiStatusPresetCommand = new RelayCommand(() => ExecuteEsp32Cli("wifi status"));
+            ScanWifiPresetCommand = new RelayCommand(() => ExecuteEsp32Cli("wifi scan"));
+            DisconnectWifiPresetCommand = new RelayCommand(() => ExecuteEsp32Cli("wifi disconnect"));
+            ConnectWirelessTcpCommand = new RelayCommand(OnConnectWirelessTcp);
+            HelpCliPresetCommand = new RelayCommand(() => ExecuteEsp32Cli("help"));
+            ClearCliTerminalCommand = new RelayCommand(() => ExecuteEsp32Cli("clear"));
+
+            // 监听底层 ESP32 真实通信回调
+            Esp32CommService.Instance.CliResponseReceived += text =>
+            {
+                _dispatcher.InvokeAsync(() =>
+                {
+                    if (!string.IsNullOrEmpty(text))
+                    {
+                        var lines = text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+                        foreach (var l in lines)
+                        {
+                            if (!string.IsNullOrWhiteSpace(l))
+                            {
+                                Esp32CliTerminalLines.Add(l);
+                            }
+                        }
+                        while (Esp32CliTerminalLines.Count > 350) Esp32CliTerminalLines.RemoveAt(0);
+                    }
+                });
+            };
+
+            Esp32CommService.Instance.WifiStatusReceived += status =>
+            {
+                _dispatcher.InvokeAsync(() =>
+                {
+                    UpdateWifiStatusFromPacket(status);
+                });
+            };
 
             InitDefaultDumpsAndCli();
 
@@ -2463,6 +2591,282 @@ namespace LinkNexus
                 Esp32ProtocolLogLines.Add($"[{DateTime.Now:HH:mm:ss.fff}] [Rx] <- AA 55 {cmd:X2} 01 06 {ackSum:X2} (ACK OK)");
                 while (Esp32ProtocolLogLines.Count > 100) Esp32ProtocolLogLines.RemoveAt(0);
             });
+        }
+
+        #endregion
+
+        #region ESP32-S3 CLI 与无线调试处理方法
+
+        public void OpenEsp32Cli()
+        {
+            IsEsp32CliOpen = true;
+            if (Esp32CliTerminalLines.Count == 0)
+            {
+                PrintCliWelcomeBanner();
+            }
+        }
+
+        public void CloseEsp32Cli()
+        {
+            IsEsp32CliOpen = false;
+        }
+
+        public void OnSendEsp32Cli()
+        {
+            if (string.IsNullOrWhiteSpace(Esp32CliInput)) return;
+            string cmd = Esp32CliInput.Trim();
+            Esp32CliInput = string.Empty;
+            ExecuteEsp32Cli(cmd);
+        }
+
+        public void ExecuteEsp32Cli(string rawCmd)
+        {
+            if (string.IsNullOrWhiteSpace(rawCmd)) return;
+            string cmd = rawCmd.Trim();
+
+            Esp32CliTerminalLines.Add($"esp32-s3:~# {cmd}");
+            while (Esp32CliTerminalLines.Count > 350) Esp32CliTerminalLines.RemoveAt(0);
+
+            bool sent = Esp32CommService.Instance.SendCliCommand(cmd);
+            ProcessCliLogic(cmd, sent);
+        }
+
+        private void PrintCliWelcomeBanner()
+        {
+            Esp32CliTerminalLines.Add("==================================================================");
+            Esp32CliTerminalLines.Add("  LINKNEXUS · ESP32-S3 HIGH-PERFORMANCE CLI & WIRELESS DEBUG");
+            Esp32CliTerminalLines.Add($"  Firmware: v0.14-preview.2641 | Xtensa Dual-Core LX7 @ 240MHz");
+            Esp32CliTerminalLines.Add($"  Wireless Debug: 8266 (TCP/IP) | Ready for AP / STA Orchestration");
+            Esp32CliTerminalLines.Add("==================================================================");
+            Esp32CliTerminalLines.Add("[INFO] ESP32-S3 Core Coordinator initialized.");
+            Esp32CliTerminalLines.Add("[INFO] 双击[正常就绪]成功唤醒 CLI 终端。输入 'help' 查看指令手册。");
+            Esp32CliTerminalLines.Add("");
+        }
+
+        private void UpdateWifiStatusFromPacket(Esp32WifiStatus status)
+        {
+            Esp32WifiMode = status.Mode switch
+            {
+                1 => "SoftAP (独立热点)",
+                2 => "Station (局域网接入)",
+                _ => "已关闭"
+            };
+            if (!string.IsNullOrEmpty(status.Ssid)) Esp32WifiSsid = status.Ssid;
+            if (!string.IsNullOrEmpty(status.IpAddress)) Esp32WifiIp = status.IpAddress;
+            IsWirelessDebugListening = status.IsWirelessDebugActive;
+            WirelessDebugPort = status.WirelessDebugPort;
+            Esp32WifiClientCount = $"{status.ConnectedClients} 台";
+            Esp32WifiRssiText = $"{status.Rssi} dBm";
+        }
+
+        public void OnConnectWirelessTcp()
+        {
+            string host = string.IsNullOrWhiteSpace(Esp32WifiIp) || Esp32WifiIp == "--" ? "192.168.4.1" : Esp32WifiIp;
+            int port = WirelessDebugPort > 0 ? WirelessDebugPort : 8266;
+
+            Esp32CliTerminalLines.Add($"[WDEBUG] 正在尝试通过 TCP 直连 ESP32-S3 无线调试端口 {host}:{port}...");
+            AddLog($"[无线调试] 尝试建立 TCP 直连 {host}:{port}...", "INFO");
+
+            bool success = Esp32CommService.Instance.ConnectTcp(host, port);
+            if (success)
+            {
+                Esp32CliTerminalLines.Add($"[WDEBUG] TCP 链路已成功建立！无线调试会话激活 (已绑定 0x40/0x50 双向协议总线)");
+                AddLog($"[无线调试] 成功连接至 ESP32-S3 无线端口 {host}:{port}", "SUCCESS");
+            }
+            else
+            {
+                Esp32CliTerminalLines.Add($"[WDEBUG] TCP 连接未成功响应 (物理 ESP32 未入网或未连接到热点)。系统保持仿真模拟回显模式。");
+                AddLog($"[无线调试] TCP 直连 {host}:{port} 超时，保持仿真模式", "WARN");
+            }
+        }
+
+        private async void ProcessCliLogic(string cmd, bool sentToHardware)
+        {
+            string[] parts = cmd.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return;
+
+            string verb = parts[0].ToLowerInvariant();
+
+            if (verb == "clear")
+            {
+                Esp32CliTerminalLines.Clear();
+                return;
+            }
+
+            if (verb == "connect")
+            {
+                string targetHost = parts.Length >= 2 ? parts[1] : (string.IsNullOrWhiteSpace(Esp32WifiIp) || Esp32WifiIp == "--" ? "192.168.4.1" : Esp32WifiIp);
+                int targetPort = parts.Length >= 3 && int.TryParse(parts[2], out int p) ? p : 8266;
+
+                Esp32CliTerminalLines.Add($"[WDEBUG] 正在发起无线 TCP 直连: {targetHost}:{targetPort}...");
+                bool ok = Esp32CommService.Instance.ConnectTcp(targetHost, targetPort);
+                if (ok)
+                {
+                    Esp32CliTerminalLines.Add($"[WDEBUG] 无线调试 TCP 直连建立成功！当前会话: {targetHost}:{targetPort}");
+                }
+                else
+                {
+                    Esp32CliTerminalLines.Add($"[WDEBUG] 直连失败或超时 (2500ms)。请确保已连接 ESP32 热点或局域网同一网段。");
+                }
+                return;
+            }
+
+            // 若已成功下发至物理硬件 ESP32-S3，则由下位机异步返回真实响应帧 (0x50/0x40)，无需上位机模拟
+            if (sentToHardware && !Esp32CommService.Instance.IsSimulationMode)
+            {
+                return;
+            }
+
+            if (verb == "help")
+            {
+                Esp32CliTerminalLines.Add("==================================================================");
+                Esp32CliTerminalLines.Add("  LinkNexus ESP32-S3 CLI 指令系统帮助手册 (v0.14-preview.2641)");
+                Esp32CliTerminalLines.Add("==================================================================");
+                Esp32CliTerminalLines.Add("  wifi ap <ssid> [password] [channel]  - 启动独立 SoftAP 并开启无线调试服务");
+                Esp32CliTerminalLines.Add("  wifi connect <ssid> <password>       - 连接指定 Wi-Fi 热点 (Station 模式)");
+                Esp32CliTerminalLines.Add("  wifi status                          - 查询当前 Wi-Fi 工作模式与 IP 状态");
+                Esp32CliTerminalLines.Add("  wifi scan                            - 扫描周围可用 2.4GHz 无线网络");
+                Esp32CliTerminalLines.Add("  wifi disconnect                      - 关闭 Wi-Fi 并停止无线调试");
+                Esp32CliTerminalLines.Add("  connect [ip] [port]                  - 建立上位机与 ESP32-S3 的 Wi-Fi TCP 无线调试直连");
+                Esp32CliTerminalLines.Add("  status                               - 查询 ESP32-S3 双核状态、堆内存与外设");
+                Esp32CliTerminalLines.Add("  power <ch 0~3> <0|1>                 - 切换 4 路物理 MOS 供电通道");
+                Esp32CliTerminalLines.Add("  reboot                               - 软复位并重启 ESP32-S3 芯片");
+                Esp32CliTerminalLines.Add("  clear                                - 清空当前终端输出行");
+                Esp32CliTerminalLines.Add("==================================================================");
+                return;
+            }
+
+            if (verb == "wifi")
+            {
+                if (parts.Length < 2)
+                {
+                    Esp32CliTerminalLines.Add("[ERR] 缺少子命令。用法: wifi <ap|connect|status|scan|disconnect>");
+                    return;
+                }
+
+                string sub = parts[1].ToLowerInvariant();
+                if (sub == "ap")
+                {
+                    string ssid = parts.Length >= 3 ? parts[2] : "LinkNexus-ESP32-S3";
+                    string pwd = parts.Length >= 4 ? parts[3] : "12345678";
+                    byte ch = parts.Length >= 5 && byte.TryParse(parts[4], out byte c) ? c : (byte)1;
+
+                    Esp32WifiMode = "SoftAP (独立热点)";
+                    Esp32WifiSsid = ssid;
+                    Esp32WifiIp = "192.168.4.1";
+                    IsWirelessDebugListening = true;
+                    WirelessDebugPort = 8266;
+                    Esp32WifiClientCount = "0 台";
+                    Esp32WifiRssiText = "-32 dBm (本机)";
+
+                    Esp32CliTerminalLines.Add($"[WIFI] 正在启动 SoftAP 独立热点: SSID='{ssid}', 信道={ch}...");
+                    await Task.Delay(120);
+                    Esp32CliTerminalLines.Add($"[WIFI] SoftAP 启动就绪! 默认网关 192.168.4.1, 掩码 255.255.255.0");
+                    Esp32CliTerminalLines.Add($"[WDEBUG] 无线 TCP 调试服务已启动监听 192.168.4.1:{WirelessDebugPort} [OK]");
+                    AddLog($"[ESP32] Wi-Fi SoftAP 已就绪: {ssid} (192.168.4.1:8266)", "SUCCESS");
+                }
+                else if (sub == "connect")
+                {
+                    if (parts.Length < 4)
+                    {
+                        Esp32CliTerminalLines.Add("[ERR] 用法: wifi connect <ssid> <password>");
+                        return;
+                    }
+                    string ssid = parts[2];
+                    string pwd = parts[3];
+
+                    Esp32CliTerminalLines.Add($"[WIFI] 正在扫描并连接目标 AP: '{ssid}'...");
+                    await Task.Delay(200);
+                    Esp32WifiMode = "Station (局域网接入)";
+                    Esp32WifiSsid = ssid;
+                    Esp32WifiIp = "192.168.1.188";
+                    IsWirelessDebugListening = true;
+                    WirelessDebugPort = 8266;
+                    Esp32WifiClientCount = "1 台";
+                    Esp32WifiRssiText = "-48 dBm (良好)";
+
+                    Esp32CliTerminalLines.Add($"[WIFI] 认证通过! 获取 DHCP IP: 192.168.1.188 (掩码: 255.255.255.0, 网关: 192.168.1.1)");
+                    Esp32CliTerminalLines.Add($"[WDEBUG] 无线 TCP 调试服务已在 192.168.1.188:{WirelessDebugPort} 启动监听 [OK]");
+                    AddLog($"[ESP32] Wi-Fi Station 已接入 {ssid} (192.168.1.188:8266)", "SUCCESS");
+                }
+                else if (sub == "status")
+                {
+                    Esp32CliTerminalLines.Add("--- [ ESP32-S3 无线调试与网络状态 ] ---");
+                    Esp32CliTerminalLines.Add($"  工作模式:      {Esp32WifiMode}");
+                    Esp32CliTerminalLines.Add($"  当前 SSID:     {Esp32WifiSsid}");
+                    Esp32CliTerminalLines.Add($"  IP 地址:       {Esp32WifiIp}");
+                    Esp32CliTerminalLines.Add($"  信号强度:      {Esp32WifiRssiText}");
+                    Esp32CliTerminalLines.Add($"  客户端连接:    {Esp32WifiClientCount}");
+                    Esp32CliTerminalLines.Add($"  无线调试服务:  {(IsWirelessDebugListening ? $"监听中 (TCP 端口 {WirelessDebugPort})" : "未启动")}");
+                    Esp32CliTerminalLines.Add("----------------------------------------");
+                }
+                else if (sub == "scan")
+                {
+                    Esp32CliTerminalLines.Add("[WIFI] 正在扫描 2.4GHz 射频信道 (1~13)...");
+                    await Task.Delay(250);
+                    Esp32CliTerminalLines.Add("  [01] SSID: 'LinkNexus-Lab-AP'    RSSI: -42 dBm  AUTH: WPA2-PSK  CH: 1");
+                    Esp32CliTerminalLines.Add("  [02] SSID: 'Office-R&D-Mesh'     RSSI: -58 dBm  AUTH: WPA2/WPA3 CH: 6");
+                    Esp32CliTerminalLines.Add("  [03] SSID: 'Embedded-Debug-STA'  RSSI: -65 dBm  AUTH: WPA2-PSK  CH: 11");
+                    Esp32CliTerminalLines.Add("  [04] SSID: 'Guest-Free-WiFi'     RSSI: -78 dBm  AUTH: OPEN      CH: 3");
+                    Esp32CliTerminalLines.Add("[WIFI] 扫描完成: 发现 4 个可用 AP。");
+                }
+                else if (sub == "disconnect")
+                {
+                    Esp32WifiMode = "已关闭";
+                    Esp32WifiSsid = "--";
+                    Esp32WifiIp = "--";
+                    IsWirelessDebugListening = false;
+                    Esp32WifiClientCount = "0 台";
+                    Esp32WifiRssiText = "--";
+
+                    Esp32CliTerminalLines.Add("[WIFI] Wi-Fi 射频已关闭，无线调试服务已停止。");
+                    AddLog("[ESP32] Wi-Fi 射频已关闭", "INFO");
+                }
+                else
+                {
+                    Esp32CliTerminalLines.Add($"[ERR] 未知 wifi 子命令: '{sub}'。输入 'help' 查看语法。");
+                }
+                return;
+            }
+
+            if (verb == "status")
+            {
+                Esp32CliTerminalLines.Add("--- [ ESP32-S3 系统运行诊断 ] ---");
+                Esp32CliTerminalLines.Add("  SoC: ESP32-S3-WROOM-1 (Xtensa Dual-Core LX7 @ 240MHz)");
+                Esp32CliTerminalLines.Add("  FreeRTOS: v10.4.3 | C++17 Core Coordinator: Running");
+                Esp32CliTerminalLines.Add("  Internal SRAM: 512 KB (Free: 384 KB) | PSRAM: 8 MB Octal-SPI");
+                Esp32CliTerminalLines.Add("  Flash: 16 MB Quad-SPI (Wear Leveling Active)");
+                Esp32CliTerminalLines.Add($"  Wi-Fi 模式: {Esp32WifiMode} | IP: {Esp32WifiIp} | 调试端口: {WirelessDebugPort}");
+                Esp32CliTerminalLines.Add("---------------------------------");
+                return;
+            }
+
+            if (verb == "power")
+            {
+                if (parts.Length >= 3 && byte.TryParse(parts[1], out byte ch) && byte.TryParse(parts[2], out byte val))
+                {
+                    bool enable = val != 0;
+                    Esp32CommService.Instance.SendPowerControl(ch, enable);
+                    Esp32CliTerminalLines.Add($"[POWER] 通道 {ch} 物理 MOS 供电已设为: {(enable ? "1 (导通)" : "0 (关断)")} [OK]");
+                }
+                else
+                {
+                    Esp32CliTerminalLines.Add("[ERR] 用法: power <channel 0~3> <0|1>");
+                }
+                return;
+            }
+
+            if (verb == "reboot")
+            {
+                Esp32CliTerminalLines.Add("[SYSTEM] 收到重启请求，系统即将执行软复位...");
+                await Task.Delay(400);
+                Esp32CliTerminalLines.Add("[SYSTEM] ESP-ROM: esp32s3-20210327");
+                Esp32CliTerminalLines.Add("[SYSTEM] Booting LinkNexus Core Coordinator...");
+                PrintCliWelcomeBanner();
+                return;
+            }
+
+            Esp32CliTerminalLines.Add($"[ERR] 未知命令: '{cmd}'。输入 'help' 获取命令帮助。");
         }
 
         #endregion

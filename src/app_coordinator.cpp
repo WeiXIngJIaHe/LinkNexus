@@ -96,28 +96,61 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
         }
 
         case ProtocolCmd::WifiControl: {
-            // 0x40: Wi-Fi 控制帧 [SubCmd(1B), ParamStr(NB)]
+            // 0x40: Wi-Fi 控制帧 [Action(1B), Channel(1B), SsidLen(1B), Ssid(NB), PwdLen(1B), Pwd(NB)]
             if (len >= 1) {
-                uint8_t sub_cmd = payload[0];
-                if (sub_cmd == 0x01) { // 启动 AP 模式 (主动 AP)
-                    char ssid[33] = "LinkNexus-ESP32-AP";
-                    if (len > 1) {
-                        uint8_t copy_len = (len - 1 < 32) ? len - 1 : 32;
-                        memcpy(ssid, payload + 1, copy_len);
-                        ssid[copy_len] = '\0';
+                uint8_t action = payload[0];
+                uint8_t channel = (len > 1 && payload[1] >= 1 && payload[1] <= 13) ? payload[1] : 1;
+                char ssid[33] = {0};
+                char pwd[65] = {0};
+
+                if (len >= 3) {
+                    uint8_t ssid_len = payload[2];
+                    if (ssid_len > 32) ssid_len = 32;
+                    if (len >= 3 + ssid_len) {
+                        memcpy(ssid, &payload[3], ssid_len);
+                        ssid[ssid_len] = '\0';
+
+                        size_t pwd_len_idx = 3 + ssid_len;
+                        if (len > pwd_len_idx) {
+                            uint8_t pwd_len = payload[pwd_len_idx];
+                            if (pwd_len > 64) pwd_len = 64;
+                            if (len >= pwd_len_idx + 1 + pwd_len) {
+                                memcpy(pwd, &payload[pwd_len_idx + 1], pwd_len);
+                                pwd[pwd_len] = '\0';
+                            }
+                        }
                     }
-                    WifiManager::Instance().StartAp(ssid);
-                } else if (sub_cmd == 0x02) { // 启动 STA 模式 (从 AP)
-                    char ssid[33] = {0};
-                    if (len > 1) {
-                        uint8_t copy_len = (len - 1 < 32) ? len - 1 : 32;
-                        memcpy(ssid, payload + 1, copy_len);
-                        ssid[copy_len] = '\0';
-                    }
-                    WifiManager::Instance().ConnectSta(ssid, "");
-                } else if (sub_cmd == 0x00) { // 关闭 Wi-Fi
-                    WifiManager::Instance().Disconnect();
                 }
+
+                if (action == 1) { // 启动 SoftAP (主动 AP)
+                    if (strlen(ssid) == 0) strcpy(ssid, "LinkNexus-ESP32-AP");
+                    if (strlen(pwd) == 0) strcpy(pwd, "12345678");
+                    WifiManager::Instance().StartAp(ssid, pwd, channel);
+                } else if (action == 2) { // 启动 Station (从 AP)
+                    if (strlen(ssid) > 0) {
+                        WifiManager::Instance().ConnectSta(ssid, pwd);
+                    }
+                } else if (action == 3) { // 断开 Wi-Fi
+                    WifiManager::Instance().Disconnect();
+                } else if (action == 4) { // 扫描周边热点
+                    char scan_buf[256];
+                    size_t scan_len = WifiManager::Instance().ScanNetworks(scan_buf, sizeof(scan_buf));
+                    if (scan_len > 0) {
+                        uint8_t pack_len = (scan_len > 255) ? 255 : static_cast<uint8_t>(scan_len);
+                        tx_len = ProtocolUtils::PackFrame(static_cast<uint8_t>(ProtocolCmd::CliTransfer),
+                                                          reinterpret_cast<const uint8_t*>(scan_buf),
+                                                          pack_len,
+                                                          tx_buf);
+                        CommManager::Instance().SendRawFrame(tx_buf, tx_len);
+                    }
+                }
+
+                // 立即回复上位机当前 0x40 状态响应包 (完全对齐 ParseWifiStatusPayload)
+                WifiStatusInfo st = WifiManager::Instance().GetStatus();
+                tx_len = ProtocolUtils::PackWifiStatus(static_cast<uint8_t>(st.mode), st.channel, st.rssi,
+                                                       st.connected_clients, st.wireless_debug_port,
+                                                       st.ssid, st.ip_str, tx_buf);
+                CommManager::Instance().SendRawFrame(tx_buf, tx_len);
             }
             break;
         }

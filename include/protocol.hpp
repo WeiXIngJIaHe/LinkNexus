@@ -126,6 +126,12 @@ public:
      * @brief 解析 0x20 屏幕同步包有效载荷
      */
     static bool ParseScreenSync(const uint8_t *payload, uint8_t len, ScreenSyncInfo &out_info);
+
+    /**
+     * @brief 组装 0x40 Wi-Fi 状态响应帧 (与 C# ParseWifiStatusPayload 完全对齐)
+     */
+    static size_t PackWifiStatus(uint8_t mode, uint8_t channel, int8_t rssi, uint8_t clients, uint16_t debug_port,
+                                const char *ssid, const char *ip_str, uint8_t *out_buf);
 };
 
 } // namespace LinkNexus

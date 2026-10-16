@@ -44,13 +44,16 @@ void AppCoordinator::Init()
     // 4. 初始化全双工通信硬件层 (UART0)
     CommManager::Instance().Init();
 
+    // 5. 初始化 Wi-Fi 与无线调试底层
+    WifiManager::Instance().Init();
+
     m_initialized = true;
     ESP_LOGI(TAG, "Subsystems initialized. Ready to orchestrate dual-core tasks.");
 }
 
 void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_t len)
 {
-    uint8_t tx_buf[64];
+    uint8_t tx_buf[512];
     size_t tx_len = 0;
 
     switch (static_cast<ProtocolCmd>(cmd)) {
@@ -86,6 +89,55 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
                 bool ok = PowerManager::Instance().SetPower(channel, enable);
                 if (ok) {
                     tx_len = ProtocolUtils::PackPowerAck(channel, enable, tx_buf);
+                    CommManager::Instance().SendRawFrame(tx_buf, tx_len);
+                }
+            }
+            break;
+        }
+
+        case ProtocolCmd::WifiControl: {
+            // 0x40: Wi-Fi 控制帧 [SubCmd(1B), ParamStr(NB)]
+            if (len >= 1) {
+                uint8_t sub_cmd = payload[0];
+                if (sub_cmd == 0x01) { // 启动 AP 模式 (主动 AP)
+                    char ssid[33] = "LinkNexus-ESP32-AP";
+                    if (len > 1) {
+                        uint8_t copy_len = (len - 1 < 32) ? len - 1 : 32;
+                        memcpy(ssid, payload + 1, copy_len);
+                        ssid[copy_len] = '\0';
+                    }
+                    WifiManager::Instance().StartAp(ssid);
+                } else if (sub_cmd == 0x02) { // 启动 STA 模式 (从 AP)
+                    char ssid[33] = {0};
+                    if (len > 1) {
+                        uint8_t copy_len = (len - 1 < 32) ? len - 1 : 32;
+                        memcpy(ssid, payload + 1, copy_len);
+                        ssid[copy_len] = '\0';
+                    }
+                    WifiManager::Instance().ConnectSta(ssid, "");
+                } else if (sub_cmd == 0x00) { // 关闭 Wi-Fi
+                    WifiManager::Instance().Disconnect();
+                }
+            }
+            break;
+        }
+
+        case ProtocolCmd::CliTransfer: {
+            // 0x50: 交互式 CLI 命令与应答 [Payload: 指令字符串]
+            if (len > 0) {
+                char cmd_str[256];
+                uint8_t copy_len = (len < sizeof(cmd_str) - 1) ? len : sizeof(cmd_str) - 1;
+                memcpy(cmd_str, payload, copy_len);
+                cmd_str[copy_len] = '\0';
+
+                char response_str[512];
+                size_t resp_len = CliEngine::Instance().Execute(cmd_str, response_str, sizeof(response_str));
+                if (resp_len > 0) {
+                    uint8_t pack_len = (resp_len > 255) ? 255 : static_cast<uint8_t>(resp_len);
+                    tx_len = ProtocolUtils::PackFrame(static_cast<uint8_t>(ProtocolCmd::CliTransfer),
+                                                      reinterpret_cast<const uint8_t*>(response_str),
+                                                      pack_len,
+                                                      tx_buf);
                     CommManager::Instance().SendRawFrame(tx_buf, tx_len);
                 }
             }

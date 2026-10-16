@@ -22,6 +22,8 @@ enum class ProtocolCmd : uint8_t {
     TelemetryReport  = 0x10,  ///< 0x10: I2C 采样数据上报 (3路 INA236, 定长12字节)
     ScreenSync       = 0x20,  ///< 0x20: 板载 1.9 寸 TFT 屏幕状态同步
     PowerControl     = 0x30,  ///< 0x30: 通道供电控制开关
+    WifiControl      = 0x40,  ///< 0x40: Wi-Fi 模式与无线调试配置
+    CliTransfer      = 0x50,  ///< 0x50: ESP32-S3 原生交互式命令行 CLI 数据流
 };
 
 /**

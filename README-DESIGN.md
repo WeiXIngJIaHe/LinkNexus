@@ -14,7 +14,7 @@
 >  
 > **文档性质**：硬件固件架构设计现状白皮书与修改演进基准文档（修改性 README）  
 > **文档目的**：汇整当前 ESP32-S3 固件的完整架构设计、底层通信机制与功能实现逻辑（采用通俗严谨的自然语句表述）。**已根据您在备忘录下方提交的全部修改要求严格实施落地**。您可以随时通过自然语言在文档末尾继续审查或提出后续迭代意见。  
-> **当前工程基线版本**：`v0.14-preview.2641`  
+> **当前工程基线版本**：`v0.15-preview.2641`  
 > **技术栈**：ESP32-S3 (Xtensa LX7 240MHz 双核) | ESP-IDF v5.x | FreeRTOS SMP | C++17 | 全双工二进制防粘包协议 | INA236 I2C 采样 | 802.11 b/g/n Wi-Fi AP/STA | 原生 CLI 引擎 | PlatformIO
 
 ---
@@ -35,7 +35,7 @@
 - [四、 硬件引脚分配与物理接口映射表](#四-硬件引脚分配与物理接口映射表)
 - [五、 源码文件职责与核心映射清单](#五-源码文件职责与核心映射清单)
 - [六、 您的修改提交与落地状态对照表 (需求回顾与验证)](#六-您的修改提交与落地状态对照表-需求回顾与验证)
-- [七、 最新提交记录与演进状态 (v0.14-preview.2641)](#七-最新提交记录与演进状态-v014-preview2641)
+- [七、 最新提交记录与演进状态 (v0.15-preview.2641)](#七-最新提交记录与演进状态-v015-preview2641)
 - [八、 后续修改提交区（您可直接在此下方追加自然语言修改意见）](#八-后续修改提交区您可直接在此下方追加自然语言修改意见)
 
 ---
@@ -204,7 +204,7 @@ LinkNexus (Firmware Workspace)
 │   ├── cli_engine.cpp               # CLI 指令分词解析 (help/wifi/power/status/reboot) 格式化实现
 │   └── display_manager.cpp          # 屏幕状态模型缓存与 LVGL 刷新管线预留实现
 ├── platformio.ini                   # PlatformIO 编译环境配置 (esp32-s3-devkitm-1 / espidf 框架)
-├── CMakeLists.txt                   # 顶层 CMake 工程配置 (固化 PROJECT_VER 为 0.14-preview-2641)
+├── CMakeLists.txt                   # 顶层 CMake 工程配置 (固化 PROJECT_VER 为 0.15-preview-2641)
 ├── sdkconfig.esp32-s3-devkitm-1     # ESP32-S3 专用 Kconfig 固化配置
 ├── README-DESIGN.md                 # 【当前文档】硬件设计审查与修改提交对齐备忘录
 └── README.md                        # 面向工程展示的高质感项目技术说明文档
@@ -224,22 +224,22 @@ LinkNexus (Firmware Workspace)
 | **06** | **C#的软件放置位置为C:\Users\17368\source\repos\LinkNexus** | 上位机参考位置明确锁定为该绝对路径，下位机以该工程中的 `ProtocolEngine.cs` 作为最高通信契约。 | ✅ **已完全落地** |
 | **07** | **只需要完成硬件部分，C#的软件部分只供参考，不需要在此更改 2026.10.14** | 严格贯彻职责边界，所有改动均集中于下位机固件工程；上位机 C# 业务代码保持独立，仅做接口协议镜像对齐。 | ✅ **已完全落地** |
 | **08** | **在ESP中加入CLI，能在软件中调用进入CLI页面，加入无线功能，能主动AP和从AP** | 1. 架构 `WifiManager`，完整支持 SoftAP（独立热点 `192.168.4.1`）、Station（从 AP 局域网接入）及 TCP `8266` 无线调试监听；<br>2. 架构 `CliEngine`，实现 9 大原生指令（`help`, `wifi ap`, `wifi connect`, `wifi status`, `wifi scan`, `wifi disconnect`, `power`, `status`, `reboot`）；<br>3. 扩展协议引入 `0x40 WifiControl` 与 `0x50 CliTransfer`，上位机双击就绪标签即可拉起 CLI 页面交互。 | ✅ **已完全落地** |
+| **09** | **在CLI中加入串口，让软件获取真实WIFI列表，软件能控制ESP32的无线功能** | 1. **串口双模无缝兼容**：重构 `CommRxTaskEntry`，实现原生串口终端 ASCII CLI 与二进制协议双模并发解析。无论上位机串口监视器、Putty 还是 C# CLI 页面，输入 `wifi scan\r\n`、`status\r\n` 即可直出纯文本结果；<br>2. **真实 Wi-Fi 信道扫描**：重构 `WifiManager::ScanNetworks`，基于 ESP-IDF 射频底层主动扫描周围信道 1~13，获取真实周围热点并按 RSSI 信号降序排序，输出规范表格（SSID/RSSI/信道/加密认证方式）；<br>3. **分包防截断传输**：在 0x40 (Action 4) 与 0x50 中增加 240 字节无损分包传输，彻底解决长 Wi-Fi 列表被截断问题；<br>4. **无线状态动态驱动**：Station 模式接入外部网络时动态获取真实 DHCP IP 与实时 RSSI，SoftAP 模式下实时维护已连客户端数量，下位机可通过 0x40 或 CLI 随时受控。 | ✅ **已完全落地** |
 
 ---
 
-# 七、 最新提交记录与演进状态 (v0.14-preview.2641)
+# 七、 最新提交记录与演进状态 (v0.15-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **版本号统一推进并锁定为 `v0.14-preview.2641`**：
+> 1. **版本号统一推进并锁定为 `v0.15-preview.2641`**：
 >    - 全量同步至 [`include/linknexus_config.hpp`](file:///c:/Users/17368/Desktop/LinkNexus/include/linknexus_config.hpp)、[`CMakeLists.txt`](file:///c:/Users/17368/Desktop/LinkNexus/CMakeLists.txt)、[`README.md`](file:///c:/Users/17368/Desktop/LinkNexus/README.md) 与本备忘录；
-> 2. **Wi-Fi 主动 AP / 从 AP 与 TCP 无线调试落地**：
->    - 引入 ESP-IDF 原生网络协议栈（`esp_wifi`、`esp_netif`、`nvs_flash`、`lwip`），通过 FreeRTOS 任务在 Core 0 守护 TCP `8266` 端口；
-> 3. **原生 CLI 引擎与 0x40 / 0x50 二进制协议对齐**：
->    - 100% 字节序兼容上位机 `LinkNexus.ProtocolEngine` 的 `BuildWifiControlPacket` 与 `ParseWifiStatusPayload`；
-> 4. **编译与代码质量**：
->    - PlatformIO（ESP-IDF v5.5 框架）全量编译通过（0 警告、0 错误，耗时仅 14.6s，RAM 11.2%，Flash 9.7%）；
-> 5. **Git 双分支同步**：
->    - 独立固件分支 `firmware`（桌面仓）与 Monorepo 软硬件同仓 `feat` 分支均已推送到 GitHub 远程仓库。
+> 2. **串口原生 CLI 终端无缝落地**：
+>    - `AppCoordinator::CommRxTaskEntry` 增强 ASCII 命令行解析器（`\r\n` 换行分词、退格处理与标准 ASCII 过滤），无需二进制封包即可直接在物理串口中敲击 CLI 指令调试；
+> 3. **真实周边 Wi-Fi 扫描与长文本分包传输**：
+>    - `WifiManager::ScanNetworks` 执行真实射频扫描，安全兼顾 AP/STA/APSTA 模式保护，返回周边真实热点列表；
+>    - 协议层实现 240 字节分块传输（Chunking），杜绝超过单帧 255 字节上限造成的截断；
+> 4. **事件驱动真实 IP 与 RSSI 遥测**：
+>    - `IP_EVENT_STA_GOT_IP` 事件驱动更新真实路由器分配 IP 地址与动态信号强度。
 
 ---
 

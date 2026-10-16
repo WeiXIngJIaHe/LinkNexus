@@ -78,6 +78,14 @@ public:
      */
     void SetWirelessDebug(bool enable, uint16_t port = 8266);
 
+    /**
+     * @brief 供底层事件驱动回调更新内部状态模型
+     */
+    void OnStaGotIp(const void *ip);
+    void OnStaDisconnected();
+    void IncrementClients();
+    void DecrementClients();
+
 private:
     WifiManager();
     ~WifiManager() = default;

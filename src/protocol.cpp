@@ -31,77 +31,80 @@ void ProtocolParser::Reset()
     memset(m_payload, 0, sizeof(m_payload));
 }
 
+void ProtocolParser::FeedByte(uint8_t b)
+{
+    switch (m_state) {
+        case State::WaitForHeader1:
+            if (b == PROTOCOL_HEADER1) {
+                m_state = State::WaitForHeader2;
+                m_calc_checksum = PROTOCOL_HEADER1;
+            }
+            break;
+
+        case State::WaitForHeader2:
+            if (b == PROTOCOL_HEADER2) {
+                m_state = State::WaitForCmd;
+                m_calc_checksum += PROTOCOL_HEADER2;
+            } else if (b == PROTOCOL_HEADER1) {
+                // 连续 0xAA 容错维持
+                m_state = State::WaitForHeader2;
+                m_calc_checksum = PROTOCOL_HEADER1;
+            } else {
+                m_state = State::WaitForHeader1;
+            }
+            break;
+
+        case State::WaitForCmd:
+            m_current_cmd = b;
+            m_calc_checksum += b;
+            m_state = State::WaitForLength;
+            break;
+
+        case State::WaitForLength:
+            m_expected_len = b;
+            m_calc_checksum += b;
+            m_payload_idx = 0;
+            if (m_expected_len == 0) {
+                m_state = State::WaitForChecksum;
+            } else {
+                m_state = State::WaitForPayload;
+            }
+            break;
+
+        case State::WaitForPayload:
+            if (m_payload_idx < PROTOCOL_MAX_PAYLOAD_LEN) {
+                m_payload[m_payload_idx++] = b;
+            }
+            m_calc_checksum += b;
+
+            if (m_payload_idx >= m_expected_len) {
+                m_state = State::WaitForChecksum;
+            }
+            break;
+
+        case State::WaitForChecksum:
+            if (b == m_calc_checksum) {
+                // 校验和匹配成功，触发有效帧派发
+                if (m_handler) {
+                    m_handler(m_current_cmd, m_payload, m_expected_len);
+                }
+            }
+            // 无论是否匹配，重置状态等待下一帧
+            m_state = State::WaitForHeader1;
+            break;
+
+        default:
+            m_state = State::WaitForHeader1;
+            break;
+    }
+}
+
 void ProtocolParser::Feed(const uint8_t *data, size_t len)
 {
     if (!data || len == 0) return;
 
     for (size_t i = 0; i < len; ++i) {
-        uint8_t b = data[i];
-
-        switch (m_state) {
-            case State::WaitForHeader1:
-                if (b == PROTOCOL_HEADER1) {
-                    m_state = State::WaitForHeader2;
-                    m_calc_checksum = PROTOCOL_HEADER1;
-                }
-                break;
-
-            case State::WaitForHeader2:
-                if (b == PROTOCOL_HEADER2) {
-                    m_state = State::WaitForCmd;
-                    m_calc_checksum += PROTOCOL_HEADER2;
-                } else if (b == PROTOCOL_HEADER1) {
-                    // 连续 0xAA 容错维持
-                    m_state = State::WaitForHeader2;
-                    m_calc_checksum = PROTOCOL_HEADER1;
-                } else {
-                    m_state = State::WaitForHeader1;
-                }
-                break;
-
-            case State::WaitForCmd:
-                m_current_cmd = b;
-                m_calc_checksum += b;
-                m_state = State::WaitForLength;
-                break;
-
-            case State::WaitForLength:
-                m_expected_len = b;
-                m_calc_checksum += b;
-                m_payload_idx = 0;
-                if (m_expected_len == 0) {
-                    m_state = State::WaitForChecksum;
-                } else {
-                    m_state = State::WaitForPayload;
-                }
-                break;
-
-            case State::WaitForPayload:
-                if (m_payload_idx < PROTOCOL_MAX_PAYLOAD_LEN) {
-                    m_payload[m_payload_idx++] = b;
-                }
-                m_calc_checksum += b;
-
-                if (m_payload_idx >= m_expected_len) {
-                    m_state = State::WaitForChecksum;
-                }
-                break;
-
-            case State::WaitForChecksum:
-                if (b == m_calc_checksum) {
-                    // 校验和匹配成功，触发有效帧派发
-                    if (m_handler) {
-                        m_handler(m_current_cmd, m_payload, m_expected_len);
-                    }
-                }
-                // 无论是否匹配，重置状态等待下一帧
-                m_state = State::WaitForHeader1;
-                break;
-
-            default:
-                m_state = State::WaitForHeader1;
-                break;
-        }
+        FeedByte(data[i]);
     }
 }
 

@@ -5,6 +5,8 @@
 #include "telemetry_manager.hpp"
 #include "display_manager.hpp"
 #include "comm_manager.hpp"
+#include "wifi_manager.hpp"
+#include "cli_engine.hpp"
 
 namespace LinkNexus {
 

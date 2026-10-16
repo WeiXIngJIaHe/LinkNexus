@@ -187,5 +187,37 @@ bool ProtocolUtils::ParseScreenSync(const uint8_t *payload, uint8_t len, ScreenS
     return true;
 }
 
+size_t ProtocolUtils::PackWifiStatus(uint8_t mode, uint8_t channel, int8_t rssi, uint8_t clients, uint16_t debug_port,
+                                     const char *ssid, const char *ip_str, uint8_t *out_buf)
+{
+    if (!out_buf) return 0;
+
+    uint8_t payload[128] = {0};
+    payload[0] = mode;
+    payload[1] = channel;
+    payload[2] = static_cast<uint8_t>(rssi);
+    payload[3] = clients;
+    payload[4] = static_cast<uint8_t>(debug_port & 0xFF);
+    payload[5] = static_cast<uint8_t>((debug_port >> 8) & 0xFF);
+
+    uint8_t ssid_len = ssid ? static_cast<uint8_t>(strlen(ssid)) : 0;
+    if (ssid_len > 32) ssid_len = 32;
+    payload[6] = ssid_len;
+    if (ssid_len > 0) {
+        memcpy(&payload[7], ssid, ssid_len);
+    }
+
+    size_t ip_offset = 7 + ssid_len;
+    uint8_t ip_len = ip_str ? static_cast<uint8_t>(strlen(ip_str)) : 0;
+    if (ip_len > 15) ip_len = 15;
+    payload[ip_offset] = ip_len;
+    if (ip_len > 0) {
+        memcpy(&payload[ip_offset + 1], ip_str, ip_len);
+    }
+
+    uint8_t total_payload_len = static_cast<uint8_t>(ip_offset + 1 + ip_len);
+    return PackFrame(static_cast<uint8_t>(ProtocolCmd::WifiControl), payload, total_payload_len, out_buf);
+}
+
 } // namespace LinkNexus
 

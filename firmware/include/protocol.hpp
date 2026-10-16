@@ -22,6 +22,8 @@ enum class ProtocolCmd : uint8_t {
     TelemetryReport  = 0x10,  ///< 0x10: I2C 采样数据上报 (3路 INA236, 定长12字节)
     ScreenSync       = 0x20,  ///< 0x20: 板载 1.9 寸 TFT 屏幕状态同步
     PowerControl     = 0x30,  ///< 0x30: 通道供电控制开关
+    WifiControl      = 0x40,  ///< 0x40: Wi-Fi 模式与无线调试配置
+    CliTransfer      = 0x50,  ///< 0x50: ESP32-S3 原生交互式命令行 CLI 数据流
 };
 
 /**
@@ -124,6 +126,12 @@ public:
      * @brief 解析 0x20 屏幕同步包有效载荷
      */
     static bool ParseScreenSync(const uint8_t *payload, uint8_t len, ScreenSyncInfo &out_info);
+
+    /**
+     * @brief 组装 0x40 Wi-Fi 状态响应帧 (与 C# ParseWifiStatusPayload 完全对齐)
+     */
+    static size_t PackWifiStatus(uint8_t mode, uint8_t channel, int8_t rssi, uint8_t clients, uint16_t debug_port,
+                                const char *ssid, const char *ip_str, uint8_t *out_buf);
 };
 
 } // namespace LinkNexus

@@ -69,10 +69,12 @@ size_t CliEngine::Execute(const char *cmd_line, char *out_response, size_t max_o
         if (strcasecmp(sub_cmd, "ap") == 0) {
             char *ssid = strtok(nullptr, " ");
             char *pwd = strtok(nullptr, " ");
+            char *ch_str = strtok(nullptr, " ");
             if (!ssid) ssid = (char*)"LinkNexus-ESP32-AP";
             if (!pwd) pwd = (char*)"12345678";
+            uint8_t ch = (ch_str && atoi(ch_str) >= 1 && atoi(ch_str) <= 13) ? static_cast<uint8_t>(atoi(ch_str)) : 1;
 
-            bool ok = WifiManager::Instance().StartAp(ssid, pwd);
+            bool ok = WifiManager::Instance().StartAp(ssid, pwd, ch);
             WifiStatusInfo st = WifiManager::Instance().GetStatus();
             return snprintf(out_response, max_out_len,
                 "[%s] ESP32-S3 主动 AP (SoftAP) 已启动:\r\n"
@@ -91,14 +93,12 @@ size_t CliEngine::Execute(const char *cmd_line, char *out_response, size_t max_o
             if (!pwd) pwd = (char*)"";
 
             bool ok = WifiManager::Instance().ConnectSta(ssid, pwd);
-            WifiStatusInfo st = WifiManager::Instance().GetStatus();
             return snprintf(out_response, max_out_len,
-                "[%s] ESP32-S3 从 AP (Station) 模式连接完成:\r\n"
+                "[%s] ESP32-S3 从 AP (Station) 正在连接目标网络:\r\n"
                 "  目标 SSID : %s\r\n"
-                "  获取 IP   : %s\r\n"
-                "  信号强度  : %d dBm\r\n"
-                "  无线调试  : TCP %s:%u [监听中]\r\n",
-                ok ? "SUCCESS" : "FAILED", st.ssid, st.ip_str, st.rssi, st.ip_str, st.wireless_debug_port);
+                "  连接状态  : 握手协商中 (DHCP 获取 IP 中...)\r\n"
+                "  提示      : 输入 'wifi status' 查看最新连接与真实 IP 获取结果\r\n",
+                ok ? "SUCCESS" : "FAILED", ssid);
         }
         else if (strcasecmp(sub_cmd, "status") == 0) {
             WifiStatusInfo st = WifiManager::Instance().GetStatus();

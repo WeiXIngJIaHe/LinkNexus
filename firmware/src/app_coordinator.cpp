@@ -132,16 +132,24 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
                     }
                 } else if (action == 3) { // 断开 Wi-Fi
                     WifiManager::Instance().Disconnect();
-                } else if (action == 4) { // 扫描周边热点
-                    char scan_buf[256];
+                } else if (action == 4) { // 扫描周边真实 Wi-Fi 热点
+                    char scan_buf[1536];
                     size_t scan_len = WifiManager::Instance().ScanNetworks(scan_buf, sizeof(scan_buf));
                     if (scan_len > 0) {
-                        uint8_t pack_len = (scan_len > 255) ? 255 : static_cast<uint8_t>(scan_len);
-                        tx_len = ProtocolUtils::PackFrame(static_cast<uint8_t>(ProtocolCmd::CliTransfer),
-                                                          reinterpret_cast<const uint8_t*>(scan_buf),
-                                                          pack_len,
-                                                          tx_buf);
-                        CommManager::Instance().SendRawFrame(tx_buf, tx_len);
+                        size_t sent_bytes = 0;
+                        while (sent_bytes < scan_len) {
+                            size_t chunk = scan_len - sent_bytes;
+                            if (chunk > 240) chunk = 240;
+                            tx_len = ProtocolUtils::PackFrame(static_cast<uint8_t>(ProtocolCmd::CliTransfer),
+                                                              reinterpret_cast<const uint8_t*>(scan_buf + sent_bytes),
+                                                              static_cast<uint8_t>(chunk),
+                                                              tx_buf);
+                            CommManager::Instance().SendRawFrame(tx_buf, tx_len);
+                            sent_bytes += chunk;
+                            if (sent_bytes < scan_len) {
+                                vTaskDelay(pdMS_TO_TICKS(10));
+                            }
+                        }
                     }
                 }
 
@@ -163,15 +171,23 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
                 memcpy(cmd_str, payload, copy_len);
                 cmd_str[copy_len] = '\0';
 
-                char response_str[512];
+                char response_str[1536];
                 size_t resp_len = CliEngine::Instance().Execute(cmd_str, response_str, sizeof(response_str));
                 if (resp_len > 0) {
-                    uint8_t pack_len = (resp_len > 255) ? 255 : static_cast<uint8_t>(resp_len);
-                    tx_len = ProtocolUtils::PackFrame(static_cast<uint8_t>(ProtocolCmd::CliTransfer),
-                                                      reinterpret_cast<const uint8_t*>(response_str),
-                                                      pack_len,
-                                                      tx_buf);
-                    CommManager::Instance().SendRawFrame(tx_buf, tx_len);
+                    size_t sent_bytes = 0;
+                    while (sent_bytes < resp_len) {
+                        size_t chunk = resp_len - sent_bytes;
+                        if (chunk > 240) chunk = 240;
+                        tx_len = ProtocolUtils::PackFrame(static_cast<uint8_t>(ProtocolCmd::CliTransfer),
+                                                          reinterpret_cast<const uint8_t*>(response_str + sent_bytes),
+                                                          static_cast<uint8_t>(chunk),
+                                                          tx_buf);
+                        CommManager::Instance().SendRawFrame(tx_buf, tx_len);
+                        sent_bytes += chunk;
+                        if (sent_bytes < resp_len) {
+                            vTaskDelay(pdMS_TO_TICKS(10));
+                        }
+                    }
                 }
             }
             break;
@@ -183,16 +199,61 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
     }
 }
 
+void AppCoordinator::ExecuteSerialCli(const char *cmd)
+{
+    if (!cmd || strlen(cmd) == 0) return;
+
+    ESP_LOGI(TAG, "[Serial CLI] Received command: '%s'", cmd);
+
+    char response_str[1536];
+    size_t resp_len = CliEngine::Instance().Execute(cmd, response_str, sizeof(response_str) - 2);
+    if (resp_len > 0) {
+        if (resp_len < sizeof(response_str) - 2 && response_str[resp_len - 1] != '\n') {
+            response_str[resp_len++] = '\r';
+            response_str[resp_len++] = '\n';
+            response_str[resp_len] = '\0';
+        }
+        CommManager::Instance().SendRawFrame(reinterpret_cast<const uint8_t*>(response_str), resp_len);
+    }
+}
+
 void AppCoordinator::CommRxTaskEntry(void *pvParameters)
 {
     auto *self = static_cast<AppCoordinator*>(pvParameters);
     uint8_t rx_buffer[256];
-    ESP_LOGI(TAG, "CommRxTask running on Core %d (Priority: 10).", xPortGetCoreID());
+    char cli_line[256];
+    size_t cli_len = 0;
+    ESP_LOGI(TAG, "CommRxTask running on Core %d (Priority: 10, Dual-Mode: Protocol & Serial CLI).", xPortGetCoreID());
 
     while (1) {
         int bytes_read = CommManager::Instance().ReadBytes(rx_buffer, sizeof(rx_buffer), pdMS_TO_TICKS(20));
         if (bytes_read > 0) {
-            self->m_parser.Feed(rx_buffer, static_cast<size_t>(bytes_read));
+            for (int i = 0; i < bytes_read; ++i) {
+                uint8_t b = rx_buffer[i];
+
+                if (self->m_parser.IsParsingFrame()) {
+                    self->m_parser.FeedByte(b);
+                    cli_len = 0;
+                } else if (b == PROTOCOL_HEADER1) {
+                    self->m_parser.FeedByte(b);
+                } else {
+                    if (b == '\r' || b == '\n') {
+                        if (cli_len > 0) {
+                            cli_line[cli_len] = '\0';
+                            self->ExecuteSerialCli(cli_line);
+                            cli_len = 0;
+                        }
+                    } else if (b == '\b' || b == 0x7F) {
+                        if (cli_len > 0) {
+                            cli_len--;
+                        }
+                    } else if (b >= 32 && b <= 126) {
+                        if (cli_len < sizeof(cli_line) - 1) {
+                            cli_line[cli_len++] = static_cast<char>(b);
+                        }
+                    }
+                }
+            }
         }
     }
 }

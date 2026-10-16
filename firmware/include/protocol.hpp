@@ -75,6 +75,8 @@ public:
 
     void SetHandler(FrameHandler handler);
     void Reset();
+    bool IsParsingFrame() const { return m_state != State::WaitForHeader1; }
+    void FeedByte(uint8_t b);
     void Feed(const uint8_t *data, size_t len);
 
 private:

@@ -14,6 +14,7 @@
 #include "freertos/task.h"
 #include <string.h>
 #include <stdio.h>
+#include <algorithm>
 
 namespace LinkNexus {
 
@@ -21,6 +22,23 @@ static const char *TAG = "WIFI_MGR";
 
 static esp_netif_t *s_ap_netif = nullptr;
 static esp_netif_t *s_sta_netif = nullptr;
+
+static const char* AuthModeToString(wifi_auth_mode_t authmode)
+{
+    switch (authmode) {
+        case WIFI_AUTH_OPEN:            return "OPEN";
+        case WIFI_AUTH_WEP:             return "WEP";
+        case WIFI_AUTH_WPA_PSK:         return "WPA-PSK";
+        case WIFI_AUTH_WPA2_PSK:        return "WPA2-PSK";
+        case WIFI_AUTH_WPA_WPA2_PSK:    return "WPA/WPA2";
+        case WIFI_AUTH_WPA2_ENTERPRISE: return "WPA2-ENT";
+        case WIFI_AUTH_WPA3_PSK:        return "WPA3-PSK";
+        case WIFI_AUTH_WPA2_WPA3_PSK:   return "WPA2/WPA3";
+        case WIFI_AUTH_WAPI_PSK:        return "WAPI";
+        case WIFI_AUTH_OWE:             return "OWE";
+        default:                        return "UNKNOWN";
+    }
+}
 
 WifiManager& WifiManager::Instance()
 {
@@ -48,24 +66,26 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
     if (event_base == WIFI_EVENT) {
         if (event_id == WIFI_EVENT_AP_STACONNECTED) {
             auto *event = (wifi_event_ap_staconnected_t *)event_data;
-            ESP_LOGI(TAG, "Client joined AP (AID=%d, MAC=" MACSTR ")",
+            ESP_LOGI(TAG, "Client joined SoftAP (AID=%d, MAC=" MACSTR ")",
                      event->aid, MAC2STR(event->mac));
-            WifiStatusInfo st = mgr.GetStatus();
-            st.connected_clients++;
+            mgr.IncrementClients();
         } else if (event_id == WIFI_EVENT_AP_STADISCONNECTED) {
             auto *event = (wifi_event_ap_stadisconnected_t *)event_data;
-            ESP_LOGI(TAG, "Client left AP (AID=%d, MAC=" MACSTR ")",
+            ESP_LOGI(TAG, "Client left SoftAP (AID=%d, MAC=" MACSTR ")",
                      event->aid, MAC2STR(event->mac));
+            mgr.DecrementClients();
         } else if (event_id == WIFI_EVENT_STA_START) {
+            ESP_LOGI(TAG, "Station started, initiating connection...");
             esp_wifi_connect();
         } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
-            ESP_LOGW(TAG, "Disconnected from AP, retrying...");
-            esp_wifi_connect();
+            ESP_LOGW(TAG, "Station disconnected from AP.");
+            mgr.OnStaDisconnected();
         }
     } else if (event_base == IP_EVENT) {
         if (event_id == IP_EVENT_STA_GOT_IP) {
             auto *event = (ip_event_got_ip_t *)event_data;
-            ESP_LOGI(TAG, "Station acquired IP: " IPSTR, IP2STR(&event->ip_info.ip));
+            ESP_LOGI(TAG, "Station acquired real IP: " IPSTR, IP2STR(&event->ip_info.ip));
+            mgr.OnStaGotIp(&event->ip_info.ip);
         }
     }
 }
@@ -171,7 +191,7 @@ bool WifiManager::ConnectSta(const char *ssid, const char *password)
     if (password && strlen(password) > 0) {
         strncpy((char *)wifi_config.sta.password, password, sizeof(wifi_config.sta.password) - 1);
     }
-    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    wifi_config.sta.threshold.authmode = (password && strlen(password) > 0) ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
 
     esp_wifi_stop();
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
@@ -181,13 +201,53 @@ bool WifiManager::ConnectSta(const char *ssid, const char *password)
 
     m_status.mode = WifiWorkMode::Station;
     strncpy(m_status.ssid, ssid, sizeof(m_status.ssid) - 1);
-    strncpy(m_status.ip_str, "192.168.1.188", sizeof(m_status.ip_str) - 1);
-    m_status.rssi = -52;
+    strncpy(m_status.ip_str, "Connecting...", sizeof(m_status.ip_str) - 1);
+    m_status.rssi = 0;
+    m_status.connected_clients = 0;
+    m_status.is_wireless_debug_active = false;
+
+    return true;
+}
+
+void WifiManager::OnStaGotIp(const void *ip)
+{
+    LockGuard lock(m_mutex);
+    const esp_ip4_addr_t *ip_addr = static_cast<const esp_ip4_addr_t*>(ip);
+    esp_ip4addr_ntoa(ip_addr, m_status.ip_str, sizeof(m_status.ip_str));
+
+    int rssi = 0;
+    if (esp_wifi_sta_get_rssi(&rssi) == ESP_OK) {
+        m_status.rssi = static_cast<int8_t>(rssi);
+    }
+    m_status.mode = WifiWorkMode::Station;
     m_status.is_wireless_debug_active = true;
 
     SetWirelessDebug(true, 8266);
+}
 
-    return true;
+void WifiManager::OnStaDisconnected()
+{
+    LockGuard lock(m_mutex);
+    if (m_status.mode == WifiWorkMode::Station) {
+        strncpy(m_status.ip_str, "Disconnected", sizeof(m_status.ip_str) - 1);
+        m_status.rssi = 0;
+    }
+}
+
+void WifiManager::IncrementClients()
+{
+    LockGuard lock(m_mutex);
+    if (m_status.connected_clients < 255) {
+        m_status.connected_clients++;
+    }
+}
+
+void WifiManager::DecrementClients()
+{
+    LockGuard lock(m_mutex);
+    if (m_status.connected_clients > 0) {
+        m_status.connected_clients--;
+    }
 }
 
 bool WifiManager::Disconnect()
@@ -213,8 +273,19 @@ size_t WifiManager::ScanNetworks(char *out_buf, size_t max_len)
     LockGuard lock(m_mutex);
     if (!m_initialized) Init();
 
-    esp_wifi_set_mode(WIFI_MODE_STA);
-    esp_wifi_start();
+    ESP_LOGI(TAG, "Starting hardware Wi-Fi channel scan...");
+
+    wifi_mode_t cur_mode = WIFI_MODE_NULL;
+    esp_wifi_get_mode(&cur_mode);
+    bool restore_ap = false;
+
+    if (cur_mode == WIFI_MODE_AP) {
+        esp_wifi_set_mode(WIFI_MODE_APSTA);
+        restore_ap = true;
+    } else if (cur_mode != WIFI_MODE_APSTA && cur_mode != WIFI_MODE_STA) {
+        esp_wifi_set_mode(WIFI_MODE_STA);
+        esp_wifi_start();
+    }
 
     wifi_scan_config_t scan_config = {
         .ssid = nullptr,
@@ -222,37 +293,76 @@ size_t WifiManager::ScanNetworks(char *out_buf, size_t max_len)
         .channel = 0,
         .show_hidden = true,
         .scan_type = WIFI_SCAN_TYPE_ACTIVE,
-        .scan_time = { .active = { .min = 100, .max = 300 } },
+        .scan_time = { .active = { .min = 100, .max = 250 } },
         .home_chan_dwell_time = 0
     };
 
     esp_err_t err = esp_wifi_scan_start(&scan_config, true);
     if (err != ESP_OK) {
-        return snprintf(out_buf, max_len, "[WiFi Scan] 扫描失败或驱动正忙 (err=%d)\r\n", err);
+        ESP_LOGE(TAG, "esp_wifi_scan_start failed: %d", err);
+        if (restore_ap) {
+            esp_wifi_set_mode(WIFI_MODE_AP);
+        }
+        return snprintf(out_buf, max_len, "[WiFi Scan] 扫描失败或 Wi-Fi 驱动正忙 (错误代码: %d)\r\n", err);
     }
 
     uint16_t ap_count = 0;
     esp_wifi_scan_get_ap_num(&ap_count);
     if (ap_count == 0) {
-        return snprintf(out_buf, max_len, "[WiFi Scan] 未扫描到可用无线网络。\r\n");
+        if (restore_ap) {
+            esp_wifi_set_mode(WIFI_MODE_AP);
+        }
+        return snprintf(out_buf, max_len, "[WiFi Scan] 扫描完成: 周围未发现可用的 2.4GHz Wi-Fi 热点。\r\n");
     }
 
-    if (ap_count > 10) ap_count = 10;
-    wifi_ap_record_t ap_records[10];
-    esp_wifi_scan_get_ap_records(&ap_count, ap_records);
+    uint16_t records_to_get = (ap_count > 16) ? 16 : ap_count;
+    wifi_ap_record_t ap_records[16];
+    esp_wifi_scan_get_ap_records(&records_to_get, ap_records);
 
-    size_t offset = snprintf(out_buf, max_len, "周边 Wi-Fi 扫描结果 (共 %u 个热点):\r\n", ap_count);
-    for (int i = 0; i < ap_count && offset < max_len; ++i) {
+    std::sort(ap_records, ap_records + records_to_get, [](const wifi_ap_record_t &a, const wifi_ap_record_t &b) {
+        return a.rssi > b.rssi;
+    });
+
+    size_t offset = snprintf(out_buf, max_len,
+        "================ 周边真实 Wi-Fi 热点扫描结果 ================\r\n"
+        "  序号  SSID                      RSSI     信道  加密认证\r\n"
+        "----------------------------------------------------------\r\n");
+
+    for (uint16_t i = 0; i < records_to_get && offset < max_len - 80; ++i) {
+        const char *auth_str = AuthModeToString(ap_records[i].authmode);
+        char ssid_str[33];
+        strncpy(ssid_str, (const char *)ap_records[i].ssid, sizeof(ssid_str) - 1);
+        ssid_str[sizeof(ssid_str) - 1] = '\0';
+        if (strlen(ssid_str) == 0) {
+            strcpy(ssid_str, "<Hidden-SSID>");
+        }
+
         offset += snprintf(out_buf + offset, max_len - offset,
-                           "  [%d] %-20s (RSSI: %d dBm, CH: %u)\r\n",
-                           i + 1, (char *)ap_records[i].ssid, ap_records[i].rssi, ap_records[i].primary);
+                           "  [%02u] %-24s  %4d dBm  CH%2u  %-10s\r\n",
+                           i + 1, ssid_str, ap_records[i].rssi, ap_records[i].primary, auth_str);
     }
+
+    offset += snprintf(out_buf + offset, max_len - offset,
+                       "----------------------------------------------------------\r\n"
+                       "  扫描完成: 检索到 %u 个真实无线网络 (显示前 %u 个)\r\n",
+                       ap_count, records_to_get);
+
+    if (restore_ap) {
+        esp_wifi_set_mode(WIFI_MODE_AP);
+    }
+
     return offset;
 }
 
 WifiStatusInfo WifiManager::GetStatus()
 {
     LockGuard lock(m_mutex);
+    if (m_status.mode == WifiWorkMode::Station && strcmp(m_status.ip_str, "--") != 0 && strcmp(m_status.ip_str, "Disconnected") != 0 && strcmp(m_status.ip_str, "Connecting...") != 0) {
+        int rssi = 0;
+        if (esp_wifi_sta_get_rssi(&rssi) == ESP_OK) {
+            m_status.rssi = static_cast<int8_t>(rssi);
+        }
+    }
     return m_status;
 }
 

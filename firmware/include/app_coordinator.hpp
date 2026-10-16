@@ -40,6 +40,7 @@ private:
     AppCoordinator& operator=(const AppCoordinator&) = delete;
 
     void OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_t len);
+    void ExecuteSerialCli(const char *cmd);
 
     static void CommRxTaskEntry(void *pvParameters);
     static void TelemetryTaskEntry(void *pvParameters);

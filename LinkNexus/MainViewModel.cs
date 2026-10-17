@@ -153,6 +153,15 @@ namespace LinkNexus
         private string _daemonStatusText = "LinkNexus 物理拓扑守护服务：正在探测链路...";
         private DateTime _lastEsp32ConnectAttempt = DateTime.MinValue;
 
+        // 10 秒受控串口枚举生命周期管理
+        private CancellationTokenSource? _enumerationCts;
+        private bool _isEnumerating = false;
+        private string? _enumeratingComPort = null;
+        private string? _enumeratingVid = null;
+        private string? _enumeratingPid = null;
+        private bool _enumerationTimedOut = false;
+        private readonly object _enumLock = new();
+
         // 刷新总线与 VSCode 流光加载状态
         private bool _isRefreshingDevices = false;
         private DateTime _scanStartTime = DateTime.UtcNow;
@@ -1174,6 +1183,11 @@ namespace LinkNexus
                 {
                     if (!string.IsNullOrEmpty(text))
                     {
+                        if (_isEnumerating)
+                        {
+                            OnEnumerationSuccess();
+                        }
+
                         var lines = text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
                         foreach (var l in lines)
                         {
@@ -1195,28 +1209,23 @@ namespace LinkNexus
                 });
             };
 
-            // 当 ESP32 启动完成发送串口握手/遥测包时，停止左下角滑动条动画，点亮绿灯表示守护服务与 ESP32 枚举完成
+            // 当下位机响应心跳包时，触发枚举成功逻辑：停止左下角滑动条动画，点亮绿灯
             Esp32CommService.Instance.HeartbeatAckReceived += ack =>
             {
                 _dispatcher.InvokeAsync(() =>
                 {
-                    IsDaemonEnumerating = false;
-                    IsEsp32Online = true;
-                    DaemonStatusDotColor = "#10B981"; // 绿色点亮
-                    DaemonStatusText = $"LinkNexus 物理拓扑守护服务：正常就绪 ({Esp32CommService.Instance.ConnectedPortName})";
+                    OnEnumerationSuccess();
                 });
             };
 
+            // 当收到物理硬件上报的真实遥测数据时，若正在枚举，立即确认枚举成功并点亮绿灯
             Esp32CommService.Instance.TelemetryReceived += data =>
             {
                 _dispatcher.InvokeAsync(() =>
                 {
-                    if (IsDaemonEnumerating && !Esp32CommService.Instance.IsSimulationMode)
+                    if (!Esp32CommService.Instance.IsSimulationMode && (_isEnumerating || !IsEsp32Online))
                     {
-                        IsDaemonEnumerating = false;
-                        IsEsp32Online = true;
-                        DaemonStatusDotColor = "#10B981"; // 绿色点亮
-                        DaemonStatusText = $"LinkNexus 物理拓扑守护服务：正常就绪 ({Esp32CommService.Instance.ConnectedPortName})";
+                        OnEnumerationSuccess();
                     }
                 });
             };
@@ -1289,35 +1298,46 @@ namespace LinkNexus
             {
                 if (espDev.HasDriverIssue)
                 {
+                    CancelEnumeration();
                     IsEsp32Online = false;
+                    IsDaemonEnumerating = false;
                     DaemonStatusDotColor = "#F59E0B"; // 黄色：守护服务异常
-                    DaemonStatusText = "LinkNexus 物理拓扑守护服务：异常";
+                    DaemonStatusText = $"LinkNexus 物理拓扑守护服务：驱动异常 ({espDev.ComPort})";
+                }
+                else if (!string.IsNullOrWhiteSpace(espDev.ComPort) && espDev.ComPort != "--")
+                {
+                    if (IsEsp32Online && Esp32CommService.Instance.IsConnected && Esp32CommService.Instance.ConnectedPortName == espDev.ComPort)
+                    {
+                        // 已在线就绪，保持常绿
+                        DaemonStatusDotColor = "#10B981";
+                        DaemonStatusText = $"LinkNexus 物理拓扑守护服务：正常就绪 ({espDev.ComPort})";
+                    }
+                    else if (_enumerationTimedOut && _enumeratingComPort == espDev.ComPort && !Esp32CommService.Instance.IsConnected)
+                    {
+                        // 10 秒超时后释放串口状态，维持红灯
+                        IsDaemonEnumerating = false;
+                        IsEsp32Online = false;
+                        DaemonStatusDotColor = "#EF4444";
+                        DaemonStatusText = $"LinkNexus 物理拓扑守护服务：枚举超时 (已释放串口 {espDev.ComPort})";
+                    }
+                    else if (_isEnumerating && _enumeratingComPort == espDev.ComPort)
+                    {
+                        // 正在 10 秒受控枚举倒计时中，保持滑条流动
+                        IsDaemonEnumerating = true;
+                    }
+                    else
+                    {
+                        // 插入 USB 获取到 PID、VID 码，左下角启动滑条动画，向硬件发送串口枚举，开始 10 秒受控超时
+                        StartEnumeration(espDev.ComPort, espDev.Vid, espDev.Pid);
+                    }
                 }
                 else
                 {
-                    IsEsp32Online = true;
-                    if (!Esp32CommService.Instance.IsConnected)
-                    {
-                        // 发现物理 ESP32，正在枚举握手并驱动流光滑动条
-                        IsDaemonEnumerating = true;
-                        DaemonStatusDotColor = "#38BDF8"; // 青色：握手枚举中
-                        DaemonStatusText = string.IsNullOrWhiteSpace(espDev.ComPort) || espDev.ComPort == "--"
-                            ? "LinkNexus 物理拓扑守护服务：正在握手..."
-                            : $"LinkNexus 物理拓扑守护服务：正在握手 ({espDev.ComPort})...";
-                    }
-
-                    // 自动与 ESP32-S3 物理串口建立双向二进制与 CLI 通信 (带 3 秒冷却防抖，杜绝死循环)
-                    if (!string.IsNullOrWhiteSpace(espDev.ComPort) && espDev.ComPort != "--")
-                    {
-                        if (!Esp32CommService.Instance.IsConnected || Esp32CommService.Instance.ConnectedPortName != espDev.ComPort)
-                        {
-                            if ((DateTime.UtcNow - _lastEsp32ConnectAttempt).TotalSeconds >= 3)
-                            {
-                                _lastEsp32ConnectAttempt = DateTime.UtcNow;
-                                Esp32CommService.Instance.Connect(espDev.ComPort, 115200);
-                            }
-                        }
-                    }
+                    CancelEnumeration();
+                    IsDaemonEnumerating = true;
+                    IsEsp32Online = false;
+                    DaemonStatusDotColor = "#38BDF8";
+                    DaemonStatusText = $"LinkNexus 物理拓扑守护服务：已识别 [VID:{espDev.Vid} PID:{espDev.Pid}]，等待分配串口...";
                 }
 
                 _esp32DeviceModel = new PortDeviceModel
@@ -1328,13 +1348,19 @@ namespace LinkNexus
                     ComPort = string.IsNullOrWhiteSpace(espDev.ComPort) ? "--" : espDev.ComPort,
                     SerialNumber = string.IsNullOrWhiteSpace(espDev.SerialNumber) ? "--" : espDev.SerialNumber,
                     HardwarePath = espDev.HardwarePath,
-                    State = espDev.HasDriverIssue ? DeviceState.Warning : DeviceState.Ready,
+                    State = espDev.HasDriverIssue ? DeviceState.Warning : (_enumerationTimedOut ? DeviceState.Warning : (IsEsp32Online ? DeviceState.Ready : DeviceState.Warning)),
                     FunctionType = DeviceFunctionType.Controller_ESP32,
-                    StatusMessage = "ESP32-S3 核心主控链路正常，管理协议栈就绪"
+                    StatusMessage = _enumerationTimedOut
+                        ? $"串口枚举超时 (10秒未响应)，已主动释放串口 {espDev.ComPort}"
+                        : (IsEsp32Online
+                            ? "ESP32-S3 核心主控链路正常，管理协议栈就绪"
+                            : "正在执行受控串口枚举握手...")
                 };
             }
             else
             {
+                CancelEnumeration();
+                _enumerationTimedOut = false;
                 IsEsp32Online = false;
                 IsDaemonEnumerating = false;
                 _esp32DeviceModel = null;
@@ -1346,8 +1372,6 @@ namespace LinkNexus
                 }
             }
 
-            // 2. 分离设备：
-            // A) CH338X 下行的核心设备 (FT2232, CH343P, XDS110, DAP)
             // 2. 分离设备：
             // A) 当 ESP32 识别并枚举成功：把 Windows 识别到的其他设备卡片收纳为抽屉形式，
             //    主卡片区只显示出 CH338X 下行的核心调试/通信设备 (FT2232, CH343P, XDS110, DAP)
@@ -1430,12 +1454,155 @@ namespace LinkNexus
             CompleteScanAnimationAsync();
         }
 
+        private void StartEnumeration(string portName, string vid, string pid)
+        {
+            lock (_enumLock)
+            {
+                _enumerationCts?.Cancel();
+                _enumerationCts?.Dispose();
+                _enumerationCts = new CancellationTokenSource();
+                _isEnumerating = true;
+                _enumeratingComPort = portName;
+                _enumeratingVid = vid;
+                _enumeratingPid = pid;
+                _enumerationTimedOut = false;
+            }
+
+            // 1. 插入 USB 获取到 PID、VID 码，左下角启动滑条动画
+            IsDaemonEnumerating = true;
+            IsEsp32Online = false;
+            DaemonStatusDotColor = "#38BDF8"; // 青色：枚举握手中
+            DaemonStatusText = $"LinkNexus 物理拓扑守护服务：正在握手枚举 [VID:{vid} PID:{pid}] ({portName})...";
+
+            AddLog($"[USB PnP] 捕获主控硬件接入 [VID:{vid} PID:{pid}]，打开端口 {portName}，启动 10 秒受控串口枚举倒计时...", "INFO");
+
+            // 2. 连接物理串口 (115200 8N1 DTR=false RTS=false)
+            if (!Esp32CommService.Instance.IsConnected || Esp32CommService.Instance.ConnectedPortName != portName)
+            {
+                Esp32CommService.Instance.Connect(portName, 115200);
+            }
+
+            // 3. 向硬件发送串口枚举 (Heartbeat Ping 0x01 与枚举探测)
+            Esp32CommService.Instance.SendHeartbeat(0x01);
+
+            // 4. 10 秒倒计时超时控制，超时就释放串口并点亮红灯
+            var token = _enumerationCts.Token;
+            Task.Run(async () =>
+            {
+                var startTime = DateTime.UtcNow;
+                while (!token.IsCancellationRequested && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+                {
+                    try
+                    {
+                        await Task.Delay(1500, token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return; // 被成功应答或重置取消
+                    }
+
+                    if (token.IsCancellationRequested) return;
+
+                    lock (_enumLock)
+                    {
+                        if (!_isEnumerating) return;
+                    }
+
+                    // 10 秒窗口内若未响应，周期性下发枚举包以克服单片机启动延迟
+                    if (Esp32CommService.Instance.IsConnected && !Esp32CommService.Instance.IsSimulationMode)
+                    {
+                        Esp32CommService.Instance.SendHeartbeat(0x01);
+                    }
+                }
+
+                if (!token.IsCancellationRequested)
+                {
+                    await _dispatcher.InvokeAsync(() => HandleEnumerationTimeout(portName, vid, pid));
+                }
+            }, token);
+        }
+
+        private void OnEnumerationSuccess()
+        {
+            string portName;
+            lock (_enumLock)
+            {
+                if (!_isEnumerating && IsEsp32Online) return;
+                _enumerationCts?.Cancel();
+                _enumerationCts?.Dispose();
+                _enumerationCts = null;
+                _isEnumerating = false;
+                _enumerationTimedOut = false;
+                portName = _enumeratingComPort ?? Esp32CommService.Instance.ConnectedPortName;
+            }
+
+            // 当枚举成功，点亮绿灯，停止滑条动画
+            IsDaemonEnumerating = false;
+            IsEsp32Online = true;
+            DaemonStatusDotColor = "#10B981"; // 纯绿就绪灯
+            DaemonStatusText = $"LinkNexus 物理拓扑守护服务：正常就绪 ({portName})";
+
+            if (_esp32DeviceModel != null)
+            {
+                _esp32DeviceModel.State = DeviceState.Ready;
+                _esp32DeviceModel.StatusMessage = "ESP32-S3 核心主控链路正常，管理协议栈就绪";
+            }
+
+            AddLog($"[守护服务] 硬件串口 {portName} 枚举成功！物理链路锁定就绪，已点亮绿灯。", "SUCCESS");
+        }
+
+        private void HandleEnumerationTimeout(string portName, string vid, string pid)
+        {
+            lock (_enumLock)
+            {
+                if (!_isEnumerating) return;
+                _isEnumerating = false;
+                _enumerationCts?.Dispose();
+                _enumerationCts = null;
+                _enumerationTimedOut = true;
+            }
+
+            // 枚举 10 秒钟，超时就释放串口并点亮红灯
+            IsDaemonEnumerating = false;
+            IsEsp32Online = false;
+
+            // 彻底释放物理串口资源
+            if (Esp32CommService.Instance.IsConnected)
+            {
+                Esp32CommService.Instance.Disconnect();
+            }
+
+            // 点亮红灯
+            DaemonStatusDotColor = "#EF4444"; // 警示红灯
+            DaemonStatusText = $"LinkNexus 物理拓扑守护服务：枚举超时 (已释放串口 {portName})";
+
+            if (_esp32DeviceModel != null)
+            {
+                _esp32DeviceModel.State = DeviceState.Warning;
+                _esp32DeviceModel.StatusMessage = $"串口枚举超时 (10秒未响应)，已主动释放串口 {portName}";
+            }
+
+            AddLog($"[守护服务] 硬件 [VID:{vid} PID:{pid}] 串口 {portName} 枚举超时 (10秒未响应)，已主动释放串口并点亮红灯。", "WARNING");
+        }
+
+        private void CancelEnumeration()
+        {
+            lock (_enumLock)
+            {
+                _enumerationCts?.Cancel();
+                _enumerationCts?.Dispose();
+                _enumerationCts = null;
+                _isEnumerating = false;
+            }
+        }
+
         private void OnTriggerScan()
         {
             if (IsRefreshingDevices) return;
             IsRefreshingDevices = true;
             IsDaemonEnumerating = true;
             _scanStartTime = DateTime.UtcNow;
+            _enumerationTimedOut = false; // 手动刷新允许重新尝试枚举
             _usbMonitor.TriggerDebouncedRefresh();
         }
 
@@ -1446,7 +1613,10 @@ namespace LinkNexus
             {
                 await Task.Delay(700 - (int)elapsed.TotalMilliseconds);
             }
-            IsDaemonEnumerating = false;
+            if (!_isEnumerating)
+            {
+                IsDaemonEnumerating = false;
+            }
             IsRefreshingDevices = false;
         }
 

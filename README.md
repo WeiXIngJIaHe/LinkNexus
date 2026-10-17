@@ -112,7 +112,7 @@ $$\mathbf{v[X].[xx]-[AAA].[YY][WW]}$$
 | `AAA` | 修订与发布阶段 (Stage) | 语义化阶段标识：`preview` / `beta` / `release` | `preview` |
 | `YYWW` | 年周数 (Year-Week) | 年份后两位 + ISO 8601 自然周数 (01 ~ 53) | `2641` (2026年第41周) |
 
-> 当前工程基线版本：**`v0.10-preview.2641`**
+> 当前工程基线版本：**`v0.17-preview.2641`**
 
 ---
 

@@ -723,8 +723,6 @@
                                         Command="{Binding ToggleLogDrawerCommand}" Height="24" Padding="8,0" FontSize="10" Margin="0,0,6,0"
                                         ToolTip="展开/收起右侧内核操作流水与系统诊断日志抽屉">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Path Data="M 1 1 H 11 V 9 H 1 Z M 3 3.5 L 5 5 L 3 6.5 M 6 6.5 H 8.5" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2"
-                                              Width="11" Height="9" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"/>
                                         <TextBlock Text="{Binding Logs.Count, StringFormat=内核流水 ({0})}" FontSize="10" VerticalAlignment="Center"/>
                                         <Path Visibility="{Binding IsLogDrawerOpen, Converter={StaticResource BoolToVisConverter}}"
                                               Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>
@@ -739,8 +737,6 @@
                                         Command="{Binding ToggleOtherDevicesDrawerCommand}" Height="24" Padding="8,0" FontSize="10" Margin="0,0,6,0"
                                         ToolTip="展开/收起操作系统枚举到的其他通用 USB 外设">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Path Data="M 1 2 H 4.5 L 6 3.5 H 11 V 9.5 H 1 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2" 
-                                              Fill="Transparent" Width="11" Height="10" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"/>
                                         <TextBlock Text="{Binding OtherDevices.Count, StringFormat=其他外设 ({0})}" FontSize="10" VerticalAlignment="Center"/>
                                         <Path Visibility="{Binding IsOtherDevicesDrawerOpen, Converter={StaticResource BoolToVisConverter}}"
                                               Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>
@@ -843,8 +839,6 @@
                                             Command="{Binding ToggleLogDrawerCommand}" Height="24" Padding="8,0" FontSize="10" Margin="0,0,8,0"
                                             ToolTip="展开/收起右侧内核操作流水与系统诊断日志抽屉">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Path Data="M 1 1 H 11 V 9 H 1 Z M 3 3.5 L 5 5 L 3 6.5 M 6 6.5 H 8.5" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2"
-                                                  Width="11" Height="9" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"/>
                                             <TextBlock Text="{Binding Logs.Count, StringFormat=内核流水 ({0})}" FontSize="10" VerticalAlignment="Center"/>
                                             <Path Visibility="{Binding IsLogDrawerOpen, Converter={StaticResource BoolToVisConverter}}"
                                                   Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>
@@ -1093,8 +1087,6 @@
                                             Command="{Binding ToggleLogDrawerCommand}" Height="22" Padding="7,0" FontSize="9" Margin="0,0,4,0"
                                             ToolTip="展开/收起右侧系统总线与内核日志抽屉">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Path Data="M 1 1 H 11 V 9 H 1 Z M 3 3.5 L 5 5 L 3 6.5 M 6 6.5 H 8.5" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2"
-                                                  Width="10" Height="8" Stretch="Uniform" Margin="0,0,4,0" VerticalAlignment="Center"/>
                                             <TextBlock Text="{Binding LogDrawerButtonText}" FontSize="9" VerticalAlignment="Center"/>
                                             <Path Visibility="{Binding IsLogDrawerOpen, Converter={StaticResource BoolToVisConverter}}"
                                                   Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="6" Height="4" Stretch="Uniform" Margin="4,0,0,0" VerticalAlignment="Center"/>
@@ -1341,8 +1333,6 @@
                                                 Command="{Binding ToggleLogDrawerCommand}" Height="24" Padding="8,0" FontSize="10" Margin="0,0,8,0"
                                                 ToolTip="展开/收起右侧系统总线与内核日志抽屉">
                                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Path Data="M 1 1 H 11 V 9 H 1 Z M 3 3.5 L 5 5 L 3 6.5 M 6 6.5 H 8.5" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2"
-                                                      Width="11" Height="9" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"/>
                                                 <TextBlock Text="{Binding Logs.Count, StringFormat=内核流水 ({0})}" FontSize="10" VerticalAlignment="Center"/>
                                                 <Path Visibility="{Binding IsLogDrawerOpen, Converter={StaticResource BoolToVisConverter}}"
                                                       Data="M 1 6.5 L 5 1.5 L 9 6.5 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="7" Height="5" Stretch="Uniform" Margin="5,0,0,0" VerticalAlignment="Center"/>

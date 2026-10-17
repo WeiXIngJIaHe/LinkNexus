@@ -96,11 +96,12 @@ namespace LinkNexus
                 BaudRate = baudRate;
                 _serialPort = new SerialPort(portName, baudRate, Parity.None, 8, StopBits.One)
                 {
-                    ReadTimeout = 1000,
-                    WriteTimeout = 1000,
-                    DtrEnable = true,
+                    ReadTimeout = SerialPort.InfiniteTimeout,
+                    WriteTimeout = 1500,
+                    DtrEnable = false,
                     RtsEnable = false,
-                    Handshake = Handshake.None
+                    Handshake = Handshake.None,
+                    Encoding = System.Text.Encoding.UTF8
                 };
 
                 _serialPort.Open();
@@ -260,6 +261,20 @@ namespace LinkNexus
                 {
                     if (!token.IsCancellationRequested)
                     {
+                        // 忽略偶发的底层 Win32 信号灯超时或非致命抖动，短暂休眠后继续重试
+                        if (ex is System.IO.IOException ioEx && (ioEx.Message.Contains("信号灯超时") || ioEx.Message.Contains("semaphore")))
+                        {
+                            try
+                            {
+                                await Task.Delay(80, token);
+                                continue;
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                break;
+                            }
+                        }
+
                         LogMessage?.Invoke($"[通信管道异常] 数据读取失败: {ex.Message}");
                     }
                     break;

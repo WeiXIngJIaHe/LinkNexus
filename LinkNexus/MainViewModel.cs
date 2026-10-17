@@ -151,6 +151,7 @@ namespace LinkNexus
         private bool _isDaemonEnumerating = true; // 开启软件时默认探测
         private string _daemonStatusDotColor = "#38BDF8"; // 启动枚举中为流光青色
         private string _daemonStatusText = "LinkNexus 物理拓扑守护服务：正在探测链路...";
+        private DateTime _lastEsp32ConnectAttempt = DateTime.MinValue;
 
         // 刷新总线与 VSCode 流光加载状态
         private bool _isRefreshingDevices = false;
@@ -1194,6 +1195,32 @@ namespace LinkNexus
                 });
             };
 
+            // 当 ESP32 启动完成发送串口握手/遥测包时，停止左下角滑动条动画，点亮绿灯表示守护服务与 ESP32 枚举完成
+            Esp32CommService.Instance.HeartbeatAckReceived += ack =>
+            {
+                _dispatcher.InvokeAsync(() =>
+                {
+                    IsDaemonEnumerating = false;
+                    IsEsp32Online = true;
+                    DaemonStatusDotColor = "#10B981"; // 绿色点亮
+                    DaemonStatusText = $"LinkNexus 物理拓扑守护服务：正常就绪 ({Esp32CommService.Instance.ConnectedPortName})";
+                });
+            };
+
+            Esp32CommService.Instance.TelemetryReceived += data =>
+            {
+                _dispatcher.InvokeAsync(() =>
+                {
+                    if (IsDaemonEnumerating && !Esp32CommService.Instance.IsSimulationMode)
+                    {
+                        IsDaemonEnumerating = false;
+                        IsEsp32Online = true;
+                        DaemonStatusDotColor = "#10B981"; // 绿色点亮
+                        DaemonStatusText = $"LinkNexus 物理拓扑守护服务：正常就绪 ({Esp32CommService.Instance.ConnectedPortName})";
+                    }
+                });
+            };
+
             InitDefaultDumpsAndCli();
 
             // 预留 MCP (Model Context Protocol) 框架数据源绑定
@@ -1269,17 +1296,26 @@ namespace LinkNexus
                 else
                 {
                     IsEsp32Online = true;
-                    DaemonStatusDotColor = "#10B981"; // 绿色：正常就绪/在线
-                    DaemonStatusText = string.IsNullOrWhiteSpace(espDev.ComPort) || espDev.ComPort == "--"
-                        ? "LinkNexus 物理拓扑守护服务：在线"
-                        : $"LinkNexus 物理拓扑守护服务：在线 ({espDev.ComPort})";
+                    if (!Esp32CommService.Instance.IsConnected)
+                    {
+                        // 发现物理 ESP32，正在枚举握手并驱动流光滑动条
+                        IsDaemonEnumerating = true;
+                        DaemonStatusDotColor = "#38BDF8"; // 青色：握手枚举中
+                        DaemonStatusText = string.IsNullOrWhiteSpace(espDev.ComPort) || espDev.ComPort == "--"
+                            ? "LinkNexus 物理拓扑守护服务：正在握手..."
+                            : $"LinkNexus 物理拓扑守护服务：正在握手 ({espDev.ComPort})...";
+                    }
 
-                    // 自动与 ESP32-S3 物理串口建立双向二进制与 CLI 通信
+                    // 自动与 ESP32-S3 物理串口建立双向二进制与 CLI 通信 (带 3 秒冷却防抖，杜绝死循环)
                     if (!string.IsNullOrWhiteSpace(espDev.ComPort) && espDev.ComPort != "--")
                     {
                         if (!Esp32CommService.Instance.IsConnected || Esp32CommService.Instance.ConnectedPortName != espDev.ComPort)
                         {
-                            Esp32CommService.Instance.Connect(espDev.ComPort, 115200);
+                            if ((DateTime.UtcNow - _lastEsp32ConnectAttempt).TotalSeconds >= 3)
+                            {
+                                _lastEsp32ConnectAttempt = DateTime.UtcNow;
+                                Esp32CommService.Instance.Connect(espDev.ComPort, 115200);
+                            }
                         }
                     }
                 }
@@ -1300,6 +1336,7 @@ namespace LinkNexus
             else
             {
                 IsEsp32Online = false;
+                IsDaemonEnumerating = false;
                 _esp32DeviceModel = null;
                 DaemonStatusDotColor = "#EF4444"; // 红色：离线
                 DaemonStatusText = "LinkNexus 物理拓扑守护服务：离线";

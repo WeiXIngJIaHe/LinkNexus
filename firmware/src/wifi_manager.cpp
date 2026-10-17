@@ -146,22 +146,39 @@ bool WifiManager::StartAp(const char *ssid, const char *password, uint8_t channe
     ESP_LOGI(TAG, "Configuring ESP32-S3 as SoftAP (SSID: '%s', Ch: %u)...", ssid, channel);
 
     wifi_config_t wifi_config = {};
+    memset(&wifi_config, 0, sizeof(wifi_config));
     strncpy((char *)wifi_config.ap.ssid, ssid, sizeof(wifi_config.ap.ssid) - 1);
-    wifi_config.ap.ssid_len = strlen(ssid);
+    wifi_config.ap.ssid_len = 0; // 0 表示 null-terminated，兼容所有手机与操作系统扫描
     wifi_config.ap.channel = (channel >= 1 && channel <= 13) ? channel : 1;
     wifi_config.ap.max_connection = 4;
+    wifi_config.ap.beacon_interval = 100; // 明确指定 100 TU 信标广播间隔，解决手机搜不到 AP 的根本问题
+    wifi_config.ap.ssid_hidden = 0;       // 显式广播 SSID
+    wifi_config.ap.ftm_responder = false;
 
     if (password && strlen(password) >= 8) {
         strncpy((char *)wifi_config.ap.password, password, sizeof(wifi_config.ap.password) - 1);
         wifi_config.ap.authmode = WIFI_AUTH_WPA2_PSK;
+        wifi_config.ap.pairwise_cipher = WIFI_CIPHER_TYPE_CCMP;
     } else {
         wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+        wifi_config.ap.pairwise_cipher = WIFI_CIPHER_TYPE_NONE;
     }
 
     esp_wifi_stop();
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+
+    // 确保 SoftAP DHCP 服务端正常工作并分发 192.168.4.x 地址
+    if (s_ap_netif) {
+        esp_netif_dhcps_stop(s_ap_netif);
+        esp_netif_ip_info_t ip_info;
+        IP4_ADDR(&ip_info.ip, 192, 168, 4, 1);
+        IP4_ADDR(&ip_info.gw, 192, 168, 4, 1);
+        IP4_ADDR(&ip_info.netmask, 255, 255, 255, 0);
+        esp_netif_set_ip_info(s_ap_netif, &ip_info);
+        esp_netif_dhcps_start(s_ap_netif);
+    }
 
     m_status.mode = WifiWorkMode::SoftAP;
     strncpy(m_status.ssid, ssid, sizeof(m_status.ssid) - 1);

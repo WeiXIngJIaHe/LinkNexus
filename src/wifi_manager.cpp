@@ -159,7 +159,7 @@ bool WifiManager::StartAp(const char *ssid, const char *password, uint8_t channe
     }
 
     esp_wifi_stop();
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
@@ -392,11 +392,18 @@ size_t WifiManager::ScanNetworks(char *out_buf, size_t max_len, bool force_resca
 void WifiManager::InitialScanTaskEntry(void *pvParameters)
 {
     (void)pvParameters;
-    vTaskDelay(pdMS_TO_TICKS(1200)); // 等待系统各子系统及串口初始化完全就绪
+    vTaskDelay(pdMS_TO_TICKS(1000)); // 等待系统各子系统及串口初始化完全就绪
 
+    // 1. 开机默认启动 SoftAP (独立主热点)，使手机/电脑能在 Wi-Fi 列表立即搜索并连接
+    WifiManager::Instance().StartAp("LinkNexus-ESP32-AP", "12345678", 1);
+    CommManager::Instance().Print("\r\n[WIFI] 开机默认 SoftAP 热点已启动: 'LinkNexus-ESP32-AP' (密码: 12345678, IP: 192.168.4.1)\r\n");
+
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    // 2. 后台执行一次周边真实 2.4GHz Wi-Fi 射频信道扫描并缓存
     char scan_buf[1536];
     ESP_LOGI(TAG, "Starting system initial one-time background Wi-Fi scan...");
-    CommManager::Instance().Print("\r\n[WIFI] 正在执行系统开机初始 Wi-Fi 射频扫描 (仅需执行一次)...\r\n");
+    CommManager::Instance().Print("[WIFI] 正在执行系统开机初始周边 Wi-Fi 射频扫描 (仅需执行一次)...\r\n");
 
     WifiManager::Instance().ScanNetworks(scan_buf, sizeof(scan_buf), true);
     vTaskDelete(nullptr);

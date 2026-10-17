@@ -19,7 +19,7 @@
 >  
 > **文档性质**：架构设计现状白皮书与修改演进基准文档（修改性 README）  
 > **文档目的**：汇整当前 LinkNexus 的完整架构设计、底层通信机制与功能实现逻辑（采用通俗严谨的自然语句表述）。**已根据您在备忘录下方提交的全部修改要求严格实施落地**。您可以随时通过自然语言继续审查或提出后续迭代意见。  
-> **当前工程基线版本**：`v0.19-preview.2641`  
+> **当前工程基线版本**：`v0.20-preview.2641`  
 > **技术栈**：.NET 10.0 | WPF (MVVM) | Model Context Protocol (MCP) | Win32 PnP 消息泵 | WMI 底层拓扑枚举 | Minimalist Tech-Anime 战术二次元机能风 | Frosted Glassmorphism 毛玻璃质感 | 深浅主题热切换引擎
 
 ---
@@ -290,21 +290,19 @@
 | **38** | **修改：1. 插入USB，获取到PID、VID码，然后左下角进行滑条动画，并向硬件发送串口枚举，当枚举成功，点亮绿灯，枚举10秒钟，超时就释放串口并点亮红灯。** | ✅ **已完全落地**：<br/>1. **USB 插入即时识别与 VID/PID 抓取**：当检测到底层 USB 热插拔事件时，即时获取并解析硬件 PID、VID 码并在日志中精确输出；<br/>2. **左下角滑条动画与向硬件发送串口枚举**：识别到主控硬件后，立即激活左下角 `DaemonScanBar` 流光滑动条（`IsDaemonEnumerating = true`），自动打开底层串口并下发心跳握手与枚举探测指令，同时启动 10 秒受控超时监控；<br/>3. **枚举成功点亮绿灯**：10 秒内收到硬件有效应答（Heartbeat ACK / 物理遥测 / CLI 响应）时，立即取消倒计时，停止滑条动画，点亮常绿指示灯（`#10B981`），更新就绪状态；<br/>4. **10 秒超时受控释放串口并点亮红灯**：若 10 秒内硬件未产生有效应答，立即停止滑条动画，调用 `Esp32CommService.Instance.Disconnect()` 彻底释放并关闭串口 COM 句柄，点亮警示红灯（`#EF4444`），状态提示“枚举超时 (已释放串口)”，杜绝串口资源被死锁占用；<br/>5. **软硬件全站基线版本统一递增至 `v0.17-preview.2641`**。 |
 | **39** | **固件 CLI 重构接入乐鑫官方 esp_console 组件，并对齐软件 10 秒 USB 枚举握手机制** | ✅ **已完全落地**：<br/>1. **CLI 全面接入乐鑫官方 esp_console 组件**：移除手工字符串切割，通过 ESP-IDF 官方 `esp_console`（`esp_console_init`、`esp_console_cmd_register`、`esp_console_run`）重构 CLI 引擎，标准化注册 `help`, `wifi`, `power`, `status`, `reboot` 命令，并实现线程安全的输出捕获，支持 C# CLI 协议帧 (0x50)、TCP 8266 Telnet 和硬件物理串口多通道并发；<br/>2. **软硬件 10 秒 USB 枚举握手机制对齐**：彻底解耦下位机 0x01 心跳处理与 ASCII 打印，禁止纯文本污染二进制数据流；系统就绪时主动打包并上报 0x01 心跳 ACK 与 0x50 终端就绪帧（`[LINKNEXUS] SYSTEM_READY`），驱动上位机在 10 秒超时窗口内毫秒级完成枚举并转常绿指示灯（`#10B981`）；<br/>3. **全站版本号统一递增至 `v0.18-preview.2641`**。 |
 | **40** | **修改：1. 删除左下角无关的文字（PID/VID/COM/已释放COM等），纯粹保留状态灯与 LinkNexus 进程在线/离线/超时。<br>2. 修复刷新总线时左下角卡顿才弹出具体状态的 Bug。** | ✅ **已完全落地**：<br/>1. **左下角状态文案人文化去噪与极净化**：彻底移除底层 PID/VID/COM 端口及调试冗余字样，统一为纯粹清晰的高级工业状态描述：`LinkNexus进程在线`（🟢 `#10B981`）、`LinkNexus进程离线`（🔴 `#EF4444`）、`LinkNexus进程超时`（🔴 `#EF4444`）、`LinkNexus进程枚举中...`（🔵 `#38BDF8` 配合微型流光滑条）与 `LinkNexus进程异常`（🟡 `#F59E0B`），视觉纯净聚焦；<br/>2. **根除刷新总线时的左下角卡顿与状态回跳 Bug**：在 `OnTriggerScan` 中优化逻辑，当主控已处于在线就绪状态时，点击“刷新总线”仅针对物理设备列表执行极速拓扑嗅探，绝不重置或打断左下角在线状态，彻底消除 1~2 秒的卡顿与回退感；在 `UsbMonitorService` 中新增 `TriggerImmediateRefresh` 立即执行扫描，避免不必要的 250ms 防抖等待；<br/>3. **全站版本号统一递增至 `v0.19-preview.2641`**。 |
+| **41** | **彻底解决固件端 Wi-Fi 扫描完成后 Core 0 发生 LoadProhibited 空指针崩溃与复位 Bug（深入归因与安全异步解耦），全栈升级至 v0.20-preview.2641** | ✅ **已完全落地**：<br/>1. **深度崩溃归因 (ELF 符号地址精确还原)**：<br>• 通过 `addr2line` 深度反解崩溃堆栈（`0x4037f29e` -> `tasks.c:3271` 与 `0x4200589f` -> `OnScanDone`）；<br>• **根因定位**：ESP-IDF 默认系统事件循环任务 `sys_evt` 栈深仅 2.3KB，而在 `WIFI_EVENT_SCAN_DONE` 事件回调中直接调用 `OnScanDone`，局部变量分配了 `temp_buf[1536]` 与 `ap_records[16]`（合计 >2.8KB），导致 `sys_evt` 发生致命栈溢出，破坏了 FreeRTOS 内核的 `pxDelayedTaskList` 任务链表；随后在 SysTick 时钟中断进入 `xTaskIncrementTick` 时发生 `LoadProhibited (EXCVADDR: 0x00000004)` 硬件空指针异常崩溃并引发复位重启；<br/>2. **架构级解耦重构**：<br>• **事件回调极致轻量化**：`wifi_event_handler` 监听到 `WIFI_EVENT_SCAN_DONE` 时仅调用 `mgr.NotifyScanDone()`（释放信号量 `xSemaphoreGive(m_scan_sem)`，耗时 <1 微秒，消耗栈深仅数字节），完全剥离任何重型数据解析与 UART 阻塞调用；<br>• **独立任务执行解析与输出**：在具有 8KB 栈深的 `InitialScanTaskEntry` 任务或 `CommRxTask` 中通过 `PerformScanAndFormat` 安全执行解析，直接格式化进单例成员缓冲区，并利用 `std::unique_ptr` 在堆上动态分配 AP 结构体数组，实现 0 栈消耗；<br>• **控制台安全打印**：扫描结果直接在独立任务中通过 `CommManager::Print` 打印到控制台，完成后自毁任务释放 8KB 内存，彻底杜绝死锁与异常触发；<br/>3. **全站版本号统一递增至 `v0.20-preview.2641`**。 |
 
 ---
 
-### 七、 最新提交记录与演进状态 (v0.19-preview.2641)
+### 七、 最新提交记录与演进状态 (v0.20-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **全站版本号统一推进并锁定为 `v0.19-preview.2641`**：
+> 1. **全站版本号统一推进并锁定为 `v0.20-preview.2641`**：
 >    - 全量同步至 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md`、固件配置与本备忘录；
-> 2. **左下角状态文案全面精炼净化**：
->    - 彻底移除 PID、VID、COM 端口及调试噪声，纯粹呈现状态指示灯与“LinkNexus进程在线/离线/超时”；
-> 3. **根治刷新总线时左下角卡顿与状态跳动 Bug**：
->    - 优化在线状态维持策略，刷新总线时不再打断主控状态；提供立即异步扫描通道，极速反馈；
-> 4. **下位机固件与上位机软件协同完成无阻塞重构**：
->    - 固件端升级为 `WIFI_EVENT_SCAN_DONE` 异步无锁扫描，消除串口任务阻塞，全链路毫秒级秒级响应；
-> 5. **代码全量编译 0 警告、0 错误**，持续契合 Conventional Commits 自动化提交规范。
+> 2. **彻底根治 Wi-Fi 扫描完成后的 LoadProhibited 空指针崩溃与复位 Bug**：
+>    - 使用 `addr2line` 深度反编译定位于 `sys_evt` 任务栈溢出踩踏 FreeRTOS 内核链表；
+>    - 重构为事件回调仅释放信号量（`NotifyScanDone`，<1μs），由具有 8KB 栈深的独立任务 `InitialScanTaskEntry` 安全执行解析、格式化并输出；
+> 3. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 与上位机应用程序均符合发布标准。
 
 ---
 

@@ -95,7 +95,14 @@ public:
     void OnStaDisconnected();
     void IncrementClients();
     void DecrementClients();
-    void OnScanDone();
+    void NotifyScanDone();
+
+    /**
+     * @brief 执行周边 Wi-Fi 扫描并在具有安全栈深的任务环境中格式化解析 (杜绝事件循环爆栈)
+     * @param print_to_console 是否在串口控制台打印格式化扫描结果表格
+     * @return 格式化后的字符串长度
+     */
+    size_t PerformScanAndFormat(bool print_to_console = false);
 
 private:
     WifiManager();

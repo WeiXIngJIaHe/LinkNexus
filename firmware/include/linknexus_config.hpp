@@ -10,7 +10,7 @@ namespace LinkNexus {
 /**
  * @brief 固件版本号基线规范 (与 C# 上位机 LinkNexus 完全保持统一)
  */
-#define LINKNEXUS_FIRMWARE_VERSION  "0.24-preview-2641"
+#define LINKNEXUS_FIRMWARE_VERSION  "0.25-preview-2641"
 #define LINKNEXUS_HARDWARE_MODEL    "LinkNexus-Pro-ESP32S3"
 #define LINKNEXUS_CHIP_PART_NUMBER  "ESP32-S3FH4R2 (Bare Chip QFN56, 4MB Flash, 2MB PSRAM)"
 #define LINKNEXUS_RF_ANTENNA_DESC   "Custom IPEX Receptacle with Pi-Network (Direct 0R Jumper)"

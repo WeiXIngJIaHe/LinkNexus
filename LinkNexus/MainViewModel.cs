@@ -3013,15 +3013,35 @@ namespace LinkNexus
                 }
                 else if (sub == "connect")
                 {
-                    if (parts.Length < 4)
+                    if (parts.Length < 3)
                     {
-                        Esp32CliTerminalLines.Add("[ERR] 用法: wifi connect <ssid> <password>");
+                        Esp32CliTerminalLines.Add("[ERR] 用法: wifi connect <ssid> [password]");
                         return;
                     }
                     string ssid = parts[2];
-                    string pwd = parts[3];
+                    string pwd = parts.Length >= 4 ? parts[3] : "";
 
-                    Esp32CliTerminalLines.Add($"[WIFI] 正在扫描并连接目标 AP: '{ssid}'...");
+                    // 检测是否已处于连接就绪状态 (避免重复连接并直接返回当前连接状态)
+                    if (Esp32WifiMode.StartsWith("Station") && Esp32WifiSsid == ssid && !string.IsNullOrEmpty(Esp32WifiIp) && Esp32WifiIp != "--")
+                    {
+                        Esp32CliTerminalLines.Add($"[ALREADY_CONNECTED] Wi-Fi 已连接目标网络 (无需重复发起连接):");
+                        Esp32CliTerminalLines.Add($"  目标 SSID:     {Esp32WifiSsid}");
+                        Esp32CliTerminalLines.Add($"  IP 地址:       {Esp32WifiIp}");
+                        Esp32CliTerminalLines.Add($"  信号强度:      {Esp32WifiRssiText}");
+                        Esp32CliTerminalLines.Add($"  客户端连接:    {Esp32WifiClientCount}");
+                        Esp32CliTerminalLines.Add($"  无线调试服务:  {(IsWirelessDebugListening ? $"监听中 (TCP 端口 {WirelessDebugPort})" : "未启动")}");
+                        return;
+                    }
+
+                    if (Esp32WifiMode.StartsWith("Station") && !string.IsNullOrEmpty(Esp32WifiIp) && Esp32WifiIp != "--")
+                    {
+                        Esp32CliTerminalLines.Add($"[SWITCHING] 当前已接入 '{Esp32WifiSsid}' ({Esp32WifiIp})，正在切换至新目标 '{ssid}'...");
+                    }
+                    else
+                    {
+                        Esp32CliTerminalLines.Add($"[WIFI] 正在扫描并连接目标 AP: '{ssid}'...");
+                    }
+
                     await Task.Delay(200);
                     Esp32WifiMode = "Station (局域网接入)";
                     Esp32WifiSsid = ssid;

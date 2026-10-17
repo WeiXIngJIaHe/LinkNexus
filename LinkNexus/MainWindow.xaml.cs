@@ -191,6 +191,119 @@ namespace LinkNexus
 
         #endregion
 
+        #region ESP32 CLI 终端自由拖拽与边框磁吸贴合
+
+        private bool _isCliDragging = false;
+        private Point _cliDragStartPoint;
+        private double _cliStartTransformX;
+        private double _cliStartTransformY;
+        private const double CliSnapThreshold = 25.0; // 靠近边框 25px 内触发磁吸贴合
+
+        private void CliHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // 排除点击右上角关闭按钮等子控件
+            if (e.OriginalSource is DependencyObject dep && FindVisualParent<System.Windows.Controls.Button>(dep) != null)
+            {
+                return;
+            }
+
+            if (sender is FrameworkElement element)
+            {
+                _isCliDragging = true;
+                _cliDragStartPoint = e.GetPosition(this);
+                _cliStartTransformX = CliWindowTransform.X;
+                _cliStartTransformY = CliWindowTransform.Y;
+                element.CaptureMouse();
+                e.Handled = true;
+            }
+        }
+
+        private void CliHeader_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_isCliDragging) return;
+
+            Point currentPoint = e.GetPosition(this);
+            double deltaX = currentPoint.X - _cliDragStartPoint.X;
+            double deltaY = currentPoint.Y - _cliDragStartPoint.Y;
+
+            double newX = _cliStartTransformX + deltaX;
+            double newY = _cliStartTransformY + deltaY;
+
+            double containerWidth = Esp32CliOverlayGrid.ActualWidth;
+            double containerHeight = Esp32CliOverlayGrid.ActualHeight;
+            double modalWidth = Esp32CliWindowBorder.ActualWidth > 0 ? Esp32CliWindowBorder.ActualWidth : 860.0;
+            double modalHeight = Esp32CliWindowBorder.ActualHeight > 0 ? Esp32CliWindowBorder.ActualHeight : 580.0;
+
+            if (containerWidth > modalWidth && containerHeight > modalHeight)
+            {
+                // 居中基准偏移量
+                double baseX = (containerWidth - modalWidth) / 2.0;
+                double baseY = (containerHeight - modalHeight) / 2.0;
+
+                // 当前距离四边边界的视觉绝对距离 (px)
+                double currentLeft = baseX + newX;
+                double currentRight = containerWidth - (currentLeft + modalWidth);
+                double currentTop = baseY + newY;
+                double currentBottom = containerHeight - (currentTop + modalHeight);
+
+                // 左/右边框磁吸贴合 (Snap to Left / Right Edge)
+                if (currentLeft >= -CliSnapThreshold && currentLeft <= CliSnapThreshold)
+                {
+                    newX = -baseX; // 吸附贴紧左边框
+                }
+                else if (currentRight >= -CliSnapThreshold && currentRight <= CliSnapThreshold)
+                {
+                    newX = containerWidth - modalWidth - baseX; // 吸附贴紧右边框
+                }
+
+                // 上/下边框磁吸贴合 (Snap to Top / Bottom Edge)
+                if (currentTop >= -CliSnapThreshold && currentTop <= CliSnapThreshold)
+                {
+                    newY = -baseY; // 吸附贴紧上边框
+                }
+                else if (currentBottom >= -CliSnapThreshold && currentBottom <= CliSnapThreshold)
+                {
+                    newY = containerHeight - modalHeight - baseY; // 吸附贴紧下边框
+                }
+
+                // 边界物理钳位 (Clamp: 确保无论如何拖动，面板绝不被拖拽到可视区域外)
+                double minX = -baseX;
+                double maxX = containerWidth - modalWidth - baseX;
+                double minY = -baseY;
+                double maxY = containerHeight - modalHeight - baseY;
+
+                newX = Math.Clamp(newX, minX, maxX);
+                newY = Math.Clamp(newY, minY, maxY);
+            }
+
+            CliWindowTransform.X = newX;
+            CliWindowTransform.Y = newY;
+            e.Handled = true;
+        }
+
+        private void CliHeader_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isCliDragging)
+            {
+                _isCliDragging = false;
+                if (sender is FrameworkElement element)
+                {
+                    element.ReleaseMouseCapture();
+                }
+                e.Handled = true;
+            }
+        }
+
+        private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            DependencyObject? parentObject = VisualTreeHelper.GetParent(child);
+            if (parentObject == null) return null;
+            if (parentObject is T parent) return parent;
+            return FindVisualParent<T>(parentObject);
+        }
+
+        #endregion
+
         private void MainWindow_Closed(object? sender, EventArgs e)
         {
             if (_hwndSource != null)

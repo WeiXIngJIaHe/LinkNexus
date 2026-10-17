@@ -254,6 +254,32 @@ bool WifiManager::ConnectSta(const char *ssid, const char *password)
     return true;
 }
 
+bool WifiManager::IsStaConnected(const char *target_ssid)
+{
+    LockGuard lock(m_mutex);
+    if (m_status.mode != WifiWorkMode::Station) {
+        return false;
+    }
+    // 检查 IP 是否有效（非 Connecting...、非 Disc、非 -- 且非空）
+    if (strcmp(m_status.ip_str, "Connecting...") == 0 ||
+        strstr(m_status.ip_str, "Disc") != nullptr ||
+        strcmp(m_status.ip_str, "--") == 0 ||
+        m_status.ip_str[0] == '\0') {
+        return false;
+    }
+    if (target_ssid != nullptr && target_ssid[0] != '\0') {
+        return (strcmp(m_status.ssid, target_ssid) == 0);
+    }
+    return true;
+}
+
+bool WifiManager::IsStaConnecting()
+{
+    LockGuard lock(m_mutex);
+    return (m_status.mode == WifiWorkMode::Station &&
+            strcmp(m_status.ip_str, "Connecting...") == 0);
+}
+
 void WifiManager::OnStaGotIp(const void *ip)
 {
     LockGuard lock(m_mutex);

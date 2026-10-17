@@ -1222,6 +1222,7 @@
                                     <TextBlock Grid.Column="0" Text="root@linknexus-board:~# " FontFamily="Consolas" FontSize="11" FontWeight="Bold" Foreground="#10B981" VerticalAlignment="Center" Margin="2,0,4,0"/>
                                     <TextBox Grid.Column="1" Text="{Binding SmartInputBuffer, UpdateSourceTrigger=PropertyChanged}" 
                                              KeyDown="SmartInputTextBox_KeyDown"
+                                             CaretBrush="{DynamicResource AccentCyanBrush}"
                                              Height="26" Background="{DynamicResource AppSurfaceSubtleBrush}" Foreground="{DynamicResource AppTextPrimaryBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" 
                                              FontFamily="Consolas" FontSize="11" Padding="6,3" VerticalAlignment="Center"/>
                                     <Button Grid.Column="2" Style="{StaticResource AccentActionBtnStyle}" Content="执行 / 发送 (Enter)" Height="26" Padding="14,0" FontSize="10" Margin="6,0,0,0"
@@ -2190,6 +2191,7 @@
                                             <TextBlock Grid.Column="0" Text="root@linknexus-board:~# " FontFamily="Consolas" FontSize="10" FontWeight="Bold" Foreground="#10B981" VerticalAlignment="Center" Margin="2,0,3,0"/>
                                             <TextBox Grid.Column="1" Text="{Binding SmartInputBuffer, UpdateSourceTrigger=PropertyChanged}" 
                                                      KeyDown="SmartInputTextBox_KeyDown"
+                                                     CaretBrush="{DynamicResource AccentCyanBrush}"
                                                      Height="22" Background="{DynamicResource AppSurfaceSubtleBrush}" Foreground="{DynamicResource AppTextPrimaryBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" 
                                                      FontFamily="Consolas" FontSize="10" Padding="4,2" VerticalAlignment="Center"/>
                                             <Button Grid.Column="2" Style="{StaticResource AccentActionBtnStyle}" Content="执行 / 发送 (Enter)" Height="22" Padding="10,0" FontSize="9" Margin="4,0,0,0"
@@ -2208,7 +2210,7 @@
         <!-- 视图 3: ESP32-S3 无线调试与网络控制 CLI 终端悬浮窗/工作台 (双击“正常就绪”唤醒) -->
         <!-- ========================================================= -->
         <Grid Visibility="{Binding IsEsp32CliOpen, Converter={StaticResource BoolToVisConverter}}"
-              Panel.ZIndex="100">
+              Panel.ZIndex="100" x:Name="Esp32CliOverlayGrid">
             <!-- 毛玻璃暗色半透明遮罩背景 -->
             <Border Background="#CC080C14">
                 <Border.InputBindings>
@@ -2216,32 +2218,37 @@
                 </Border.InputBindings>
             </Border>
 
-            <!-- 战术机能风格 CLI 终端面板 -->
-            <Border Width="860" Height="580" MaxWidth="1050" MaxHeight="720"
+            <!-- 战术机能风格 CLI 终端面板 (支持鼠标自由拖拽与边框磁吸贴合) -->
+            <Border x:Name="Esp32CliWindowBorder"
+                    Width="860" Height="580" MaxWidth="1050" MaxHeight="720"
                     Background="{DynamicResource AppSurfaceBrush}"
                     BorderBrush="{DynamicResource AccentCyanBrush}"
                     BorderThickness="1.5" CornerRadius="8"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border.RenderTransform>
+                    <TranslateTransform x:Name="CliWindowTransform" X="0" Y="0" />
+                </Border.RenderTransform>
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="28" ShadowDepth="6" Direction="270" Color="#000000" Opacity="0.65" />
                 </Border.Effect>
 
                 <Grid Margin="16,14,16,14">
                     <Grid.RowDefinitions>
-                        <!-- 行 0: 终端头部 (标题、状态徽章、关闭按钮) -->
+                        <!-- 行 0: 终端头部 (标题、状态徽章、关闭按钮，支持拖拽移动) -->
                         <RowDefinition Height="Auto" />
-                        <!-- 行 1: 快捷指令预设工具栏 -->
-                        <RowDefinition Height="Auto" />
-                        <!-- 行 2: 终端显示核心视窗 -->
+                        <!-- 行 1: 终端显示核心视窗 (彻底移除杂乱快捷指令栏，纯粹极客 CLI 视觉) -->
                         <RowDefinition Height="*" />
-                        <!-- 行 3: 交互式命令行输入条 -->
+                        <!-- 行 2: 交互式命令行输入条 -->
                         <RowDefinition Height="Auto" />
-                        <!-- 行 4: 底部操作指引微文案 -->
+                        <!-- 行 3: 底部操作指引微文案 -->
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <!-- 行 0: 头部标题与网络状态 -->
-                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                    <!-- 行 0: 头部标题与网络状态 (支持鼠标拖拽与靠近边框磁吸贴合) -->
+                    <Grid Grid.Row="0" x:Name="CliHeaderGrid" Margin="0,0,0,12" Background="Transparent" Cursor="SizeAll"
+                          MouseLeftButtonDown="CliHeader_MouseLeftButtonDown"
+                          MouseMove="CliHeader_MouseMove"
+                          MouseLeftButtonUp="CliHeader_MouseLeftButtonUp">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <!-- 终端芯片图标 -->
                             <Border Width="28" Height="28" Background="{DynamicResource AppSurfaceSubtleBrush}"
@@ -2306,40 +2313,8 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- 行 1: 快捷指令预设工具栏 -->
-                    <Border Grid.Row="1" Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
-                            BorderThickness="1" CornerRadius="5" Padding="8,6" Margin="0,0,0,10">
-                        <WrapPanel VerticalAlignment="Center">
-                            <TextBlock Text="快捷指令:" FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="设为独立热点 (AP)" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
-                                    Command="{Binding SetWifiApPresetCommand}" ToolTip="启动 ESP32-S3 SoftAP 独立热点并开启无线 TCP 调试"/>
-
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="接入局域网 (STA)" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
-                                    Command="{Binding SetWifiStaPresetCommand}" ToolTip="连接已有 Wi-Fi 路由器 (STA 模式)"/>
-
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="查询 Wi-Fi 状态" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
-                                    Command="{Binding QueryWifiStatusPresetCommand}" ToolTip="查看当前 Wi-Fi 工作模式、IP 与无线调试端口"/>
-
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="无线 TCP 直连" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
-                                    Command="{Binding ConnectWirelessTcpCommand}" ToolTip="通过 TCP 建立与当前 ESP32-S3 IP:8266 的无线调试直连链路"/>
-
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="扫描附近热点" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
-                                    Command="{Binding ScanWifiPresetCommand}" ToolTip="扫描周围 2.4GHz 射频网络"/>
-
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="断开 Wi-Fi" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
-                                    Command="{Binding DisconnectWifiPresetCommand}" ToolTip="关闭 Wi-Fi 射频并停止无线调试"/>
-
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="帮助手册" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
-                                    Command="{Binding HelpCliPresetCommand}" ToolTip="查看 CLI 指令集帮助"/>
-
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="清屏" Height="24" Padding="8,0" FontSize="10"
-                                    Command="{Binding ClearCliTerminalCommand}" ToolTip="清空终端屏幕历史"/>
-                        </WrapPanel>
-                    </Border>
-
-                    <!-- 行 2: 终端显示核心视窗 -->
-                    <Border Grid.Row="2" Background="{DynamicResource AppTerminalBgBrush}"
+                    <!-- 行 1: 终端显示核心视窗 (去除快捷指令栏，纯粹整洁 CLI 界面) -->
+                    <Border Grid.Row="1" Background="{DynamicResource AppTerminalBgBrush}"
                             BorderBrush="{DynamicResource AppTerminalBorderBrush}"
                             BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,10">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -2355,8 +2330,8 @@
                         </ScrollViewer>
                     </Border>
 
-                    <!-- 行 3: 交互式命令行输入条 -->
-                    <Border Grid.Row="3" Background="{DynamicResource AppSurfaceBrush}"
+                    <!-- 行 2: 交互式命令行输入条 -->
+                    <Border Grid.Row="2" Background="{DynamicResource AppSurfaceBrush}"
                             BorderBrush="{DynamicResource AppBorderBrush}"
                             BorderThickness="1" CornerRadius="5" Padding="8,6" Margin="0,0,0,6">
                         <Grid>
@@ -2371,6 +2346,7 @@
 
                             <TextBox Grid.Column="1" Text="{Binding Esp32CliInput, UpdateSourceTrigger=PropertyChanged}"
                                      KeyDown="Esp32CliInputTextBox_KeyDown"
+                                     CaretBrush="{DynamicResource AccentCyanBrush}"
                                      Height="24" Background="Transparent" Foreground="{DynamicResource AppTextPrimaryBrush}"
                                      BorderThickness="0" FontFamily="Consolas" FontSize="11" Padding="2,2"
                                      VerticalAlignment="Center"/>
@@ -2387,8 +2363,8 @@
                         </Grid>
                     </Border>
 
-                    <!-- 行 4: 底部操作指引微文案 -->
-                    <Grid Grid.Row="4">
+                    <!-- 行 3: 底部操作指引微文案 -->
+                    <Grid Grid.Row="3">
                         <TextBlock Text="提示: 启动 CLI 方式为双击卡片或底部状态条[正常就绪] · 支持 wifi ap / wifi connect / wifi status · 端口 8266 无线调试就绪"
                                    FontSize="9" FontFamily="Consolas" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center"/>
                     </Grid>

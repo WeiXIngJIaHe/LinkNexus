@@ -112,6 +112,41 @@ static int cmd_wifi(int argc, char **argv)
         const char *ssid = argv[2];
         const char *pwd  = (argc > 3) ? argv[3] : "";
 
+        // 检测是否已处于连接就绪状态 (避免重复连接并直接返回当前连接状态)
+        if (WifiManager::Instance().IsStaConnected(ssid)) {
+            WifiStatusInfo st = WifiManager::Instance().GetStatus();
+            uint32_t freq_mhz = WifiManager::GetChannelFreqMhz(st.channel);
+            CliEngine::PrintResponse(
+                "[ALREADY_CONNECTED] Wi-Fi 已连接目标网络 (无需重复发起连接):\r\n"
+                "  目标 SSID    : %s\r\n"
+                "  IP 地址      : %s\r\n"
+                "  信号强度     : %d dBm\r\n"
+                "  信道频率     : CH%u (%u MHz)\r\n"
+                "  发射功率     : %.2f dBm (raw: %d)\r\n"
+                "  调制协议     : %s\r\n"
+                "  无线调试服务 : %s (TCP :%u)\r\n",
+                st.ssid, st.ip_str, st.rssi,
+                st.channel, freq_mhz,
+                st.tx_power_dbm, WifiManager::Instance().GetTxPowerRaw(),
+                WifiManager::Instance().GetProtocolName(),
+                st.is_wireless_debug_active ? "已启动 [LISTENING]" : "未运行",
+                st.wireless_debug_port);
+            return 0;
+        }
+
+        // 检测是否正与其它 AP 连接或处于协商中
+        if (WifiManager::Instance().IsStaConnected(nullptr)) {
+            WifiStatusInfo st = WifiManager::Instance().GetStatus();
+            CliEngine::PrintResponse(
+                "[SWITCHING] 当前已连接至 '%s' (%s)，正在切换至新目标 '%s'...\r\n",
+                st.ssid, st.ip_str, ssid);
+            WifiManager::Instance().Disconnect();
+        } else if (WifiManager::Instance().IsStaConnecting()) {
+            CliEngine::PrintResponse(
+                "[CONNECTING] Wi-Fi 正在与目标网络进行握手协商，请稍候...\r\n");
+            return 0;
+        }
+
         bool ok = WifiManager::Instance().ConnectSta(ssid, pwd);
         CliEngine::PrintResponse(
             "[%s] ESP32-S3 从 AP (Station) 正在连接目标网络:\r\n"

@@ -54,10 +54,16 @@ WifiManager::WifiManager()
     strncpy(m_status.ssid, "LinkNexus-ESP32-AP", sizeof(m_status.ssid) - 1);
     strncpy(m_status.ip_str, "--", sizeof(m_status.ip_str) - 1);
     m_status.rssi = 0;
-    m_status.channel = 1;
+    m_status.channel = RfConfig::DEFAULT_CHANNEL;
     m_status.connected_clients = 0;
     m_status.is_wireless_debug_active = false;
     m_status.wireless_debug_port = 8266;
+    m_tx_power_raw = RfConfig::DEFAULT_MAX_TX_POWER_RAW; // 默认 52 对应 13.00 dBm
+    m_status.tx_power_dbm = static_cast<float>(m_tx_power_raw) / 4.0f;
+    m_protocol_mask = WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N;
+    m_status.protocol_mask = m_protocol_mask;
+    m_last_disconnect_reason = 0;
+    m_status.last_disconnect_reason = 0;
 }
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
@@ -73,14 +79,22 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             mgr.IncrementClients();
         } else if (event_id == WIFI_EVENT_AP_STADISCONNECTED) {
             auto *event = (wifi_event_ap_stadisconnected_t *)event_data;
-            ESP_LOGI(TAG, "Client left SoftAP (AID=%d, MAC=" MACSTR ")",
-                     event->aid, MAC2STR(event->mac));
+            uint8_t reason = event ? event->reason : 0;
+            ESP_LOGW(TAG, "Client left SoftAP (AID=%d, MAC=" MACSTR ", Reason: %u - %s)",
+                     event->aid, MAC2STR(event->mac), reason, WifiManager::GetDisconnectReasonDesc(reason));
             mgr.DecrementClients();
         } else if (event_id == WIFI_EVENT_STA_START) {
             ESP_LOGI(TAG, "Wi-Fi Station interface started (idle / ready for scan or connect).");
         } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
-            ESP_LOGW(TAG, "Station disconnected from AP.");
-            mgr.OnStaDisconnected();
+            auto *event = (wifi_event_sta_disconnected_t *)event_data;
+            uint8_t reason = event ? event->reason : 0;
+            ESP_LOGW(TAG, "Station disconnected from AP. Reason code: %u (%s)",
+                     reason, WifiManager::GetDisconnectReasonDesc(reason));
+            if (reason == 2 || reason == 15 || reason == 202 || reason == 203 || reason == 204) {
+                ESP_LOGW(TAG, ">> RF天线诊断: 收到Beacon但握手/认证超时，属于典型 0Ω 直连天线阻抗失配或发射EVM恶化。");
+                ESP_LOGW(TAG, ">> 建议对策: 可在控制台输入 'wifi txpower 10' (降为10dBm) 或 'wifi protocol bg' (降速至11b/g)。");
+            }
+            mgr.OnStaDisconnected(reason);
         } else if (event_id == WIFI_EVENT_SCAN_DONE) {
             ESP_LOGI(TAG, "Hardware Wi-Fi channel scan completed (WIFI_EVENT_SCAN_DONE).");
             mgr.NotifyScanDone();
@@ -137,8 +151,18 @@ void WifiManager::Init()
 
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
 
+    // 4. 针对裸芯片 ESP32-S3FH4R2 与自制 IPEX 0Ω 直连天线，配置高容限射频基准
+    //    - 默认发射功率下调至安全测试基线 13.00dBm (raw 52)，抑制反射波与 EVM 恶化
+    //    - 强制锁定信道带宽为 20MHz (WIFI_BW_HT20)，提升功率谱密度并减少带外衰落
+    esp_wifi_set_max_tx_power(m_tx_power_raw);
+    esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);
+    esp_wifi_set_bandwidth(WIFI_IF_STA, WIFI_BW_HT20);
+    esp_wifi_set_protocol(WIFI_IF_AP, m_protocol_mask);
+    esp_wifi_set_protocol(WIFI_IF_STA, m_protocol_mask);
+
     m_initialized = true;
-    ESP_LOGI(TAG, "Wi-Fi subsystem initialized. Ready for AP/STA and wireless CLI.");
+    ESP_LOGI(TAG, "Wi-Fi subsystem initialized (TxPower: %.2f dBm, Bandwidth: HT20). Ready for AP/STA and wireless CLI.",
+             static_cast<float>(m_tx_power_raw) / 4.0f);
 }
 
 bool WifiManager::StartAp(const char *ssid, const char *password, uint8_t channel)
@@ -150,7 +174,8 @@ bool WifiManager::StartAp(const char *ssid, const char *password, uint8_t channe
         ssid = "LinkNexus-ESP32-AP";
     }
 
-    ESP_LOGI(TAG, "Configuring ESP32-S3 as SoftAP (SSID: '%s', Ch: %u)...", ssid, channel);
+    ESP_LOGI(TAG, "Configuring ESP32-S3 as SoftAP (SSID: '%s', Ch: %u, TxPower: %.2f dBm)...",
+             ssid, channel, static_cast<float>(m_tx_power_raw) / 4.0f);
 
     wifi_config_t wifi_config = {};
     strncpy((char *)wifi_config.ap.ssid, ssid, sizeof(wifi_config.ap.ssid) - 1);
@@ -169,6 +194,11 @@ bool WifiManager::StartAp(const char *ssid, const char *password, uint8_t channe
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+
+    // 应用射频参数：功率、带宽与协议模式
+    esp_wifi_set_max_tx_power(m_tx_power_raw);
+    esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);
+    esp_wifi_set_protocol(WIFI_IF_AP, m_protocol_mask);
 
     m_status.mode = WifiWorkMode::SoftAP;
     strncpy(m_status.ssid, ssid, sizeof(m_status.ssid) - 1);
@@ -192,7 +222,8 @@ bool WifiManager::ConnectSta(const char *ssid, const char *password)
 
     if (!ssid || strlen(ssid) == 0) return false;
 
-    ESP_LOGI(TAG, "Connecting to external AP (SSID: '%s')...", ssid);
+    ESP_LOGI(TAG, "Connecting to external AP (SSID: '%s', TxPower: %.2f dBm)...",
+             ssid, static_cast<float>(m_tx_power_raw) / 4.0f);
 
     wifi_config_t wifi_config = {};
     strncpy((char *)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid) - 1);
@@ -205,6 +236,12 @@ bool WifiManager::ConnectSta(const char *ssid, const char *password)
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+
+    // 应用射频参数：功率、带宽与协议模式
+    esp_wifi_set_max_tx_power(m_tx_power_raw);
+    esp_wifi_set_bandwidth(WIFI_IF_STA, WIFI_BW_HT20);
+    esp_wifi_set_protocol(WIFI_IF_STA, m_protocol_mask);
+
     esp_wifi_connect();
 
     m_status.mode = WifiWorkMode::Station;
@@ -233,11 +270,17 @@ void WifiManager::OnStaGotIp(const void *ip)
     SetWirelessDebug(true, 8266);
 }
 
-void WifiManager::OnStaDisconnected()
+void WifiManager::OnStaDisconnected(uint8_t reason)
 {
     LockGuard lock(m_mutex);
+    m_last_disconnect_reason = reason;
+    m_status.last_disconnect_reason = reason;
     if (m_status.mode == WifiWorkMode::Station) {
-        strncpy(m_status.ip_str, "Disconnected", sizeof(m_status.ip_str) - 1);
+        if (reason > 0) {
+            snprintf(m_status.ip_str, sizeof(m_status.ip_str), "Disc (code %u)", reason);
+        } else {
+            strncpy(m_status.ip_str, "Disconnected", sizeof(m_status.ip_str) - 1);
+        }
         m_status.rssi = 0;
     }
 }
@@ -460,12 +503,15 @@ void WifiManager::StartInitialScanTask()
 WifiStatusInfo WifiManager::GetStatus()
 {
     LockGuard lock(m_mutex);
-    if (m_status.mode == WifiWorkMode::Station && strcmp(m_status.ip_str, "--") != 0 && strcmp(m_status.ip_str, "Disconnected") != 0 && strcmp(m_status.ip_str, "Connecting...") != 0) {
+    if (m_status.mode == WifiWorkMode::Station && strcmp(m_status.ip_str, "--") != 0 && strncmp(m_status.ip_str, "Disc", 4) != 0 && strcmp(m_status.ip_str, "Connecting...") != 0) {
         int rssi = 0;
         if (esp_wifi_sta_get_rssi(&rssi) == ESP_OK) {
             m_status.rssi = static_cast<int8_t>(rssi);
         }
     }
+    m_status.tx_power_dbm = static_cast<float>(m_tx_power_raw) / 4.0f;
+    m_status.protocol_mask = m_protocol_mask;
+    m_status.last_disconnect_reason = m_last_disconnect_reason;
     return m_status;
 }
 
@@ -572,6 +618,138 @@ void WifiManager::WirelessDebugServerTask(void *pvParameters)
     close(listen_sock);
     self->m_server_task_running = false;
     vTaskDelete(nullptr);
+}
+
+bool WifiManager::SetTxPowerRaw(int8_t power_raw)
+{
+    LockGuard lock(m_mutex);
+    if (power_raw < RfConfig::MIN_TX_POWER_RAW) power_raw = RfConfig::MIN_TX_POWER_RAW;
+    if (power_raw > RfConfig::MAX_TX_POWER_RAW) power_raw = RfConfig::MAX_TX_POWER_RAW;
+
+    m_tx_power_raw = power_raw;
+    m_status.tx_power_dbm = static_cast<float>(power_raw) / 4.0f;
+
+    if (m_initialized) {
+        esp_err_t err = esp_wifi_set_max_tx_power(power_raw);
+        ESP_LOGI(TAG, "Wi-Fi max TX power set to %.2f dBm (raw: %d, ret: %d)",
+                 m_status.tx_power_dbm, power_raw, err);
+        return (err == ESP_OK);
+    }
+    return true;
+}
+
+bool WifiManager::SetTxPowerDbm(float dbm)
+{
+    int8_t raw = static_cast<int8_t>(dbm * 4.0f + 0.5f);
+    return SetTxPowerRaw(raw);
+}
+
+bool WifiManager::SetProtocol(uint8_t protocol_mask)
+{
+    LockGuard lock(m_mutex);
+    if (protocol_mask == 0) protocol_mask = 7;
+    m_protocol_mask = protocol_mask;
+    m_status.protocol_mask = protocol_mask;
+
+    if (m_initialized) {
+        esp_wifi_set_protocol(WIFI_IF_AP, protocol_mask);
+        esp_wifi_set_protocol(WIFI_IF_STA, protocol_mask);
+        ESP_LOGI(TAG, "Wi-Fi protocol set to 0x%02X (%s)", protocol_mask, GetProtocolName());
+    }
+    return true;
+}
+
+const char* WifiManager::GetProtocolName() const
+{
+    if (m_protocol_mask == WIFI_PROTOCOL_11B) {
+        return "802.11b (CCK DSSS 1~11Mbps - 极高阻抗失配容限)";
+    } else if (m_protocol_mask == (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G)) {
+        return "802.11b/g (CCK/OFDM 1~54Mbps - 剔除11n高阶MCS)";
+    } else if (m_protocol_mask & WIFI_PROTOCOL_11N) {
+        return "802.11b/g/n (混合全速模式)";
+    }
+    return "Custom Mode";
+}
+
+bool WifiManager::SetChannel(uint8_t channel)
+{
+    LockGuard lock(m_mutex);
+    if (channel < 1 || channel > 13) return false;
+    m_status.channel = channel;
+    if (m_initialized) {
+        esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+        ESP_LOGI(TAG, "Wi-Fi channel set to CH%u (%u MHz)", channel, GetChannelFreqMhz(channel));
+    }
+    return true;
+}
+
+const char* WifiManager::GetDisconnectReasonDesc(uint8_t reason)
+{
+    switch (reason) {
+        case 1:   return "UNSPECIFIED (未指定原因)";
+        case 2:   return "AUTH_EXPIRE (认证超时 - 上行认证帧对端未收到/天线失配)";
+        case 3:   return "AUTH_LEAVE (对端主动退出认证)";
+        case 4:   return "ASSOC_EXPIRE (关联超时)";
+        case 5:   return "ASSOC_TOOMANY (AP客户端数已满)";
+        case 6:   return "NOT_AUTHED (尚未完成认证)";
+        case 7:   return "NOT_ASSOCED (尚未完成关联)";
+        case 8:   return "ASSOC_LEAVE (主动断开关联)";
+        case 15:  return "4WAY_HANDSHAKE_TIMEOUT (四次握手超时 - 密钥交换发射帧丢失，典型阻抗失配)";
+        case 16:  return "GROUP_KEY_UPDATE_TIMEOUT (组播组密钥更新超时)";
+        case 200: return "BEACON_TIMEOUT (AP心跳信标超时丢失)";
+        case 201: return "NO_AP_FOUND (未找到目标SSID热点)";
+        case 202: return "AUTH_FAIL (认证失败 - 密码错误或协议不匹配)";
+        case 203: return "ASSOC_FAIL (关联失败 - 射频握手被拒)";
+        case 204: return "HANDSHAKE_TIMEOUT (握手超时 - 射频上行发送包损坏丢弃)";
+        case 205: return "CONNECTION_FAIL (物理层连接失败)";
+        default:  return "UNKNOWN_REASON";
+    }
+}
+
+size_t WifiManager::FormatRfDiagnostics(char *out_buf, size_t max_len)
+{
+    if (!out_buf || max_len < 256) return 0;
+    LockGuard lock(m_mutex);
+
+    int8_t actual_raw = 0;
+    esp_wifi_get_max_tx_power(&actual_raw);
+    float actual_dbm = static_cast<float>(actual_raw) / 4.0f;
+    uint32_t freq_mhz = GetChannelFreqMhz(m_status.channel);
+
+    int len = snprintf(out_buf, max_len,
+        "=================================================================================\r\n"
+        "  LinkNexus ESP32-S3 射频前端与自制天线诊断台 (RF Diagnostics)\r\n"
+        "=================================================================================\r\n"
+        "  核心芯片型号 : %s\r\n"
+        "  天线射频电路 : %s\r\n"
+        "  工作信道频率 : CH%u (%u MHz - 2.4GHz ISM频段)\r\n"
+        "  设定发射功率 : %.2f dBm (底层寄存器: %d, 范围: 8.00~20.00 dBm)\r\n"
+        "  实际生效功率 : %.2f dBm (硬件实际输出: raw %d)\r\n"
+        "  Wi-Fi协议模式: %s\r\n"
+        "  信道基带带宽 : HT20 (20MHz 窄带高信噪比)\r\n"
+        "  最近断连原因 : [代码 %u] %s\r\n"
+        "---------------------------------------------------------------------------------\r\n"
+        "  【自制板 0Ω 直连 Π 网天线失配调谐建议】:\r\n"
+        "  1. 现象: 能够扫描到周围 AP，但自身无法连接路由器或手机连不上 SoftAP；\r\n"
+        "  2. 原因: 接收灵敏度高达 -98dBm (可捕获强Beacon)，但未经 LC 阻抗调谐的 0Ω 直连\r\n"
+        "     导致发射端阻抗严重偏离 50Ω (VSWR 偏高)，在 20dBm 满功率发射时 PA 严重失真\r\n"
+        "     (EVM 恶化) 且瞬间拉低电源轨，导致上行 Auth/Assoc/4次握手报文在对端校验失败。\r\n"
+        "  3. 对策指令:\r\n"
+        "     - 'wifi txpower 10'   : 将发射功率降至 10dBm (压制反射与EVM失真，验证ANT线)\r\n"
+        "     - 'wifi txpower 13'   : 设置为 13dBm 标准测试基线功率\r\n"
+        "     - 'wifi protocol bg'  : 降低调制速率至 11b/g (剔除 11n 高阶 OFDM 64QAM)\r\n"
+        "     - 'wifi protocol b'   : 强制 802.11b CCK 调制 (对天线阻抗失配容忍度最高)\r\n"
+        "=================================================================================\r\n",
+        LINKNEXUS_CHIP_PART_NUMBER,
+        LINKNEXUS_RF_ANTENNA_DESC,
+        m_status.channel, freq_mhz,
+        static_cast<float>(m_tx_power_raw) / 4.0f, m_tx_power_raw,
+        actual_dbm, actual_raw,
+        GetProtocolName(),
+        m_last_disconnect_reason, GetDisconnectReasonDesc(m_last_disconnect_reason)
+    );
+
+    return (len > 0) ? static_cast<size_t>(len) : 0;
 }
 
 } // namespace LinkNexus

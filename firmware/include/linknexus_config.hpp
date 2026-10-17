@@ -10,8 +10,23 @@ namespace LinkNexus {
 /**
  * @brief 固件版本号基线规范 (与 C# 上位机 LinkNexus 完全保持统一)
  */
-#define LINKNEXUS_FIRMWARE_VERSION  "0.23-preview-2641"
+#define LINKNEXUS_FIRMWARE_VERSION  "0.24-preview-2641"
 #define LINKNEXUS_HARDWARE_MODEL    "LinkNexus-Pro-ESP32S3"
+#define LINKNEXUS_CHIP_PART_NUMBER  "ESP32-S3FH4R2 (Bare Chip QFN56, 4MB Flash, 2MB PSRAM)"
+#define LINKNEXUS_RF_ANTENNA_DESC   "Custom IPEX Receptacle with Pi-Network (Direct 0R Jumper)"
+
+/**
+ * @brief 自制板射频前向传输与天线调谐基线配置
+ * 针对裸芯片 + 0Ω 直连未阻抗调谐天线，下调发射功率可显著降低驻波反射 (VSWR)、抑制 EVM 恶化与瞬态压降
+ */
+namespace RfConfig {
+    // 默认 Wi-Fi 最大发射功率 (单位: 0.25 dBm，52 对应 13.00 dBm，约 20mW)
+    constexpr int8_t DEFAULT_MAX_TX_POWER_RAW = 52; // 13.00 dBm
+    constexpr int8_t SAFE_TEST_TX_POWER_RAW    = 40; // 10.00 dBm (低功率高容限测试模式)
+    constexpr int8_t MIN_TX_POWER_RAW         = 32; // 8.00 dBm
+    constexpr int8_t MAX_TX_POWER_RAW         = 80; // 20.00 dBm (芯片额定极限)
+    constexpr uint8_t DEFAULT_CHANNEL         = 1;  // 2412 MHz (最低信道衰减)
+}
 
 /**
  * @brief 6 路物理通道枚举

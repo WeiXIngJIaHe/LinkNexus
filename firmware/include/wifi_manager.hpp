@@ -30,6 +30,9 @@ struct WifiStatusInfo {
     uint8_t connected_clients{0};
     bool is_wireless_debug_active{false};
     uint16_t wireless_debug_port{8266};
+    float tx_power_dbm{13.0f};          ///< 当前最大发射功率 (dBm)
+    uint8_t protocol_mask{7};           ///< 当前 Wi-Fi 协议模式掩码 (1:11b, 2:11g, 4:11n)
+    uint8_t last_disconnect_reason{0};  ///< 最近一次断开或握手失败原因码
 };
 
 /**
@@ -92,7 +95,7 @@ public:
      * @brief 供底层事件驱动回调更新内部状态模型
      */
     void OnStaGotIp(const void *ip);
-    void OnStaDisconnected();
+    void OnStaDisconnected(uint8_t reason = 0);
     void IncrementClients();
     void DecrementClients();
     void NotifyScanDone();
@@ -114,6 +117,35 @@ public:
      */
     bool HasScanned() const { return m_has_scanned && m_cached_scan_len > 0; }
 
+    /**
+     * @brief 射频天线调谐与前向发射功率控制
+     */
+    bool SetTxPowerRaw(int8_t power_raw);
+    int8_t GetTxPowerRaw() const { return m_tx_power_raw; }
+    bool SetTxPowerDbm(float dbm);
+    float GetTxPowerDbm() const { return static_cast<float>(m_tx_power_raw) / 4.0f; }
+
+    /**
+     * @brief 设置/获取 Wi-Fi 协议模式 (802.11b / 11b/g / 11b/g/n)
+     */
+    bool SetProtocol(uint8_t protocol_mask);
+    uint8_t GetProtocol() const { return m_protocol_mask; }
+    const char* GetProtocolName() const;
+
+    /**
+     * @brief 设置/获取当前信道 (1~13)
+     */
+    bool SetChannel(uint8_t channel);
+    uint8_t GetChannel() const { return m_status.channel; }
+    static uint32_t GetChannelFreqMhz(uint8_t ch) { return (ch >= 1 && ch <= 13) ? (2407 + ch * 5) : 2412; }
+
+    /**
+     * @brief 诊断与断开原因解析
+     */
+    uint8_t GetLastDisconnectReason() const { return m_last_disconnect_reason; }
+    static const char* GetDisconnectReasonDesc(uint8_t reason);
+    size_t FormatRfDiagnostics(char *out_buf, size_t max_len);
+
 private:
     WifiManager();
     ~WifiManager() = default;
@@ -128,6 +160,11 @@ private:
     bool m_initialized{false};
     WifiStatusInfo m_status;
     bool m_server_task_running{false};
+
+    // 射频天线调谐与功率寄存器状态 (默认 52 对应 13.00 dBm)
+    int8_t m_tx_power_raw{52};
+    uint8_t m_protocol_mask{7}; // 11b | 11g | 11n
+    uint8_t m_last_disconnect_reason{0};
 
     // Wi-Fi 扫描一次性执行与缓存机制 (彻底避免重复 3 秒阻塞)
     bool m_has_scanned{false};

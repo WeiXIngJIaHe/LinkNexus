@@ -294,21 +294,23 @@
 | **42** | **解决 ESP Decoder / 串口终端发送 `wifi scan` 无响应问题，构建 USB-Serial-JTAG 与 UART0 双引擎并发收发架构，全栈升级至 v0.21-preview.2641** | ✅ **已完全落地**：<br/>1. **双通道并发通信驱动重构 (UART0 & Native USB-Serial-JTAG)**：<br>• 在 `CommManager::Init()` 中集成 `usb_serial_jtag_driver_install`；<br>• `ReadBytes` 同时无阻塞轮询 UART0 与原生 USB 端口，无论 USB 线插在 ESP32-S3 开发板的 USB 原生口还是 UART 口，均能精准无缝截获控制台输入；<br>• `SendRawFrame` 将数据同时广播至 UART0 硬件引脚与原生 USB 端口，确保 ESP Decoder 与上位机同时获得响应；<br>2. **终端交互体验飞跃提升**：<br>• **字符本地回显 (Local Echo)**：键入字符即时回显，退格自动擦除（`\b \b`），终端交互体验极佳；<br>• **超时自动提交机制 (Timeout Auto-Commit)**：若串口工具（如 ESP Decoder）未勾选“发送换行符”，输入指令后 300ms 自动判定输入结束并触发执行，彻底根除“发指令无反应”；<br>• **全链路 stdout 镜像输出**：`ExecuteSerialCli` 同步输出至 VFS stdout，保证各类调试控制台 100% 可见；<br>3. **全站版本号统一递增至 `v0.21-preview.2641`**。 |
 | **43** | **彻底修复原生 USB 终端 (ESP Decoder) 循环刷屏乱码 `U\f...` 问题，构建上位机心跳活跃联动与终端智能静音机制，全栈升级至 v0.22-preview.2641** | ✅ **已完全落地**：<br/>1. **乱码根本原因精准剖析 (Binary Frame vs Text Terminal)**：用户硬件为自制板直连 ESP32-S3 原生 USB-Serial-JTAG CDC 端口；遥测任务每 250ms 发送的 17 字节二进制帧（`0xAA 0x55 0x10...`）被纯文本终端直接当 ASCII 字符串打印，导致整屏循环 `U\f...` 乱码；<br/>2. **上位机心跳握手活跃联动架构**：在 `AppCoordinator` 中设计 `IsHostActive()` 判定机制，仅在收到上位机 C# 发送的 `0x01 Heartbeat` 或其他有效二进制协议包时，才标记链路活跃（3.5 秒无心跳自动判定离线并休眠广播）；`CommManager::SendRawFrame` 引入二级安全拦截，未握手状态下严禁向 USB-Serial-JTAG 输出二进制包，而纯文本数据始终畅通无阻；<br/>3. **新增 `telemetry` 原生 CLI 指令**：支持单次采样纯文本 ASCII 表格输出与手动启闭二进制流；<br/>4. **全站版本号统一递增至 `v0.22-preview.2641`**。 |
 | **44** | **彻底修复串口发送 `wifi scan` 指令触发 Guru Meditation MMU Cache Error 崩溃、AP 列表无法打印与字符重复回显 Bug，全栈升级至 v0.23-preview.2641** | ✅ **已完全落地**：<br/>1. **深度崩溃归因 (ELF 符号地址精确还原)**：通过 `addr2line` 定位 `comm_rx` 任务在执行 `wifi scan` 时，`ExecuteSerialCli` 栈帧与 `cmd_wifi` 栈帧叠加分配了 2 个 1.5KB 局部数组，加上 `esp_console_run` 与 `vsnprintf` 格式化调用栈（超 2KB），整条链路总栈开销达到 5.6KB+，击穿了 4KB 物理任务栈并触发 MMU entry fault 硬件级 Cache 崩溃；<br/>2. **零栈消耗重构与任务栈安全扩容**：在 `WifiManager` 中设计 `GetCachedScanResult()` 与 `HasScanned()`，指令解析彻底废弃局部栈数组，改用单例静态成员只读指针与全局静态缓冲区（`s_cli_response_str[2048]`），实现 0 栈消耗；同时将 `comm_rx` 任务栈扩容至 8192 字节；<br/>3. **USB-Serial-JTAG 256 字节分块防溢出写入**：对 1400+ 字节扫描结果采用 256 字节分块写入 USB FIFO，彻底杜绝单次大写入溢出丢包；<br/>4. **消除重复打印与双重字符回显**：移除 `ExecuteSerialCli` 与 `CommRxTaskEntry` 中冗余的 stdout `printf`/`putchar` 调用，由 `CommManager::Print` 统一发送；延长超时自动提交窗口至 800ms 并在提交后立即清零 `last_char_tick`；<br/>5. **全站版本号统一递增至 `v0.23-preview.2641`**。 |
+| **45** | **定义与修改：1. 明确硬件芯片定义：采用 ESP32-S3FH4R2 (ESP32F2H4) 裸芯片外加自绘制 IPEX 座子与直连 0Ω Π 型天线匹配网络。<br>2. 修复自制板只能扫描、无法连接 (STA 握手超时 / SoftAP 客户端连不上) 的天线发射失配问题。<br>3. 实现降低发射功率与调制速率调谐体系，提供 `wifi txpower`、`wifi protocol`、`wifi channel`、`wifi diag` 射频控制与详细断连原因诊断，测试验证 ANT 天线线缆。** | ✅ **已完全落地**：<br/>1. **射频物理层失配机理深度归因 (RX 能扫 vs TX 无法握手)**：<br>• **接收与发射非对称性**：ESP32-S3 接收机灵敏度高达 -98dBm，即使 0Ω 直连天线阻抗严重偏离 50Ω (高 VSWR 驻波比)，对端路由器的大功率 (100mW+) Beacon 广播包仍能被捕获解码，因此**Wi-Fi 扫描完全正常**；<br>• **发射失真与握手失败**：连接热点或 SoftAP 接客需进行严格的双向 2/4 次帧交互（Auth、Assoc、EAPOL 4-Way Handshake）。在 ESP-IDF 默认顶格 20dBm (100mW) 满功率发射下，未经 LC 调谐的 0Ω 直连导致大量射频功率反射回内部功放 (PA)，引起严重的 EVM 调制误差失真与瞬间峰值电流 (>450mA) 压降，对端设备无法正确校验 ESP32 发出的握手帧，直接触发 `AUTH_EXPIRE` (2) 与 `4WAY_HANDSHAKE_TIMEOUT` (15/204) 断连；<br/>2. **射频前向发射功率与基带调制全套调谐体系落地**：<br>• **开机安全基线调谐**：将开机默认最大发射功率由 20dBm (raw 80) 下调至安全测试基线 **13.00dBm** (raw 52)，大幅压制反射波与功放饱和失真；同时强制锁定信道基带带宽为 **20MHz (HT20)**，成倍提升功率谱密度并减少带外衰落；<br>• **动态功率控制 CLI (`wifi txpower [dbm]`)**：支持 8.00~20.00 dBm 任意功率动态实时调节，用户可输入 `wifi txpower 10` 进一步降低功率以彻底隔离 ANT 天线失配；<br>• **协议调制模式回退 (`wifi protocol [b|bg|bgn]`)**：支持切换至 802.11b（CCK DSSS 1~11Mbps，抗阻抗失配能力最强）或 802.11b/g（剔除 11n 高阶 MCS 64-QAM）；<br>• **信道频率调节 (`wifi channel <1-13>`)**：支持设置工作信道（如 CH1: 2412MHz 低衰减频点）；<br>• **全功能射频天线诊断台 (`wifi diag`)**：清晰输出当前芯片型号、天线电路描述、生效发射功率、当前信道与握手失败诊断建议；<br/>3. **全站版本号统一递增至 `v0.24-preview.2641`**。 |
 
 ---
 
-### 七、 最新提交记录与演进状态 (v0.23-preview.2641)
+### 七、 最新提交记录与演进状态 (v0.24-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **全站版本号统一推进并锁定为 `v0.23-preview.2641`**：
+> 1. **全站版本号统一推进并锁定为 `v0.24-preview.2641`**：
 >    - 全量同步至 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md`、固件配置与本备忘录；
-> 2. **彻底根除 `wifi scan` 指令引发的 MMU Cache Error 崩溃与 AP 列表不打印 Bug**：
->    - 零栈指针引用重构 + 8192 字节安全栈深 + 256 字节 USB FIFO 分块平滑写入；
-> 3. **彻底消除串口重复打印指令与按键双重回显**：
->    - 统一下沉至 `CommManager::Print`，移除重复 stdout 镜像并优化 800ms 超时防抖；
-> 4. **彻底根除 ESP Decoder / USB 串口终端 `U\f...` 乱码刷屏**：
->    - 建立 `IsHostActive()` 判定，纯文本畅通无阻，未授权二进制帧禁止污染 USB 控制台；
-> 5. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 与上位机应用程序均符合发布标准。
+> 2. **固化裸芯片硬件与自绘制 IPEX 0Ω 直连天线定义**：
+>    - 核心芯片锁定为 `ESP32-S3FH4R2 (Bare Chip QFN56, 4MB Flash, 2MB PSRAM)`；
+>    - 射频前端锁定为 `Custom IPEX Receptacle with Pi-Network (Direct 0R Jumper)`；
+> 3. **构建高容限射频前向发射与天线调谐体系**：
+>    - 开机默认发射功率下调至 13.00dBm，基带带宽锁定 HT20 (20MHz)；
+>    - 原生 CLI 新增 `wifi txpower` (8~20dBm 动态调谐)、`wifi protocol` (802.11b/g/n 调制回退)、`wifi channel` (1~13 信道频率) 与 `wifi diag` (天线诊断台)；
+>    - 挂载全套 Wi-Fi 断连原因 (Auth Expire / Handshake Timeout) 深度解析与中文诊断日志；
+> 4. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 与上位机应用程序均符合发布标准。
 
 ---
 

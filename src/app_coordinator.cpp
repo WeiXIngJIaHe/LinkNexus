@@ -221,7 +221,10 @@ void AppCoordinator::ExecuteSerialCli(const char *cmd)
 {
     if (!cmd || strlen(cmd) == 0) return;
 
-    CommManager::Instance().Printf("\r\n[串口终端] 收到控制台输入: \"%s\"\r\n", cmd);
+    char header_buf[128];
+    snprintf(header_buf, sizeof(header_buf), "\r\n[串口控制台] 收到指令: \"%s\"\r\n", cmd);
+    CommManager::Instance().Print(header_buf);
+    printf("%s", header_buf);
 
     char response_str[1536];
     size_t resp_len = CliEngine::Instance().Execute(cmd, response_str, sizeof(response_str) - 4);
@@ -232,8 +235,11 @@ void AppCoordinator::ExecuteSerialCli(const char *cmd)
             response_str[resp_len] = '\0';
         }
         CommManager::Instance().SendRawFrame(reinterpret_cast<const uint8_t*>(response_str), resp_len);
+        printf("%s", response_str);
     }
     CommManager::Instance().Print("\r\n> ");
+    printf("\r\n> ");
+    fflush(stdout);
 }
 
 void AppCoordinator::CommRxTaskEntry(void *pvParameters)
@@ -242,7 +248,9 @@ void AppCoordinator::CommRxTaskEntry(void *pvParameters)
     uint8_t rx_buffer[256];
     char cli_line[256];
     size_t cli_len = 0;
-    ESP_LOGI(TAG, "CommRxTask running on Core %d (Priority: 10, Dual-Mode: Protocol & Serial CLI).", xPortGetCoreID());
+    TickType_t last_char_tick = 0;
+
+    ESP_LOGI(TAG, "CommRxTask running on Core %d (Dual-Channel: UART0 & USB-Serial-JTAG).", xPortGetCoreID());
 
     while (1) {
         int bytes_read = CommManager::Instance().ReadBytes(rx_buffer, sizeof(rx_buffer), pdMS_TO_TICKS(20));
@@ -255,6 +263,7 @@ void AppCoordinator::CommRxTaskEntry(void *pvParameters)
                     if (!consumed && (b >= 32 && b <= 126)) {
                         if (cli_len < sizeof(cli_line) - 1) {
                             cli_line[cli_len++] = static_cast<char>(b);
+                            last_char_tick = xTaskGetTickCount();
                         }
                     } else if (consumed) {
                         cli_len = 0;
@@ -267,17 +276,38 @@ void AppCoordinator::CommRxTaskEntry(void *pvParameters)
                             cli_line[cli_len] = '\0';
                             self->ExecuteSerialCli(cli_line);
                             cli_len = 0;
+                        } else {
+                            CommManager::Instance().Print("\r\n> ");
+                            printf("\r\n> ");
+                            fflush(stdout);
                         }
                     } else if (b == '\b' || b == 0x7F) {
                         if (cli_len > 0) {
                             cli_len--;
+                            CommManager::Instance().Print("\b \b");
+                            printf("\b \b");
+                            fflush(stdout);
                         }
                     } else if (b >= 32 && b <= 126) {
                         if (cli_len < sizeof(cli_line) - 1) {
                             cli_line[cli_len++] = static_cast<char>(b);
+                            last_char_tick = xTaskGetTickCount();
+
+                            // 终端字符本地回显 (Local Echo)
+                            char echo[2] = { static_cast<char>(b), '\0' };
+                            CommManager::Instance().Print(echo);
+                            putchar(b);
+                            fflush(stdout);
                         }
                     }
                 }
+            }
+        } else {
+            // 超时自动提交执行机制 (防止部分串口工具/ESP Decoder 发送时未勾选“加回车换行符”)
+            if (cli_len >= 3 && (xTaskGetTickCount() - last_char_tick > pdMS_TO_TICKS(300))) {
+                cli_line[cli_len] = '\0';
+                self->ExecuteSerialCli(cli_line);
+                cli_len = 0;
             }
         }
     }

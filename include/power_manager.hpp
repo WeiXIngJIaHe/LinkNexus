@@ -40,6 +40,21 @@ public:
      */
     void GetAllStates(bool out_states[static_cast<size_t>(PowerChannel::Count)]);
 
+    /**
+     * @brief 获取 6 路 MOS 当前状态位掩码 (0x3F 为全开)
+     */
+    uint8_t GetPowerMask();
+
+    /**
+     * @brief 批量切换所有 6 路 MOS 通道供电状态
+     */
+    bool SetAllPower(bool enable);
+
+    /**
+     * @brief 按位掩码批量更新 6 路 MOS 通道供电状态
+     */
+    bool SetPowerMask(uint8_t mask);
+
 private:
     PowerManager() = default;
     ~PowerManager() = default;

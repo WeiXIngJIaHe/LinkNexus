@@ -47,6 +47,9 @@ void AppCoordinator::Init()
     // 5. 初始化 Wi-Fi 与无线调试底层
     WifiManager::Instance().Init();
 
+    // 6. 初始化基于 esp_console 的原生 CLI 引擎
+    CliEngine::Instance().Init();
+
     m_initialized = true;
     ESP_LOGI(TAG, "Subsystems initialized. Ready to orchestrate dual-core tasks.");
 }
@@ -59,7 +62,7 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
     switch (static_cast<ProtocolCmd>(cmd)) {
         case ProtocolCmd::Heartbeat: {
             uint8_t seq = (len > 0) ? payload[0] : 0;
-            CommManager::Instance().Printf("[上位机指令] 收到 0x01 心跳握手包 (Seq: 0x%02X)\r\n", seq);
+            ESP_LOGI(TAG, "Heartbeat ping received (Seq: 0x%02X), returning ACK.", seq);
             tx_len = ProtocolUtils::PackHeartbeatAck(seq, tx_buf);
             CommManager::Instance().SendRawFrame(tx_buf, tx_len);
             break;
@@ -348,11 +351,21 @@ void AppCoordinator::Start()
     m_started = true;
     ESP_LOGI(TAG, "All dual-core tasks spawned and running smoothly.");
 
-    // 5. 双核编排完成：通过 CDC-ACM 向上位机发送启动就绪信号 (0x01 心跳包与文本标示)，对齐 UI 枚举完成通知
+    // 5. 双核编排完成：通过 CDC-ACM 向上位机发送启动就绪信号，对齐软件枚举机制
+    // 5.1 发送 0x01 二进制心跳响应包 (对齐 C# HeartbeatAckReceived)
     uint8_t ready_frame[16];
     size_t ready_len = ProtocolUtils::PackHeartbeatAck(0x00, ready_frame);
     CommManager::Instance().SendRawFrame(ready_frame, ready_len);
-    CommManager::Instance().Print("[LINKNEXUS] SYSTEM_READY: ESP32-S3 Dual-Core Orchestrator Initialized.\r\n");
+
+    // 5.2 发送 0x50 二进制 CLI 就绪通知包 (对齐 C# CliResponseReceived，直接唤醒 UI 枚举完成并投递终端)
+    const char *ready_msg = "[LINKNEXUS] SYSTEM_READY: ESP32-S3 Dual-Core Orchestrator Initialized.\r\n";
+    uint8_t cli_frame[128];
+    size_t cli_len = ProtocolUtils::PackFrame(static_cast<uint8_t>(ProtocolCmd::CliTransfer),
+                                              reinterpret_cast<const uint8_t*>(ready_msg),
+                                              strlen(ready_msg),
+                                              cli_frame);
+    CommManager::Instance().SendRawFrame(cli_frame, cli_len);
+    CommManager::Instance().Print(ready_msg);
 }
 
 } // namespace LinkNexus

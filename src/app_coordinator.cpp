@@ -221,10 +221,10 @@ void AppCoordinator::ExecuteSerialCli(const char *cmd)
 {
     if (!cmd || strlen(cmd) == 0) return;
 
-    CommManager::Instance().Printf("[串口终端] 收到控制台输入: \"%s\"\r\n", cmd);
+    CommManager::Instance().Printf("\r\n[串口终端] 收到控制台输入: \"%s\"\r\n", cmd);
 
     char response_str[1536];
-    size_t resp_len = CliEngine::Instance().Execute(cmd, response_str, sizeof(response_str) - 2);
+    size_t resp_len = CliEngine::Instance().Execute(cmd, response_str, sizeof(response_str) - 4);
     if (resp_len > 0) {
         if (resp_len < sizeof(response_str) - 2 && response_str[resp_len - 1] != '\n') {
             response_str[resp_len++] = '\r';
@@ -233,6 +233,7 @@ void AppCoordinator::ExecuteSerialCli(const char *cmd)
         }
         CommManager::Instance().SendRawFrame(reinterpret_cast<const uint8_t*>(response_str), resp_len);
     }
+    CommManager::Instance().Print("\r\n> ");
 }
 
 void AppCoordinator::CommRxTaskEntry(void *pvParameters)

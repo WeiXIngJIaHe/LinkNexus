@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos_mutex.hpp"
 
 namespace LinkNexus {
@@ -93,6 +95,7 @@ public:
     void OnStaDisconnected();
     void IncrementClients();
     void DecrementClients();
+    void OnScanDone();
 
 private:
     WifiManager();
@@ -114,6 +117,7 @@ private:
     bool m_is_scanning{false};
     char m_cached_scan_result[1536]{0};
     size_t m_cached_scan_len{0};
+    SemaphoreHandle_t m_scan_sem{nullptr};
 };
 
 } // namespace LinkNexus

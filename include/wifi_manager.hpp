@@ -64,6 +64,17 @@ public:
     bool ConnectSta(const char *ssid, const char *password);
 
     /**
+     * @brief 检查 Station 模式是否已连接并已获取有效 IP 地址
+     * @param target_ssid 可选，若指定则同时检查当前连接的是否为该目标网络
+     */
+    bool IsStaConnected(const char *target_ssid = nullptr);
+
+    /**
+     * @brief 检查 Station 模式是否正在进行握手连接
+     */
+    bool IsStaConnecting();
+
+    /**
      * @brief 断开并关闭 Wi-Fi 射频输出
      */
     bool Disconnect();

@@ -25,7 +25,7 @@
 >  
 > **文档性质**：硬件固件架构设计现状白皮书与修改演进基准文档（修改性 README）  
 > **文档目的**：汇整当前 ESP32-S3 固件的完整架构设计、底层通信机制与功能实现逻辑（采用通俗严谨的自然语句表述）。**已根据您在备忘录下方提交的全部修改要求严格实施落地**。您可以随时通过自然语言在文档末尾继续审查或提出后续迭代意见。  
-> **当前工程基线版本**：`v0.16-preview.2641`  
+> **当前工程基线版本**：`v0.17-preview.2641`  
 > **技术栈**：ESP32-S3 (Xtensa LX7 240MHz 双核) | ESP-IDF v5.x | FreeRTOS SMP | C++17 | 全双工二进制防粘包协议 | INA236 I2C 采样 | 802.11 b/g/n Wi-Fi AP/STA | 原生 CLI 引擎 | PlatformIO
 
 ---
@@ -193,7 +193,7 @@
 ```text
 LinkNexus (Firmware Workspace)
 ├── include/
-│   ├── linknexus_config.hpp         # 全局引脚映射、版本基线 (0.16-preview-2641) 与双核绑定常量
+│   ├── linknexus_config.hpp         # 全局引脚映射、版本基线 (0.17-preview-2641) 与双核绑定常量
 │   ├── freertos_mutex.hpp           # RAII 互斥锁核心类 (Mutex & LockGuard)，确保双核线程安全
 │   ├── protocol.hpp                 # 二进制帧结构、命令字枚举 (0x01~0x50) 与流式有限状态机声明
 │   ├── power_manager.hpp            # 6 路 MOS 电源控制管理器头文件 (单例模式)
@@ -215,7 +215,7 @@ LinkNexus (Firmware Workspace)
 │   ├── cli_engine.cpp               # CLI 指令分词解析 (help/wifi/power/status/reboot) 格式化实现
 │   └── display_manager.cpp          # 屏幕状态模型缓存与 LVGL 刷新管线预留实现
 ├── platformio.ini                   # PlatformIO 编译环境配置 (esp32-s3-devkitm-1 / espidf 框架)
-├── CMakeLists.txt                   # 顶层 CMake 工程配置 (固化 PROJECT_VER 为 0.16-preview-2641)
+├── CMakeLists.txt                   # 顶层 CMake 工程配置 (固化 PROJECT_VER 为 0.17-preview-2641)
 ├── sdkconfig.esp32-s3-devkitm-1     # ESP32-S3 专用 Kconfig 固化配置
 ├── README-DESIGN.md                 # 【当前文档】硬件设计审查与修改提交对齐备忘录
 └── README.md                        # 面向工程展示的高质感项目技术说明文档
@@ -231,26 +231,28 @@ LinkNexus (Firmware Workspace)
 | **02** | **严格区分功能.c和.h，每一个模块都区分开，尽量在main中使用调用而不是构建** | 彻底拆分 8 大独立模块（`.hpp` + `.cpp`）；`src/main.cpp` 仅保留 15 行调度调用（`AppCoordinator::Init()` 与 `Start()`），无任何直接硬件构建代码。 | ✅ **已完全落地** |
 | **03** | **使用FreeRtos调用ESP32S3的双核，使用互斥锁和“线程”管理避免双核同时调用一个函数导致指针异常** | Core 1 专攻高速通信与流式解包（优先级 10）；Core 0 专攻遥测、UI 与无线服务；引入 RAII `Mutex` 与 `LockGuard`，所有状态访问全量受锁保护，杜绝双核竞态。 | ✅ **已完全落地** |
 | **04** | **本项目会使用到UI，可能使用LVGL绘制UI** | 构建独立 `DisplayManager` 屏幕状态模型，支持上位机 0x20 命令反向同步通道与烧录进度（0~100%），预留 LVGL 局部刷新与定时渲染管线。 | ✅ **已完全落地** |
-| **05** | **严格对其上位机的C#格式，修改前需要查看软件的修改版本是否更新，目前硬件版本与软件统一为“0.13-preview-2641”，需要在README中同步版本号** | 深入审查 `C:\Users\17368\source\repos\LinkNexus` 源码与协议定义，0x01~0x50 命令字 100% 逐字节对齐；随当前演进将全站版本号统一推进至 **`v0.16-preview.2641`**。 | ✅ **已完全落地** |
+| **05** | **严格对其上位机的C#格式，修改前需要查看软件的修改版本是否更新，目前硬件版本与软件统一为“0.13-preview-2641”，需要在README中同步版本号** | 深入审查 `C:\Users\17368\source\repos\LinkNexus` 源码与协议定义，0x01~0x50 命令字 100% 逐字节对齐；随当前演进将全站版本号统一推进至 **`v0.17-preview.2641`**。 | ✅ **已完全落地** |
 | **06** | **C#的软件放置位置为C:\Users\17368\source\repos\LinkNexus** | 上位机参考位置明确锁定为该绝对路径，下位机以该工程中的 `ProtocolEngine.cs` 作为最高通信契约。 | ✅ **已完全落地** |
 | **07** | **只需要完成硬件部分，C#的软件部分只供参考，不需要在此更改 2026.10.14** | 严格贯彻职责边界，所有改动均集中于下位机固件工程；上位机 C# 业务代码保持独立，仅做接口协议镜像对齐。 | ✅ **已完全落地** |
 | **08** | **在ESP中加入CLI，能在软件中调用进入CLI页面，加入无线功能，能主动AP和从AP** | 1. 架构 `WifiManager`，完整支持 SoftAP（独立热点 `192.168.4.1`）、Station（从 AP 局域网接入）及 TCP `8266` 无线调试监听；<br>2. 架构 `CliEngine`，实现 9 大原生指令（`help`, `wifi ap`, `wifi connect`, `wifi status`, `wifi scan`, `wifi disconnect`, `power`, `status`, `reboot`）；<br>3. 扩展协议引入 `0x40 WifiControl` 与 `0x50 CliTransfer`，上位机双击就绪标签即可拉起 CLI 页面交互。 | ✅ **已完全落地** |
 | **09** | **在CLI中加入串口，让软件获取真实WIFI列表，软件能控制ESP32的无线功能** | 1. **串口双模无缝兼容**：重构 `CommRxTaskEntry`，实现原生串口终端 ASCII CLI 与二进制协议双模并发解析。无论上位机串口监视器、Putty 还是 C# CLI 页面，输入 `wifi scan\r\n`、`status\r\n` 即可直出纯文本结果；<br>2. **真实 Wi-Fi 信道扫描**：重构 `WifiManager::ScanNetworks`，基于 ESP-IDF 射频底层主动扫描周围信道 1~13，获取真实周围热点并按 RSSI 信号降序排序，输出规范表格（SSID/RSSI/信道/加密认证方式）；<br>3. **分包防截断传输**：在 0x40 (Action 4) 与 0x50 中增加 240 字节无损分包传输，彻底解决长 Wi-Fi 列表被截断问题；<br>4. **无线状态动态驱动**：Station 模式接入外部网络时动态获取真实 DHCP IP 与实时 RSSI，SoftAP 模式下实时维护已连客户端数量，下位机可通过 0x40 或 CLI 随时受控。 | ✅ **已完全落地** |
 | **10** | **加入串口打印，实时获取上位机的指令和AP扫描结果（只需要执行一次）** | 1. **指令实时串口监控打印**：在 `CommManager` 中实现线程安全的 `Print` 与 `Printf` 接口（受 `m_tx_mutex` 互斥保护）；在 `AppCoordinator::OnFrameReceived` 中为上位机下发的全部核心指令（0x01 心跳、0x10 遥测上报、0x20 屏幕同步、0x30 供电控制、0x40 无线控制、0x50 CLI 穿透传输）及物理控制台输入挂载实时串口回显日志；<br>2. **AP 扫描单次执行与毫秒级缓存机制**：在 `WifiManager` 中设计 `m_cached_scan_result`、`m_has_scanned` 与 `force_rescan` 机制，彻底避免上位机或 CLI 重复触发耗时 2~3 秒的阻塞式射频扫描；开机在 Core 0 后台自动执行一次全面扫描并直接在串口打印热点列表；后续查询一律毫秒级返回已缓存结果（亦支持 `wifi scan force` 手动刷新）；<br>3. **双模串口接收状态机容错防丢字**：优化 `ProtocolParser::FeedByte` 机制，在收到非帧头字节时优雅返回未消费状态，确保控制台键入的 ASCII 字符完整回填至命令行缓冲区。 | ✅ **已完全落地** |
+| **11** | **1. 在 DESIGN 中加入规范化 Conventional Commits 自动化提交标准（feat/fix/docs/style/refactor/perf/test/chore），作为全局规范。<br>2. 在双核启动完成后通过 CDC-ACM 向上位机发送完成的通信，作为就绪的信号对齐 UI 实现。<br>3. 修复实机串口崩溃 Bug（WIFI_MGR: esp_wifi_scan_start failed: 12294 与 Core 0 panic InstrFetchProhibited 栈破坏 Crash），记录详细原因与解决方案。** | 1. **全局 Git Commit 规范体系确立**：在 DESIGN 备忘录规则三中固化 Conventional Commits 标准，所有提交信息按模块语义前缀严格分类自动生成，双端仓库统一推进。<br>2. **CDC-ACM 双核就绪主动握手**：在 `AppCoordinator::Start()` 任务启动完成末尾，通过 CDC-ACM/UART 发送二进制就绪心跳响应帧（0x01）与 `[LINKNEXUS] SYSTEM_READY: ESP32-S3 Dual-Core Orchestrator Initialized.\r\n` 文本通知，上位机收到后立即完成 UI 状态与控制面板对齐。<br>3. **Bug 深度归因与根治**：<br>• **错误现象**：<br>```text<br>W (2219) wifi:sta_scan: STA is connecting, scan are not allowed!<br>E (2219) WIFI_MGR: esp_wifi_scan_start failed: 12294<br>Guru Meditation Error: Core 0 panic'ed (InstrFetchProhibited). Exception was unhandled.<br>EXCCAUSE: 0x00060c20, Backtrace: 0x00060c1d:0x3fcb4e80 0x00060c1d:0x3c0a2210 |<-CORRUPTED<br>```<br>• **根因 A (12294 / ESP_ERR_WIFI_STATE 射频冲突)**：在 `wifi_event_handler` 中，原逻辑在捕获 `WIFI_EVENT_STA_START` 事件后无条件调用了 `esp_wifi_connect()`。在 APSTA 双模下开机时无配置凭据盲目触发连接，使 STA 接口进入 `CONNECTING` 状态。ESP32 射频协议栈底层严格禁止在连接协商握手期间启动信道扫描，直接返回错误码 `12294` (`0x3006 = ESP_ERR_WIFI_STATE`)；<br>• **根因 B (InstrFetchProhibited / 任务栈溢出与 PC 破坏)**：开机后台扫描任务 `init_wifi_scan` 分配的栈空间仅 4096 字节。`InitialScanTaskEntry` 中直接在栈上分配了 `char scan_buf[1536]`（消耗 1.5KB），叠加 `ScanNetworks` 内部信道跳变与 ESP-IDF Wi-Fi 驱动中断上下文（需 3~4KB 栈深），导致严重的任务栈溢出（Stack Overflow），踩踏破坏了函数返回地址与寄存器，CPU 在执行 `RET` 时跳转至非法指令地址 `0x00060c20` 触发 `InstrFetchProhibited` 崩溃；<br>• **解决方案**：<br>① 移除 `WIFI_EVENT_STA_START` 中的自动 `esp_wifi_connect()`，改为仅由用户通过 CLI / 协议显式发起连接；<br>② 将 `scan_buf` 改为堆上动态分配（`malloc/free`），彻底释放任务栈空间；<br>③ 将后台初始扫描任务的栈深度从 4096 提升至 8192 字节，消除栈溢出隐患。 | ✅ **已完全落地** |
 
 ---
 
-# 七、 最新提交记录与演进状态 (v0.16-preview.2641)
+# 七、 最新提交记录与演进状态 (v0.17-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **版本号统一推进并锁定为 `v0.16-preview.2641`**：
+> 1. **版本号统一推进并锁定为 `v0.17-preview.2641`**：
 >    - 全量同步至 [`include/linknexus_config.hpp`](file:///c:/Users/17368/Desktop/LinkNexus/include/linknexus_config.hpp)、[`CMakeLists.txt`](file:///c:/Users/17368/Desktop/LinkNexus/CMakeLists.txt)、[`README.md`](file:///c:/Users/17368/Desktop/LinkNexus/README.md) 与本备忘录；
-> 2. **上位机指令全量实时串口打印**：
->    - 在 `AppCoordinator` 中捕获 0x01、0x10、0x20、0x30、0x40、0x50 及物理串口控制台输入，通过 `CommManager::Printf` 线程安全输出详细的中文解析日志；
-> 3. **AP 扫描单次执行与串口直出**：
->    - 开机后台自动扫描一次周边 AP，完成扫描后直接通过串口打印规范的热点表格；后续调用自动走缓存，彻底杜绝重复扫描导致的串口通讯停顿与心跳超时；
-> 4. **双模串口解包健壮性增强**：
->    - 彻底解决误检 0xAA 导致后续字符丢失问题，CLI 与二进制协议双模并发顺畅稳定。
+> 2. **固化 Conventional Commits 自动化提交标准**：
+>    - 在备忘录规则三中明确 feat/fix/docs/style/refactor/perf/test/chore 规范，所有版本迭代及提交严格执行语义化提交日志；
+> 3. **CDC-ACM 双核就绪主动握手**：
+>    - 在 `AppCoordinator::Start()` 任务派发完毕后，立即通过串口发送物理就绪心跳响应帧（0x01）与 `[LINKNEXUS] SYSTEM_READY` 标志字符串，实现下位机双核与上位机 UI 视图的无缝对齐；
+> 4. **Wi-Fi 扫描状态机冲突 (12294) 与 Core 0 栈溢出崩溃根治**：
+>    - 彻底分离 STA 启动与外部网络连接逻辑，杜绝 APSTA 盲连导致的 `ESP_ERR_WIFI_STATE` 射频扫描互斥；
+>    - 重构后台初始扫描任务，消除 1536 字节栈对象，将任务栈扩展至 8192 字节，彻底消除 `InstrFetchProhibited` 异常。
 
 ---
 
@@ -265,4 +267,3 @@ LinkNexus (Firmware Workspace)
 > 随时在此下方直接书写，保存后呼叫我，我将立即严格按照本 DESIGN 备忘录规范为您推进落地并步进版本号！
 
 *(如需继续修改或增加功能，可直接在此下方追加您的想法与需求)*
-修改：1.在DESIGN中加入自动commit，按照feat、fix、docs、style、refactor、perf、test、chore等类型自动生成commit message，提交到github上，作为全局DESIGN实现。

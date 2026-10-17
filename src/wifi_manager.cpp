@@ -76,8 +76,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                      event->aid, MAC2STR(event->mac));
             mgr.DecrementClients();
         } else if (event_id == WIFI_EVENT_STA_START) {
-            ESP_LOGI(TAG, "Station started, initiating connection...");
-            esp_wifi_connect();
+            ESP_LOGI(TAG, "Wi-Fi Station interface started (idle / ready for scan or connect).");
         } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
             ESP_LOGW(TAG, "Station disconnected from AP.");
             mgr.OnStaDisconnected();
@@ -400,12 +399,14 @@ void WifiManager::InitialScanTaskEntry(void *pvParameters)
 
     vTaskDelay(pdMS_TO_TICKS(500));
 
-    // 2. 后台执行一次周边真实 2.4GHz Wi-Fi 射频信道扫描并缓存
-    char scan_buf[1536];
-    ESP_LOGI(TAG, "Starting system initial one-time background Wi-Fi scan...");
-    CommManager::Instance().Print("[WIFI] 正在执行系统开机初始周边 Wi-Fi 射频扫描 (仅需执行一次)...\r\n");
-
-    WifiManager::Instance().ScanNetworks(scan_buf, sizeof(scan_buf), true);
+    // 2. 后台执行一次周边真实 2.4GHz Wi-Fi 射频信道扫描并缓存 (采用堆动态分配，严防任务栈溢出)
+    char *scan_buf = static_cast<char*>(malloc(1536));
+    if (scan_buf) {
+        ESP_LOGI(TAG, "Starting system initial one-time background Wi-Fi scan...");
+        CommManager::Instance().Print("[WIFI] 正在执行系统开机初始周边 Wi-Fi 射频扫描 (仅需执行一次)...\r\n");
+        WifiManager::Instance().ScanNetworks(scan_buf, 1536, true);
+        free(scan_buf);
+    }
     vTaskDelete(nullptr);
 }
 
@@ -413,7 +414,7 @@ void WifiManager::StartInitialScanTask()
 {
     xTaskCreatePinnedToCore(InitialScanTaskEntry,
                             "init_wifi_scan",
-                            4096,
+                            8192,
                             nullptr,
                             3,
                             nullptr,

@@ -347,6 +347,12 @@ void AppCoordinator::Start()
 
     m_started = true;
     ESP_LOGI(TAG, "All dual-core tasks spawned and running smoothly.");
+
+    // 5. 双核编排完成：通过 CDC-ACM 向上位机发送启动就绪信号 (0x01 心跳包与文本标示)，对齐 UI 枚举完成通知
+    uint8_t ready_frame[16];
+    size_t ready_len = ProtocolUtils::PackHeartbeatAck(0x00, ready_frame);
+    CommManager::Instance().SendRawFrame(ready_frame, ready_len);
+    CommManager::Instance().Print("[LINKNEXUS] SYSTEM_READY: ESP32-S3 Dual-Core Orchestrator Initialized.\r\n");
 }
 
 } // namespace LinkNexus

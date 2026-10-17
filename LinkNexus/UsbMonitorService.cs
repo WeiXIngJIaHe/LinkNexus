@@ -180,6 +180,15 @@ namespace LinkNexus
         }
 
         /// <summary>
+        /// 手动点击刷新按钮时立即执行异步扫描 (无需等待 250ms 防抖延迟)
+        /// </summary>
+        public void TriggerImmediateRefresh()
+        {
+            if (_disposed) return;
+            Task.Run(() => ScanAndNotify());
+        }
+
+        /// <summary>
         /// 同步/异步全量查询操作系统真实枚举的 USB 与串口实体
         /// </summary>
         public List<DiscoveredUsbDevice> ScanCurrentDevices()

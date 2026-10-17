@@ -150,7 +150,7 @@ namespace LinkNexus
         private PortDeviceModel? _esp32DeviceModel;
         private bool _isDaemonEnumerating = true; // 开启软件时默认探测
         private string _daemonStatusDotColor = "#38BDF8"; // 启动枚举中为流光青色
-        private string _daemonStatusText = "LinkNexus 物理拓扑守护服务：正在探测链路...";
+        private string _daemonStatusText = "LinkNexus进程枚举中...";
         private DateTime _lastEsp32ConnectAttempt = DateTime.MinValue;
 
         // 10 秒受控串口枚举生命周期管理
@@ -1302,15 +1302,16 @@ namespace LinkNexus
                     IsEsp32Online = false;
                     IsDaemonEnumerating = false;
                     DaemonStatusDotColor = "#F59E0B"; // 黄色：守护服务异常
-                    DaemonStatusText = $"LinkNexus 物理拓扑守护服务：驱动异常 ({espDev.ComPort})";
+                    DaemonStatusText = "LinkNexus进程异常";
                 }
                 else if (!string.IsNullOrWhiteSpace(espDev.ComPort) && espDev.ComPort != "--")
                 {
                     if (IsEsp32Online && Esp32CommService.Instance.IsConnected && Esp32CommService.Instance.ConnectedPortName == espDev.ComPort)
                     {
                         // 已在线就绪，保持常绿
+                        IsDaemonEnumerating = false;
                         DaemonStatusDotColor = "#10B981";
-                        DaemonStatusText = $"LinkNexus 物理拓扑守护服务：正常就绪 ({espDev.ComPort})";
+                        DaemonStatusText = "LinkNexus进程在线";
                     }
                     else if (_enumerationTimedOut && _enumeratingComPort == espDev.ComPort && !Esp32CommService.Instance.IsConnected)
                     {
@@ -1318,12 +1319,14 @@ namespace LinkNexus
                         IsDaemonEnumerating = false;
                         IsEsp32Online = false;
                         DaemonStatusDotColor = "#EF4444";
-                        DaemonStatusText = $"LinkNexus 物理拓扑守护服务：枚举超时 (已释放串口 {espDev.ComPort})";
+                        DaemonStatusText = "LinkNexus进程超时";
                     }
                     else if (_isEnumerating && _enumeratingComPort == espDev.ComPort)
                     {
                         // 正在 10 秒受控枚举倒计时中，保持滑条流动
                         IsDaemonEnumerating = true;
+                        DaemonStatusDotColor = "#38BDF8";
+                        DaemonStatusText = "LinkNexus进程枚举中...";
                     }
                     else
                     {
@@ -1337,7 +1340,7 @@ namespace LinkNexus
                     IsDaemonEnumerating = true;
                     IsEsp32Online = false;
                     DaemonStatusDotColor = "#38BDF8";
-                    DaemonStatusText = $"LinkNexus 物理拓扑守护服务：已识别 [VID:{espDev.Vid} PID:{espDev.Pid}]，等待分配串口...";
+                    DaemonStatusText = "LinkNexus进程枚举中...";
                 }
 
                 _esp32DeviceModel = new PortDeviceModel
@@ -1365,7 +1368,7 @@ namespace LinkNexus
                 IsDaemonEnumerating = false;
                 _esp32DeviceModel = null;
                 DaemonStatusDotColor = "#EF4444"; // 红色：离线
-                DaemonStatusText = "LinkNexus 物理拓扑守护服务：离线";
+                DaemonStatusText = "LinkNexus进程离线";
                 if (Esp32CommService.Instance.IsConnected)
                 {
                     Esp32CommService.Instance.Disconnect();
@@ -1472,7 +1475,7 @@ namespace LinkNexus
             IsDaemonEnumerating = true;
             IsEsp32Online = false;
             DaemonStatusDotColor = "#38BDF8"; // 青色：枚举握手中
-            DaemonStatusText = $"LinkNexus 物理拓扑守护服务：正在握手枚举 [VID:{vid} PID:{pid}] ({portName})...";
+            DaemonStatusText = "LinkNexus进程枚举中...";
 
             AddLog($"[USB PnP] 捕获主控硬件接入 [VID:{vid} PID:{pid}]，打开端口 {portName}，启动 10 秒受控串口枚举倒计时...", "INFO");
 
@@ -1540,7 +1543,7 @@ namespace LinkNexus
             IsDaemonEnumerating = false;
             IsEsp32Online = true;
             DaemonStatusDotColor = "#10B981"; // 纯绿就绪灯
-            DaemonStatusText = $"LinkNexus 物理拓扑守护服务：正常就绪 ({portName})";
+            DaemonStatusText = "LinkNexus进程在线";
 
             if (_esp32DeviceModel != null)
             {
@@ -1574,7 +1577,7 @@ namespace LinkNexus
 
             // 点亮红灯
             DaemonStatusDotColor = "#EF4444"; // 警示红灯
-            DaemonStatusText = $"LinkNexus 物理拓扑守护服务：枚举超时 (已释放串口 {portName})";
+            DaemonStatusText = "LinkNexus进程超时";
 
             if (_esp32DeviceModel != null)
             {
@@ -1600,10 +1603,17 @@ namespace LinkNexus
         {
             if (IsRefreshingDevices) return;
             IsRefreshingDevices = true;
-            IsDaemonEnumerating = true;
             _scanStartTime = DateTime.UtcNow;
-            _enumerationTimedOut = false; // 手动刷新允许重新尝试枚举
-            _usbMonitor.TriggerDebouncedRefresh();
+
+            // 仅在未连接/未在线时才触发枚举重试动画；若已在线则保持在线状态，消除左下角卡顿假象
+            if (!IsEsp32Online)
+            {
+                IsDaemonEnumerating = true;
+                _enumerationTimedOut = false; // 手动刷新允许重新尝试枚举
+            }
+
+            // 手动点击刷新总线时立即执行后台扫描，无需等待 250ms 防抖
+            _usbMonitor.TriggerImmediateRefresh();
         }
 
         private async void CompleteScanAnimationAsync()
@@ -1613,9 +1623,23 @@ namespace LinkNexus
             {
                 await Task.Delay(700 - (int)elapsed.TotalMilliseconds);
             }
-            if (!_isEnumerating)
+            if (!_isEnumerating && IsEsp32Online)
             {
                 IsDaemonEnumerating = false;
+                DaemonStatusDotColor = "#10B981";
+                DaemonStatusText = "LinkNexus进程在线";
+            }
+            else if (!_isEnumerating && _enumerationTimedOut)
+            {
+                IsDaemonEnumerating = false;
+                DaemonStatusDotColor = "#EF4444";
+                DaemonStatusText = "LinkNexus进程超时";
+            }
+            else if (!_isEnumerating && !IsEsp32Online)
+            {
+                IsDaemonEnumerating = false;
+                DaemonStatusDotColor = "#EF4444";
+                DaemonStatusText = "LinkNexus进程离线";
             }
             IsRefreshingDevices = false;
         }

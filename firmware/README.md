@@ -6,7 +6,7 @@
 ![Framework](https://img.shields.io/badge/Framework-ESP--IDF%20v5.x%20%7C%20FreeRTOS-512BD4?style=for-the-badge)
 ![Language](https://img.shields.io/badge/Language-C%2B%2B17%20%7C%20C-orange?style=for-the-badge&logo=cplusplus)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Release](https://img.shields.io/badge/Release-v0.16--preview.2641-38BDF8?style=for-the-badge)
+![Release](https://img.shields.io/badge/Release-v0.17--preview.2641-38BDF8?style=for-the-badge)
 
 **面向 LinkNexus 多协议桌面硬件调试站的底层嵌入式主控固件。基于 ESP-IDF 与 C++17 现代化面向对象架构构建，提供 FreeRTOS 双核并发调度、流式二进制防粘包协议总线、3 路 INA236 母线与支路遥测采集、6 路 MOS 供电开通/隔离控制、Wi-Fi 主动 AP/从 AP 无线调试以及原生交互式命令行 (CLI) 引擎。**
 

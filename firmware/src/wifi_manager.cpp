@@ -76,8 +76,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                      event->aid, MAC2STR(event->mac));
             mgr.DecrementClients();
         } else if (event_id == WIFI_EVENT_STA_START) {
-            ESP_LOGI(TAG, "Station started, initiating connection...");
-            esp_wifi_connect();
+            ESP_LOGI(TAG, "Wi-Fi Station interface started (idle / ready for scan or connect).");
         } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
             ESP_LOGW(TAG, "Station disconnected from AP.");
             mgr.OnStaDisconnected();
@@ -146,39 +145,22 @@ bool WifiManager::StartAp(const char *ssid, const char *password, uint8_t channe
     ESP_LOGI(TAG, "Configuring ESP32-S3 as SoftAP (SSID: '%s', Ch: %u)...", ssid, channel);
 
     wifi_config_t wifi_config = {};
-    memset(&wifi_config, 0, sizeof(wifi_config));
     strncpy((char *)wifi_config.ap.ssid, ssid, sizeof(wifi_config.ap.ssid) - 1);
-    wifi_config.ap.ssid_len = 0; // 0 表示 null-terminated，兼容所有手机与操作系统扫描
+    wifi_config.ap.ssid_len = strlen(ssid);
     wifi_config.ap.channel = (channel >= 1 && channel <= 13) ? channel : 1;
     wifi_config.ap.max_connection = 4;
-    wifi_config.ap.beacon_interval = 100; // 明确指定 100 TU 信标广播间隔，解决手机搜不到 AP 的根本问题
-    wifi_config.ap.ssid_hidden = 0;       // 显式广播 SSID
-    wifi_config.ap.ftm_responder = false;
 
     if (password && strlen(password) >= 8) {
         strncpy((char *)wifi_config.ap.password, password, sizeof(wifi_config.ap.password) - 1);
         wifi_config.ap.authmode = WIFI_AUTH_WPA2_PSK;
-        wifi_config.ap.pairwise_cipher = WIFI_CIPHER_TYPE_CCMP;
     } else {
         wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-        wifi_config.ap.pairwise_cipher = WIFI_CIPHER_TYPE_NONE;
     }
 
     esp_wifi_stop();
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
-
-    // 确保 SoftAP DHCP 服务端正常工作并分发 192.168.4.x 地址
-    if (s_ap_netif) {
-        esp_netif_dhcps_stop(s_ap_netif);
-        esp_netif_ip_info_t ip_info;
-        IP4_ADDR(&ip_info.ip, 192, 168, 4, 1);
-        IP4_ADDR(&ip_info.gw, 192, 168, 4, 1);
-        IP4_ADDR(&ip_info.netmask, 255, 255, 255, 0);
-        esp_netif_set_ip_info(s_ap_netif, &ip_info);
-        esp_netif_dhcps_start(s_ap_netif);
-    }
 
     m_status.mode = WifiWorkMode::SoftAP;
     strncpy(m_status.ssid, ssid, sizeof(m_status.ssid) - 1);
@@ -417,12 +399,14 @@ void WifiManager::InitialScanTaskEntry(void *pvParameters)
 
     vTaskDelay(pdMS_TO_TICKS(500));
 
-    // 2. 后台执行一次周边真实 2.4GHz Wi-Fi 射频信道扫描并缓存
-    char scan_buf[1536];
-    ESP_LOGI(TAG, "Starting system initial one-time background Wi-Fi scan...");
-    CommManager::Instance().Print("[WIFI] 正在执行系统开机初始周边 Wi-Fi 射频扫描 (仅需执行一次)...\r\n");
-
-    WifiManager::Instance().ScanNetworks(scan_buf, sizeof(scan_buf), true);
+    // 2. 后台执行一次周边真实 2.4GHz Wi-Fi 射频信道扫描并缓存 (采用堆动态分配，严防任务栈溢出)
+    char *scan_buf = static_cast<char*>(malloc(1536));
+    if (scan_buf) {
+        ESP_LOGI(TAG, "Starting system initial one-time background Wi-Fi scan...");
+        CommManager::Instance().Print("[WIFI] 正在执行系统开机初始周边 Wi-Fi 射频扫描 (仅需执行一次)...\r\n");
+        WifiManager::Instance().ScanNetworks(scan_buf, 1536, true);
+        free(scan_buf);
+    }
     vTaskDelete(nullptr);
 }
 
@@ -430,7 +414,7 @@ void WifiManager::StartInitialScanTask()
 {
     xTaskCreatePinnedToCore(InitialScanTaskEntry,
                             "init_wifi_scan",
-                            4096,
+                            8192,
                             nullptr,
                             3,
                             nullptr,

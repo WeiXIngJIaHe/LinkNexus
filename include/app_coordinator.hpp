@@ -7,6 +7,8 @@
 #include "comm_manager.hpp"
 #include "wifi_manager.hpp"
 #include "cli_engine.hpp"
+#include "freertos/FreeRTOS.h"
+#include <atomic>
 
 namespace LinkNexus {
 
@@ -32,6 +34,23 @@ public:
      */
     void Start();
 
+    /**
+     * @brief 检查上位机通信链路是否处于活跃连接状态 (已收到握手心跳且未超时)
+     */
+    bool IsHostActive() const;
+
+    /**
+     * @brief 刷新上位机活跃时间戳
+     */
+    void TouchHostActivity();
+
+    /**
+     * @brief 设置/查询是否强制手动开启二进制遥测流 (供 CLI 调试使用)
+     */
+    void SetManualTelemetryStream(bool enable);
+    bool IsManualTelemetryStream() const;
+    uint32_t GetLastHostActivityTick() const;
+
 private:
     AppCoordinator();
     ~AppCoordinator() = default;
@@ -49,6 +68,8 @@ private:
     ProtocolParser m_parser;
     bool m_initialized{false};
     bool m_started{false};
+    std::atomic<bool> m_manual_telemetry_stream{false};
+    std::atomic<uint32_t> m_last_host_activity_tick{0};
 };
 
 } // namespace LinkNexus

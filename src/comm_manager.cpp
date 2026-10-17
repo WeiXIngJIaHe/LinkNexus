@@ -1,4 +1,5 @@
 #include "comm_manager.hpp"
+#include "app_coordinator.hpp"
 #include "linknexus_config.hpp"
 #include "esp_log.h"
 #include "driver/usb_serial_jtag.h"
@@ -57,7 +58,7 @@ void CommManager::Init()
     ESP_LOGI(TAG, "Dual communication driver initialized successfully (UART0 & USB-Serial-JTAG).");
 }
 
-size_t CommManager::SendRawFrame(const uint8_t *frame_buf, size_t frame_len)
+size_t CommManager::SendRawFrame(const uint8_t *frame_buf, size_t frame_len, bool force_usb)
 {
     if (!frame_buf || frame_len == 0 || !m_initialized) return 0;
 
@@ -71,8 +72,16 @@ size_t CommManager::SendRawFrame(const uint8_t *frame_buf, size_t frame_len)
     // 1. 发往 UART0 硬件引脚 (对齐 C# 上位机 LinkNexus 物理串口)
     int bytes_sent = uart_write_bytes(Pins::COMM_UART_PORT, reinterpret_cast<const char*>(frame_buf), frame_len);
 
-    // 2. 同时镜像输出至 USB-Serial-JTAG 原生接口 (对齐直连 ESP32-S3 Type-C USB 端口的 ESP Decoder/终端)
-    usb_serial_jtag_write_bytes(frame_buf, frame_len, pdMS_TO_TICKS(30));
+    // 2. 检查是否为二进制协议帧 (以 0xAA 0x55 引导)
+    bool is_binary_frame = (frame_len >= 2 && frame_buf[0] == 0xAA && frame_buf[1] == 0x55);
+
+    // 3. 原生 USB-Serial-JTAG 发送决策：
+    //    - 如果是文本数据 (Print/Printf/CLI输出/系统通知)：必须始终输出至 USB，保证终端可见。
+    //    - 如果是二进制协议帧：仅在上位机握手在线 (IsHostActive) 或 force_usb 时输出，
+    //      彻底阻断向纯文本终端 (ESP Decoder) 盲推二进制数据，杜绝 "U\f..." 刷屏乱码。
+    if (!is_binary_frame || force_usb || AppCoordinator::Instance().IsHostActive()) {
+        usb_serial_jtag_write_bytes(frame_buf, frame_len, pdMS_TO_TICKS(30));
+    }
 
     return bytes_sent > 0 ? static_cast<size_t>(bytes_sent) : 0;
 }

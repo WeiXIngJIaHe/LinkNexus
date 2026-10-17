@@ -4,6 +4,7 @@
 #include "power_manager.hpp"
 #include "telemetry_manager.hpp"
 #include "app_coordinator.hpp"
+#include "config_manager.hpp"
 #include "linknexus_config.hpp"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -17,6 +18,24 @@
 namespace LinkNexus {
 
 static const char *TAG = "CLI_ENGINE";
+
+static bool ParseBoolCli(const char *str, bool &out_val)
+{
+    if (!str) return false;
+    if (strcasecmp(str, "true") == 0 || strcasecmp(str, "1") == 0 ||
+        strcasecmp(str, "on") == 0 || strcasecmp(str, "enable") == 0 ||
+        strcasecmp(str, "high") == 0) {
+        out_val = true;
+        return true;
+    }
+    if (strcasecmp(str, "false") == 0 || strcasecmp(str, "0") == 0 ||
+        strcasecmp(str, "off") == 0 || strcasecmp(str, "disable") == 0 ||
+        strcasecmp(str, "low") == 0) {
+        out_val = false;
+        return true;
+    }
+    return false;
+}
 
 static char *s_response_buf = nullptr;
 static size_t s_response_max = 0;
@@ -56,20 +75,25 @@ static int cmd_help(int argc, char **argv)
     (void)argv;
     CliEngine::PrintResponse(
         "================ LinkNexus ESP32-S3 CLI 指令手册 (esp_console) ================\r\n"
-        "  help                         - 显示 CLI 指令帮助列表\r\n"
-        "  wifi ap <ssid> [pwd] [ch]    - 启动 ESP32 为 SoftAP 独立热点 (主动 AP 模式)\r\n"
-        "  wifi connect <ssid> <pwd>    - 控制 ESP32 链接指定局域网 AP (从 AP / STA 模式)\r\n"
-        "  wifi status                  - 查询当前 Wi-Fi 工作模式、射频功率与连接状态\r\n"
-        "  wifi txpower [dbm]           - 查询/设置 Wi-Fi 最大发射功率 (8~20 dBm，抗失配调谐)\r\n"
-        "  wifi protocol [b|bg|bgn]     - 设置调制协议 (b: CCK极低速率高抗失配, bg: 54M, bgn: 全速)\r\n"
-        "  wifi channel <1-13>          - 设置射频工作信道频率 (1~13)\r\n"
-        "  wifi diag                    - 显示自制板天线 Π 网 0Ω 射频阻抗与握手失败诊断报告\r\n"
-        "  wifi scan                    - 扫描并列出周围环境可用 Wi-Fi 热点 (复用单次扫描缓存)\r\n"
-        "  wifi disconnect              - 断开并停止 Wi-Fi 与无线调试监听\r\n"
-        "  power <ch 0-5> <0|1>         - 控制指定通道 MOS 供电开通/隔离\r\n"
-        "  status                       - 查询 ESP32-S3 双核系统资源与运行状态\r\n"
-        "  telemetry [on|off]           - 查询 INA236 文本遥测采样或控制二进制广播流\r\n"
-        "  reboot                       - 软复位重启 ESP32-S3\r\n"
+        "  help                               - 显示 CLI 指令帮助列表\r\n"
+        "  wifi ap <ssid> [pwd] [ch] [save]   - 启动 SoftAP 热点 (可选 [save] 固化至 NVS)\r\n"
+        "  wifi connect <ssid> [pwd] [save]   - 连接局域网 STA (可选 [save] 固化至 NVS)\r\n"
+        "  wifi status                        - 查询当前 Wi-Fi 工作模式、射频功率与连接状态\r\n"
+        "  wifi txpower [dbm] [save]          - 查询/设置发射功率 (8~20 dBm, 可选 [save])\r\n"
+        "  wifi protocol [b|bg|bgn] [save]    - 设置调制协议 (b/bg/bgn, 可选 [save])\r\n"
+        "  wifi channel <1-13> [save]         - 设置射频工作信道 (1~13, 可选 [save])\r\n"
+        "  wifi diag                          - 显示天线 Π 网 0Ω 射频阻抗与握手失败诊断报告\r\n"
+        "  wifi scan [force]                  - 扫描周围可用 Wi-Fi 热点 (复用扫描缓存)\r\n"
+        "  wifi disconnect                    - 断开 Wi-Fi 连接并关闭无线调试端口\r\n"
+        "  wifi save                          - 将当前所有 Wi-Fi 运行时参数固化至 NVS\r\n"
+        "  wifi reset                         - 清除 NVS 自定义配置并恢复出厂默认值\r\n"
+        "  wifi config                        - 查看当前 NVS 持久化参数配置表\r\n"
+        "  power <ch 0-5|all> <true|false> [save] - 控制指定通道/所有通道 MOS 开通/隔离\r\n"
+        "  power save                         - 将当前 6 通道 MOS 状态固化为开机默认配置\r\n"
+        "  power status                       - 显示 6 通道当前供电状态与 NVS 开机默认 Mask\r\n"
+        "  status                             - 查询 ESP32-S3 双核系统资源与运行状态\r\n"
+        "  telemetry [true|false] [save]      - 查询遥测数据或控制二进制广播流 (可选 [save])\r\n"
+        "  reboot                             - 软复位重启 ESP32-S3\r\n"
         "=================================================================================\r\n");
     return 0;
 }
@@ -77,47 +101,97 @@ static int cmd_help(int argc, char **argv)
 static int cmd_wifi(int argc, char **argv)
 {
     if (argc < 2) {
-        CliEngine::PrintResponse("错误: 请输入子指令 (ap, connect, status, txpower, protocol, channel, diag, scan, disconnect)。输入 'help' 获取指南。\r\n");
+        CliEngine::PrintResponse("错误: 请输入子指令 (ap, connect, status, txpower, protocol, channel, diag, scan, disconnect, save, reset, config)。输入 'help' 获取指南。\r\n");
         return 1;
     }
 
     const char *sub_cmd = argv[1];
-    if (strcasecmp(sub_cmd, "ap") == 0) {
-        const char *ssid = (argc > 2) ? argv[2] : "LinkNexus-ESP32-AP";
-        const char *pwd  = (argc > 3) ? argv[3] : "12345678";
-        uint8_t ch = (argc > 4 && atoi(argv[4]) >= 1 && atoi(argv[4]) <= 13) ? static_cast<uint8_t>(atoi(argv[4])) : 1;
+    if (strcasecmp(sub_cmd, "save") == 0) {
+        ConfigManager::Instance().SaveAllCurrent();
+        CliEngine::PrintResponse("[NVS] 当前 Wi-Fi 运行时参数 (发射功率/调制协议/工作信道/AP配置/STA配置) 已全量固化至 NVS 存储区。\r\n");
+        return 0;
+    }
+    else if (strcasecmp(sub_cmd, "reset") == 0) {
+        ConfigManager::Instance().ResetToDefaults();
+        CliEngine::PrintResponse("[NVS] 已清除 NVS 自定义配置并恢复出厂默认值。\r\n");
+        return 0;
+    }
+    else if (strcasecmp(sub_cmd, "config") == 0 || strcasecmp(sub_cmd, "nvs") == 0) {
+        static char s_cfg_buf[1024];
+        ConfigManager::Instance().FormatConfigSummary(s_cfg_buf, sizeof(s_cfg_buf));
+        CliEngine::PrintResponse("%s", s_cfg_buf);
+        return 0;
+    }
+    else if (strcasecmp(sub_cmd, "ap") == 0) {
+        bool do_save = false;
+        const char *ssid = "LinkNexus-ESP32-AP";
+        const char *pwd  = "12345678";
+        uint8_t ch = 1;
+        int pos = 0;
+        for (int i = 2; i < argc; ++i) {
+            if (strcasecmp(argv[i], "save") == 0) {
+                do_save = true;
+                continue;
+            }
+            if (pos == 0) ssid = argv[i];
+            else if (pos == 1) pwd = argv[i];
+            else if (pos == 2) {
+                int c = atoi(argv[i]);
+                if (c >= 1 && c <= 13) ch = static_cast<uint8_t>(c);
+            }
+            pos++;
+        }
 
         bool ok = WifiManager::Instance().StartAp(ssid, pwd, ch);
+        if (do_save && ok) {
+            ConfigManager::Instance().SaveSoftAp(ssid, pwd, ch);
+        }
         WifiStatusInfo st = WifiManager::Instance().GetStatus();
         uint32_t freq_mhz = WifiManager::GetChannelFreqMhz(st.channel);
         CliEngine::PrintResponse(
-            "[%s] ESP32-S3 主动 AP (SoftAP) 已启动:\r\n"
+            "[%s] ESP32-S3 主动 AP (SoftAP) 已启动%s:\r\n"
             "  SSID      : %s\r\n"
             "  本机 IP   : %s\r\n"
             "  信道频率  : CH%u (%u MHz)\r\n"
             "  发射功率  : %.2f dBm (raw: %d)\r\n"
             "  调制协议  : %s\r\n"
             "  无线调试  : TCP %s:%u [监听中]\r\n",
-            ok ? "SUCCESS" : "WARN", st.ssid, st.ip_str, st.channel, freq_mhz,
+            ok ? "SUCCESS" : "WARN",
+            do_save ? " [已固化至 NVS]" : "",
+            st.ssid, st.ip_str, st.channel, freq_mhz,
             st.tx_power_dbm, WifiManager::Instance().GetTxPowerRaw(),
             WifiManager::Instance().GetProtocolName(),
             st.ip_str, st.wireless_debug_port);
         return 0;
     }
     else if (strcasecmp(sub_cmd, "connect") == 0 || strcasecmp(sub_cmd, "sta") == 0) {
-        if (argc < 3) {
-            CliEngine::PrintResponse("语法错误: wifi connect <SSID> [密码]\r\n");
+        bool do_save = false;
+        const char *ssid = nullptr;
+        const char *pwd  = "";
+        int pos = 0;
+        for (int i = 2; i < argc; ++i) {
+            if (strcasecmp(argv[i], "save") == 0) {
+                do_save = true;
+                continue;
+            }
+            if (pos == 0) ssid = argv[i];
+            else if (pos == 1) pwd = argv[i];
+            pos++;
+        }
+        if (!ssid) {
+            CliEngine::PrintResponse("语法错误: wifi connect <SSID> [密码] [save]\r\n");
             return 1;
         }
-        const char *ssid = argv[2];
-        const char *pwd  = (argc > 3) ? argv[3] : "";
 
         // 检测是否已处于连接就绪状态 (避免重复连接并直接返回当前连接状态)
         if (WifiManager::Instance().IsStaConnected(ssid)) {
+            if (do_save) {
+                ConfigManager::Instance().SaveSta(ssid, pwd, true);
+            }
             WifiStatusInfo st = WifiManager::Instance().GetStatus();
             uint32_t freq_mhz = WifiManager::GetChannelFreqMhz(st.channel);
             CliEngine::PrintResponse(
-                "[ALREADY_CONNECTED] Wi-Fi 已连接目标网络 (无需重复发起连接):\r\n"
+                "[ALREADY_CONNECTED] Wi-Fi 已连接目标网络 (无需重复发起连接)%s:\r\n"
                 "  目标 SSID    : %s\r\n"
                 "  IP 地址      : %s\r\n"
                 "  信号强度     : %d dBm\r\n"
@@ -125,6 +199,7 @@ static int cmd_wifi(int argc, char **argv)
                 "  发射功率     : %.2f dBm (raw: %d)\r\n"
                 "  调制协议     : %s\r\n"
                 "  无线调试服务 : %s (TCP :%u)\r\n",
+                do_save ? " [已固化至 NVS]" : "",
                 st.ssid, st.ip_str, st.rssi,
                 st.channel, freq_mhz,
                 st.tx_power_dbm, WifiManager::Instance().GetTxPowerRaw(),
@@ -148,13 +223,18 @@ static int cmd_wifi(int argc, char **argv)
         }
 
         bool ok = WifiManager::Instance().ConnectSta(ssid, pwd);
+        if (do_save && ok) {
+            ConfigManager::Instance().SaveSta(ssid, pwd, true);
+        }
         CliEngine::PrintResponse(
-            "[%s] ESP32-S3 从 AP (Station) 正在连接目标网络:\r\n"
+            "[%s] ESP32-S3 从 AP (Station) 正在连接目标网络%s:\r\n"
             "  目标 SSID : %s\r\n"
             "  发射功率  : %.2f dBm (raw: %d)\r\n"
             "  连接状态  : 握手协商中 (DHCP 获取 IP 中...)\r\n"
             "  提示      : 若握手超时失败，可使用 'wifi txpower 10' 降低发射功率再试\r\n",
-            ok ? "SUCCESS" : "FAILED", ssid,
+            ok ? "SUCCESS" : "FAILED",
+            do_save ? " [已固化至 NVS]" : "",
+            ssid,
             WifiManager::Instance().GetTxPowerDbm(),
             WifiManager::Instance().GetTxPowerRaw());
         return 0;
@@ -190,6 +270,7 @@ static int cmd_wifi(int argc, char **argv)
     }
     else if (strcasecmp(sub_cmd, "txpower") == 0 || strcasecmp(sub_cmd, "power") == 0 || strcasecmp(sub_cmd, "pwr") == 0) {
         if (argc > 2) {
+            bool do_save = (argc > 3 && strcasecmp(argv[3], "save") == 0);
             float val = atof(argv[2]);
             if (val <= 25.0f && val >= 2.0f) {
                 WifiManager::Instance().SetTxPowerDbm(val);
@@ -199,10 +280,14 @@ static int cmd_wifi(int argc, char **argv)
                 CliEngine::PrintResponse("参数错误: 请输入 dBm 功率 (8~20) 或底层寄存器值 (32~80)。\r\n");
                 return 1;
             }
+            if (do_save) {
+                ConfigManager::Instance().SaveTxPowerRaw(WifiManager::Instance().GetTxPowerRaw());
+            }
             CliEngine::PrintResponse(
-                "[WiFi RF] 最大发射功率已更新:\r\n"
+                "[WiFi RF] 最大发射功率已更新%s:\r\n"
                 "  设定功率 : %.2f dBm (底层寄存器: %d)\r\n"
                 "  调谐提示 : 针对 0Ω 直连 IPEX 自制板，降低发射功率可显著减少天线反射与 EVM 失真。\r\n",
+                do_save ? " [已固化至 NVS]" : "",
                 WifiManager::Instance().GetTxPowerDbm(),
                 WifiManager::Instance().GetTxPowerRaw());
             return 0;
@@ -212,42 +297,55 @@ static int cmd_wifi(int argc, char **argv)
             "[WiFi RF] 当前 Wi-Fi 发射功率配置:\r\n"
             "  当前功率 : %.2f dBm (底层寄存器: %d, 范围: 8.00~20.00 dBm / raw 32~80)\r\n"
             "  推荐基准 : 10.00 ~ 13.00 dBm (抑制未调谐 0Ω Π 网阻抗失配反射)\r\n"
-            "  修改语法 : wifi txpower <dBm值> (例如: wifi txpower 10 或 wifi txpower 13)\r\n",
+            "  修改语法 : wifi txpower <dBm值> [save] (例如: wifi txpower 10 save)\r\n",
             WifiManager::Instance().GetTxPowerDbm(),
             WifiManager::Instance().GetTxPowerRaw());
         return 0;
     }
     else if (strcasecmp(sub_cmd, "protocol") == 0 || strcasecmp(sub_cmd, "proto") == 0 || strcasecmp(sub_cmd, "mode") == 0) {
         if (argc > 2) {
+            bool do_save = (argc > 3 && strcasecmp(argv[3], "save") == 0);
             const char *mode = argv[2];
+            uint8_t proto_mask = 0;
             if (strcasecmp(mode, "b") == 0 || strcasecmp(mode, "11b") == 0) {
-                WifiManager::Instance().SetProtocol(1); // WIFI_PROTOCOL_11B
+                proto_mask = 1; // WIFI_PROTOCOL_11B
             } else if (strcasecmp(mode, "bg") == 0 || strcasecmp(mode, "11bg") == 0) {
-                WifiManager::Instance().SetProtocol(1 | 2); // WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G
+                proto_mask = 1 | 2; // WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G
             } else if (strcasecmp(mode, "bgn") == 0 || strcasecmp(mode, "11bgn") == 0 || strcasecmp(mode, "all") == 0) {
-                WifiManager::Instance().SetProtocol(1 | 2 | 4); // WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N
+                proto_mask = 1 | 2 | 4; // WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N
             } else {
                 CliEngine::PrintResponse("参数错误: 支持 'b' (极高抗失配), 'bg' (54M兼容), 'bgn' (全速)。\r\n");
                 return 1;
             }
-            CliEngine::PrintResponse("[WiFi RF] 调制协议模式已切换为: %s\r\n", WifiManager::Instance().GetProtocolName());
+            WifiManager::Instance().SetProtocol(proto_mask);
+            if (do_save) {
+                ConfigManager::Instance().SaveProtocol(proto_mask);
+            }
+            CliEngine::PrintResponse("[WiFi RF] 调制协议模式已切换为: %s%s\r\n",
+                                     WifiManager::Instance().GetProtocolName(),
+                                     do_save ? " [已固化至 NVS]" : "");
             return 0;
         }
 
         CliEngine::PrintResponse(
             "[WiFi RF] 当前 Wi-Fi 调制协议模式: %s\r\n"
-            "  切换语法 : wifi protocol <b | bg | bgn>\r\n"
+            "  切换语法 : wifi protocol <b | bg | bgn> [save]\r\n"
             "  说明     : 模式 'b' 采用 CCK 调制 (1~11Mbps)，对天线失配和高驻波具有极强抗干扰能力\r\n",
             WifiManager::Instance().GetProtocolName());
         return 0;
     }
     else if (strcasecmp(sub_cmd, "channel") == 0 || strcasecmp(sub_cmd, "ch") == 0) {
         if (argc > 2) {
+            bool do_save = (argc > 3 && strcasecmp(argv[3], "save") == 0);
             uint8_t ch = static_cast<uint8_t>(atoi(argv[2]));
             if (ch >= 1 && ch <= 13) {
                 WifiManager::Instance().SetChannel(ch);
-                CliEngine::PrintResponse("[WiFi RF] 工作信道频率已设置为 CH%u (%u MHz)\r\n",
-                                         ch, WifiManager::GetChannelFreqMhz(ch));
+                if (do_save) {
+                    ConfigManager::Instance().SaveChannel(ch);
+                }
+                CliEngine::PrintResponse("[WiFi RF] 工作信道频率已设置为 CH%u (%u MHz)%s\r\n",
+                                         ch, WifiManager::GetChannelFreqMhz(ch),
+                                         do_save ? " [已固化至 NVS]" : "");
                 return 0;
             } else {
                 CliEngine::PrintResponse("参数错误: 2.4GHz Wi-Fi 信道范围为 1~13。\r\n");
@@ -304,16 +402,70 @@ static int cmd_wifi(int argc, char **argv)
 
 static int cmd_power(int argc, char **argv)
 {
-    if (argc < 3) {
-        CliEngine::PrintResponse("语法: power <通道 0-5> <0|1> (例: power 0 1)\r\n");
+    if (argc < 2) {
+        CliEngine::PrintResponse(
+            "语法: power <通道 0-5 | all> <true | false> [save]\r\n"
+            "      power save    - 固化当前 6 通道 MOS 状态为开机默认 Mask\r\n"
+            "      power status  - 查看 6 通道当前状态及 NVS 默认 Mask\r\n");
         return 1;
     }
 
-    uint8_t ch = static_cast<uint8_t>(atoi(argv[1]));
-    bool en = (atoi(argv[2]) != 0);
+    if (strcasecmp(argv[1], "save") == 0) {
+        uint8_t cur_mask = PowerManager::Instance().GetPowerMask();
+        ConfigManager::Instance().SaveMosMask(cur_mask);
+        CliEngine::PrintResponse("[NVS] 6 通道 MOS 开机默认供电状态已固化 (Mask: 0x%02X)。\r\n", cur_mask);
+        return 0;
+    }
+
+    if (strcasecmp(argv[1], "status") == 0 || strcasecmp(argv[1], "show") == 0 || strcasecmp(argv[1], "list") == 0) {
+        uint8_t cur_mask = PowerManager::Instance().GetPowerMask();
+        uint8_t nvs_mask = ConfigManager::Instance().GetMosMask();
+        CliEngine::PrintResponse("6 通道 MOS 供电状态 (当前 Mask: 0x%02X, NVS 默认: 0x%02X):\r\n", cur_mask, nvs_mask);
+        for (uint8_t i = 0; i < 6; ++i) {
+            bool on = (cur_mask & (1 << i)) != 0;
+            CliEngine::PrintResponse("  CH%u: %s\r\n", i, on ? "导通 (ON/true)" : "隔离 (OFF/false)");
+        }
+        return 0;
+    }
+
+    if (argc < 3) {
+        CliEngine::PrintResponse("语法: power <通道 0-5 | all> <true | false> [save]\r\n");
+        return 1;
+    }
+
+    bool en = false;
+    if (!ParseBoolCli(argv[2], en)) {
+        CliEngine::PrintResponse("参数错误: 开关状态请使用 'true' 或 'false' (亦兼容 1/0, on/off)。\r\n");
+        return 1;
+    }
+
+    bool do_save = (argc > 3 && strcasecmp(argv[3], "save") == 0);
+
+    if (strcasecmp(argv[1], "all") == 0) {
+        PowerManager::Instance().SetAllPower(en);
+        if (do_save) {
+            ConfigManager::Instance().SaveMosMask(PowerManager::Instance().GetPowerMask());
+        }
+        CliEngine::PrintResponse("[MOS] 所有通道 (CH0~5) 供电状态已更新为: %s%s\r\n",
+                                 en ? "导通 (true/ON)" : "隔离 (false/OFF)",
+                                 do_save ? " [已固化至 NVS]" : "");
+        return 0;
+    }
+
+    int ch_val = atoi(argv[1]);
+    if (ch_val < 0 || ch_val > 5) {
+        CliEngine::PrintResponse("参数错误: MOS 通道编号仅支持 0~5 或 'all'。\r\n");
+        return 1;
+    }
+    uint8_t ch = static_cast<uint8_t>(ch_val);
     bool ok = PowerManager::Instance().SetPower(ch, en);
-    CliEngine::PrintResponse("[MOS] 通道 %u 供电状态已更新为: %s (%s)\r\n",
-                            ch, en ? "导通 (ON)" : "隔离 (OFF)", ok ? "OK" : "FAILED");
+    if (do_save && ok) {
+        ConfigManager::Instance().SaveMosMask(PowerManager::Instance().GetPowerMask());
+    }
+    CliEngine::PrintResponse("[MOS] 通道 %u 供电状态已更新为: %s (%s)%s\r\n",
+                             ch, en ? "导通 (true)" : "隔离 (false)",
+                             ok ? "OK" : "FAILED",
+                             do_save ? " [已固化至 NVS]" : "");
     return ok ? 0 : 1;
 }
 
@@ -347,16 +499,30 @@ static int cmd_telemetry(int argc, char **argv)
 {
     if (argc > 1) {
         const char *arg = argv[1];
-        if (strcasecmp(arg, "on") == 0 || strcasecmp(arg, "stream") == 0) {
-            AppCoordinator::Instance().SetManualTelemetryStream(true);
-            CliEngine::PrintResponse(
-                "[遥测控制] 已手动强制开启 250ms 二进制遥测广播流。\r\n"
-                "  提示: 纯文本终端将开始接收二进制原始数据帧并显示字符。\r\n"
-                "  输入 'telemetry off' 可随时关闭并恢复智能静音模式。\r\n");
+        if (strcasecmp(arg, "save") == 0) {
+            bool cur = AppCoordinator::Instance().IsManualTelemetryStream();
+            ConfigManager::Instance().SaveTelemetryStream(cur);
+            CliEngine::PrintResponse("[NVS] 遥测广播流配置已固化至 NVS: %s\r\n", cur ? "true (开启)" : "false (关闭/静音)");
             return 0;
-        } else if (strcasecmp(arg, "off") == 0) {
-            AppCoordinator::Instance().SetManualTelemetryStream(false);
-            CliEngine::PrintResponse("[遥测控制] 已关闭手动遥测流，恢复智能静音保护模式 (杜绝终端乱码)。\r\n");
+        }
+
+        bool en = false;
+        if (ParseBoolCli(arg, en)) {
+            bool do_save = (argc > 2 && strcasecmp(argv[2], "save") == 0);
+            AppCoordinator::Instance().SetManualTelemetryStream(en);
+            if (do_save) {
+                ConfigManager::Instance().SaveTelemetryStream(en);
+            }
+            if (en) {
+                CliEngine::PrintResponse(
+                    "[遥测控制] 已手动强制开启 250ms 二进制遥测广播流%s。\r\n"
+                    "  提示: 纯文本终端将开始接收二进制原始数据帧并显示字符。\r\n"
+                    "  输入 'telemetry false' 可随时关闭并恢复智能静音模式。\r\n",
+                    do_save ? " [已固化至 NVS]" : "");
+            } else {
+                CliEngine::PrintResponse("[遥测控制] 已关闭手动遥测流，恢复智能静音保护模式 (杜绝终端乱码)%s。\r\n",
+                                         do_save ? " [已固化至 NVS]" : "");
+            }
             return 0;
         }
     }
@@ -412,8 +578,8 @@ void CliEngine::RegisterCommands()
 
     const esp_console_cmd_t wifi_cmd = {
         .command = "wifi",
-        .help = "Wi-Fi 模式与网络控制 (ap, connect, status, scan, disconnect)",
-        .hint = "<ap|connect|status|scan|disconnect>",
+        .help = "Wi-Fi 模式与网络控制 (ap, connect, status, txpower, protocol, channel, diag, scan, disconnect, save, reset, config)",
+        .hint = "<ap|connect|status|txpower|protocol|channel|diag|scan|disconnect|save|reset|config>",
         .func = &cmd_wifi,
         .argtable = NULL,
         .func_w_context = NULL,
@@ -423,8 +589,8 @@ void CliEngine::RegisterCommands()
 
     const esp_console_cmd_t power_cmd = {
         .command = "power",
-        .help = "控制 6 路 MOS 供电开通/隔离",
-        .hint = "<ch 0-5> <0|1>",
+        .help = "控制 6 路 MOS 供电开通/隔离 (true|false, all, status, save)",
+        .hint = "<ch 0-5|all> <true|false> [save]",
         .func = &cmd_power,
         .argtable = NULL,
         .func_w_context = NULL,
@@ -445,8 +611,8 @@ void CliEngine::RegisterCommands()
 
     const esp_console_cmd_t telemetry_cmd = {
         .command = "telemetry",
-        .help = "查询 INA236 文本遥测采样或控制二进制广播流 (on/off)",
-        .hint = "[on|off]",
+        .help = "查询 INA236 文本遥测采样或控制二进制广播流 (true/false) [save]",
+        .hint = "[true|false] [save]",
         .func = &cmd_telemetry,
         .argtable = NULL,
         .func_w_context = NULL,

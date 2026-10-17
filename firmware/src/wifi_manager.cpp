@@ -2,6 +2,7 @@
 #include "comm_manager.hpp"
 #include "cli_engine.hpp"
 #include "linknexus_config.hpp"
+#include "config_manager.hpp"
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_wifi.h"
@@ -50,17 +51,18 @@ WifiManager& WifiManager::Instance()
 
 WifiManager::WifiManager()
 {
+    auto &cfg = ConfigManager::Instance();
     m_status.mode = WifiWorkMode::Off;
-    strncpy(m_status.ssid, "LinkNexus-ESP32-AP", sizeof(m_status.ssid) - 1);
+    strncpy(m_status.ssid, cfg.GetApSsid(), sizeof(m_status.ssid) - 1);
     strncpy(m_status.ip_str, "--", sizeof(m_status.ip_str) - 1);
     m_status.rssi = 0;
-    m_status.channel = RfConfig::DEFAULT_CHANNEL;
+    m_status.channel = cfg.GetChannel();
     m_status.connected_clients = 0;
     m_status.is_wireless_debug_active = false;
     m_status.wireless_debug_port = 8266;
-    m_tx_power_raw = RfConfig::DEFAULT_MAX_TX_POWER_RAW; // 默认 52 对应 13.00 dBm
+    m_tx_power_raw = cfg.GetTxPowerRaw();
     m_status.tx_power_dbm = static_cast<float>(m_tx_power_raw) / 4.0f;
-    m_protocol_mask = WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N;
+    m_protocol_mask = cfg.GetProtocol();
     m_status.protocol_mask = m_protocol_mask;
     m_last_disconnect_reason = 0;
     m_status.last_disconnect_reason = 0;

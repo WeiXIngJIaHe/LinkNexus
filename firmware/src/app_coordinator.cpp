@@ -1,4 +1,5 @@
 #include "app_coordinator.hpp"
+#include "config_manager.hpp"
 #include "linknexus_config.hpp"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -32,6 +33,9 @@ void AppCoordinator::Init()
     ESP_LOGI(TAG, "  Architecture     : FreeRTOS SMP Dual-Core (C++17 Engine)");
     ESP_LOGI(TAG, "==========================================================");
 
+    // 0. 初始化配置中心并从 NVS 闪存加载所有参数
+    ConfigManager::Instance().Init();
+
     // 1. 初始化供电管理模块 (6路 MOS)
     PowerManager::Instance().Init();
 
@@ -49,6 +53,11 @@ void AppCoordinator::Init()
 
     // 6. 初始化基于 esp_console 的原生 CLI 引擎
     CliEngine::Instance().Init();
+
+    // 若 NVS 中配置了开机默认开启遥测广播流，则应用该配置
+    if (ConfigManager::Instance().GetTelemetryStream()) {
+        SetManualTelemetryStream(true);
+    }
 
     m_initialized = true;
     ESP_LOGI(TAG, "Subsystems initialized. Ready to orchestrate dual-core tasks.");

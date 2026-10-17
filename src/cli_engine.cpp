@@ -59,7 +59,11 @@ static int cmd_help(int argc, char **argv)
         "  help                         - 显示 CLI 指令帮助列表\r\n"
         "  wifi ap <ssid> [pwd] [ch]    - 启动 ESP32 为 SoftAP 独立热点 (主动 AP 模式)\r\n"
         "  wifi connect <ssid> <pwd>    - 控制 ESP32 链接指定局域网 AP (从 AP / STA 模式)\r\n"
-        "  wifi status                  - 查询当前 Wi-Fi 工作模式、IP 与无线调试状态\r\n"
+        "  wifi status                  - 查询当前 Wi-Fi 工作模式、射频功率与连接状态\r\n"
+        "  wifi txpower [dbm]           - 查询/设置 Wi-Fi 最大发射功率 (8~20 dBm，抗失配调谐)\r\n"
+        "  wifi protocol [b|bg|bgn]     - 设置调制协议 (b: CCK极低速率高抗失配, bg: 54M, bgn: 全速)\r\n"
+        "  wifi channel <1-13>          - 设置射频工作信道频率 (1~13)\r\n"
+        "  wifi diag                    - 显示自制板天线 Π 网 0Ω 射频阻抗与握手失败诊断报告\r\n"
         "  wifi scan                    - 扫描并列出周围环境可用 Wi-Fi 热点 (复用单次扫描缓存)\r\n"
         "  wifi disconnect              - 断开并停止 Wi-Fi 与无线调试监听\r\n"
         "  power <ch 0-5> <0|1>         - 控制指定通道 MOS 供电开通/隔离\r\n"
@@ -73,7 +77,7 @@ static int cmd_help(int argc, char **argv)
 static int cmd_wifi(int argc, char **argv)
 {
     if (argc < 2) {
-        CliEngine::PrintResponse("错误: 请输入子指令 (ap, connect, status, scan, disconnect)。输入 'help' 获取指南。\r\n");
+        CliEngine::PrintResponse("错误: 请输入子指令 (ap, connect, status, txpower, protocol, channel, diag, scan, disconnect)。输入 'help' 获取指南。\r\n");
         return 1;
     }
 
@@ -85,13 +89,19 @@ static int cmd_wifi(int argc, char **argv)
 
         bool ok = WifiManager::Instance().StartAp(ssid, pwd, ch);
         WifiStatusInfo st = WifiManager::Instance().GetStatus();
+        uint32_t freq_mhz = WifiManager::GetChannelFreqMhz(st.channel);
         CliEngine::PrintResponse(
             "[%s] ESP32-S3 主动 AP (SoftAP) 已启动:\r\n"
             "  SSID      : %s\r\n"
             "  本机 IP   : %s\r\n"
-            "  信道      : %u\r\n"
+            "  信道频率  : CH%u (%u MHz)\r\n"
+            "  发射功率  : %.2f dBm (raw: %d)\r\n"
+            "  调制协议  : %s\r\n"
             "  无线调试  : TCP %s:%u [监听中]\r\n",
-            ok ? "SUCCESS" : "WARN", st.ssid, st.ip_str, st.channel, st.ip_str, st.wireless_debug_port);
+            ok ? "SUCCESS" : "WARN", st.ssid, st.ip_str, st.channel, freq_mhz,
+            st.tx_power_dbm, WifiManager::Instance().GetTxPowerRaw(),
+            WifiManager::Instance().GetProtocolName(),
+            st.ip_str, st.wireless_debug_port);
         return 0;
     }
     else if (strcasecmp(sub_cmd, "connect") == 0 || strcasecmp(sub_cmd, "sta") == 0) {
@@ -106,26 +116,122 @@ static int cmd_wifi(int argc, char **argv)
         CliEngine::PrintResponse(
             "[%s] ESP32-S3 从 AP (Station) 正在连接目标网络:\r\n"
             "  目标 SSID : %s\r\n"
+            "  发射功率  : %.2f dBm (raw: %d)\r\n"
             "  连接状态  : 握手协商中 (DHCP 获取 IP 中...)\r\n"
-            "  提示      : 输入 'wifi status' 查看最新连接与真实 IP 获取结果\r\n",
-            ok ? "SUCCESS" : "FAILED", ssid);
+            "  提示      : 若握手超时失败，可使用 'wifi txpower 10' 降低发射功率再试\r\n",
+            ok ? "SUCCESS" : "FAILED", ssid,
+            WifiManager::Instance().GetTxPowerDbm(),
+            WifiManager::Instance().GetTxPowerRaw());
         return 0;
     }
     else if (strcasecmp(sub_cmd, "status") == 0) {
         WifiStatusInfo st = WifiManager::Instance().GetStatus();
         const char *mode_str = (st.mode == WifiWorkMode::SoftAP) ? "SoftAP (主动独立热点)" :
                                (st.mode == WifiWorkMode::Station) ? "Station (从 AP / 已接入外部网络)" : "OFF (关闭)";
+        uint32_t freq_mhz = WifiManager::GetChannelFreqMhz(st.channel);
         CliEngine::PrintResponse(
-            "ESP32-S3 Wi-Fi & 无线调试状态:\r\n"
+            "ESP32-S3 Wi-Fi & 射频天线状态:\r\n"
+            "  硬件芯片     : %s\r\n"
+            "  天线射频电路 : %s\r\n"
             "  工作模式     : %s\r\n"
             "  当前 SSID    : %s\r\n"
             "  IP 地址      : %s\r\n"
-            "  信道 / RSSI  : CH%u / %d dBm\r\n"
+            "  信道频率     : CH%u (%u MHz)\r\n"
+            "  发射功率     : %.2f dBm (raw: %d)\r\n"
+            "  调制协议     : %s\r\n"
+            "  RSSI 信号    : %d dBm\r\n"
             "  已连客户端   : %u\r\n"
             "  无线调试服务 : %s (TCP :%u)\r\n",
-            mode_str, st.ssid, st.ip_str, st.channel, st.rssi, st.connected_clients,
+            LINKNEXUS_CHIP_PART_NUMBER,
+            LINKNEXUS_RF_ANTENNA_DESC,
+            mode_str, st.ssid, st.ip_str,
+            st.channel, freq_mhz,
+            st.tx_power_dbm, WifiManager::Instance().GetTxPowerRaw(),
+            WifiManager::Instance().GetProtocolName(),
+            st.rssi, st.connected_clients,
             st.is_wireless_debug_active ? "已启动 [LISTENING]" : "未运行",
             st.wireless_debug_port);
+        return 0;
+    }
+    else if (strcasecmp(sub_cmd, "txpower") == 0 || strcasecmp(sub_cmd, "power") == 0 || strcasecmp(sub_cmd, "pwr") == 0) {
+        if (argc > 2) {
+            float val = atof(argv[2]);
+            if (val <= 25.0f && val >= 2.0f) {
+                WifiManager::Instance().SetTxPowerDbm(val);
+            } else if (val >= 28.0f && val <= 84.0f) {
+                WifiManager::Instance().SetTxPowerRaw(static_cast<int8_t>(val));
+            } else {
+                CliEngine::PrintResponse("参数错误: 请输入 dBm 功率 (8~20) 或底层寄存器值 (32~80)。\r\n");
+                return 1;
+            }
+            CliEngine::PrintResponse(
+                "[WiFi RF] 最大发射功率已更新:\r\n"
+                "  设定功率 : %.2f dBm (底层寄存器: %d)\r\n"
+                "  调谐提示 : 针对 0Ω 直连 IPEX 自制板，降低发射功率可显著减少天线反射与 EVM 失真。\r\n",
+                WifiManager::Instance().GetTxPowerDbm(),
+                WifiManager::Instance().GetTxPowerRaw());
+            return 0;
+        }
+
+        CliEngine::PrintResponse(
+            "[WiFi RF] 当前 Wi-Fi 发射功率配置:\r\n"
+            "  当前功率 : %.2f dBm (底层寄存器: %d, 范围: 8.00~20.00 dBm / raw 32~80)\r\n"
+            "  推荐基准 : 10.00 ~ 13.00 dBm (抑制未调谐 0Ω Π 网阻抗失配反射)\r\n"
+            "  修改语法 : wifi txpower <dBm值> (例如: wifi txpower 10 或 wifi txpower 13)\r\n",
+            WifiManager::Instance().GetTxPowerDbm(),
+            WifiManager::Instance().GetTxPowerRaw());
+        return 0;
+    }
+    else if (strcasecmp(sub_cmd, "protocol") == 0 || strcasecmp(sub_cmd, "proto") == 0 || strcasecmp(sub_cmd, "mode") == 0) {
+        if (argc > 2) {
+            const char *mode = argv[2];
+            if (strcasecmp(mode, "b") == 0 || strcasecmp(mode, "11b") == 0) {
+                WifiManager::Instance().SetProtocol(1); // WIFI_PROTOCOL_11B
+            } else if (strcasecmp(mode, "bg") == 0 || strcasecmp(mode, "11bg") == 0) {
+                WifiManager::Instance().SetProtocol(1 | 2); // WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G
+            } else if (strcasecmp(mode, "bgn") == 0 || strcasecmp(mode, "11bgn") == 0 || strcasecmp(mode, "all") == 0) {
+                WifiManager::Instance().SetProtocol(1 | 2 | 4); // WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N
+            } else {
+                CliEngine::PrintResponse("参数错误: 支持 'b' (极高抗失配), 'bg' (54M兼容), 'bgn' (全速)。\r\n");
+                return 1;
+            }
+            CliEngine::PrintResponse("[WiFi RF] 调制协议模式已切换为: %s\r\n", WifiManager::Instance().GetProtocolName());
+            return 0;
+        }
+
+        CliEngine::PrintResponse(
+            "[WiFi RF] 当前 Wi-Fi 调制协议模式: %s\r\n"
+            "  切换语法 : wifi protocol <b | bg | bgn>\r\n"
+            "  说明     : 模式 'b' 采用 CCK 调制 (1~11Mbps)，对天线失配和高驻波具有极强抗干扰能力\r\n",
+            WifiManager::Instance().GetProtocolName());
+        return 0;
+    }
+    else if (strcasecmp(sub_cmd, "channel") == 0 || strcasecmp(sub_cmd, "ch") == 0) {
+        if (argc > 2) {
+            uint8_t ch = static_cast<uint8_t>(atoi(argv[2]));
+            if (ch >= 1 && ch <= 13) {
+                WifiManager::Instance().SetChannel(ch);
+                CliEngine::PrintResponse("[WiFi RF] 工作信道频率已设置为 CH%u (%u MHz)\r\n",
+                                         ch, WifiManager::GetChannelFreqMhz(ch));
+                return 0;
+            } else {
+                CliEngine::PrintResponse("参数错误: 2.4GHz Wi-Fi 信道范围为 1~13。\r\n");
+                return 1;
+            }
+        }
+        CliEngine::PrintResponse("[WiFi RF] 当前信道频率: CH%u (%u MHz)\r\n",
+                                 WifiManager::Instance().GetChannel(),
+                                 WifiManager::GetChannelFreqMhz(WifiManager::Instance().GetChannel()));
+        return 0;
+    }
+    else if (strcasecmp(sub_cmd, "diag") == 0 || strcasecmp(sub_cmd, "rf") == 0 || strcasecmp(sub_cmd, "ant") == 0) {
+        static char s_diag_buf[1536];
+        size_t dlen = WifiManager::Instance().FormatRfDiagnostics(s_diag_buf, sizeof(s_diag_buf));
+        if (dlen > 0) {
+            CliEngine::PrintResponse("%s", s_diag_buf);
+        } else {
+            CliEngine::PrintResponse("[WiFi RF] 无法生成诊断报告。\r\n");
+        }
         return 0;
     }
     else if (strcasecmp(sub_cmd, "scan") == 0 || strcasecmp(sub_cmd, "rescan") == 0) {

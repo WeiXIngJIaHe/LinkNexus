@@ -224,25 +224,23 @@ void AppCoordinator::ExecuteSerialCli(const char *cmd)
 {
     if (!cmd || strlen(cmd) == 0) return;
 
+    // 静态输出缓冲区，彻底避免在任务栈上分配 1.5KB 数组引发爆栈崩溃
+    static char s_cli_response_str[2048];
+
     char header_buf[128];
     snprintf(header_buf, sizeof(header_buf), "\r\n[串口控制台] 收到指令: \"%s\"\r\n", cmd);
     CommManager::Instance().Print(header_buf);
-    printf("%s", header_buf);
 
-    char response_str[1536];
-    size_t resp_len = CliEngine::Instance().Execute(cmd, response_str, sizeof(response_str) - 4);
+    size_t resp_len = CliEngine::Instance().Execute(cmd, s_cli_response_str, sizeof(s_cli_response_str) - 4);
     if (resp_len > 0) {
-        if (resp_len < sizeof(response_str) - 2 && response_str[resp_len - 1] != '\n') {
-            response_str[resp_len++] = '\r';
-            response_str[resp_len++] = '\n';
-            response_str[resp_len] = '\0';
+        if (resp_len < sizeof(s_cli_response_str) - 2 && s_cli_response_str[resp_len - 1] != '\n') {
+            s_cli_response_str[resp_len++] = '\r';
+            s_cli_response_str[resp_len++] = '\n';
+            s_cli_response_str[resp_len] = '\0';
         }
-        CommManager::Instance().SendRawFrame(reinterpret_cast<const uint8_t*>(response_str), resp_len);
-        printf("%s", response_str);
+        CommManager::Instance().Print(s_cli_response_str);
     }
     CommManager::Instance().Print("\r\n> ");
-    printf("\r\n> ");
-    fflush(stdout);
 }
 
 void AppCoordinator::CommRxTaskEntry(void *pvParameters)
@@ -270,6 +268,7 @@ void AppCoordinator::CommRxTaskEntry(void *pvParameters)
                         }
                     } else if (consumed) {
                         cli_len = 0;
+                        last_char_tick = 0;
                     }
                 } else if (b == PROTOCOL_HEADER1) {
                     self->m_parser.FeedByte(b);
@@ -279,38 +278,34 @@ void AppCoordinator::CommRxTaskEntry(void *pvParameters)
                             cli_line[cli_len] = '\0';
                             self->ExecuteSerialCli(cli_line);
                             cli_len = 0;
+                            last_char_tick = 0;
                         } else {
                             CommManager::Instance().Print("\r\n> ");
-                            printf("\r\n> ");
-                            fflush(stdout);
                         }
                     } else if (b == '\b' || b == 0x7F) {
                         if (cli_len > 0) {
                             cli_len--;
                             CommManager::Instance().Print("\b \b");
-                            printf("\b \b");
-                            fflush(stdout);
                         }
                     } else if (b >= 32 && b <= 126) {
                         if (cli_len < sizeof(cli_line) - 1) {
                             cli_line[cli_len++] = static_cast<char>(b);
                             last_char_tick = xTaskGetTickCount();
 
-                            // 终端字符本地回显 (Local Echo)
+                            // 终端字符本地回显 (Local Echo - 由 CommManager 统一发送，杜绝与 stdout 重复)
                             char echo[2] = { static_cast<char>(b), '\0' };
                             CommManager::Instance().Print(echo);
-                            putchar(b);
-                            fflush(stdout);
                         }
                     }
                 }
             }
         } else {
             // 超时自动提交执行机制 (防止部分串口工具/ESP Decoder 发送时未勾选“加回车换行符”)
-            if (cli_len >= 3 && (xTaskGetTickCount() - last_char_tick > pdMS_TO_TICKS(300))) {
+            if (cli_len >= 3 && last_char_tick > 0 && (xTaskGetTickCount() - last_char_tick > pdMS_TO_TICKS(800))) {
                 cli_line[cli_len] = '\0';
                 self->ExecuteSerialCli(cli_line);
                 cli_len = 0;
+                last_char_tick = 0;
             }
         }
     }
@@ -395,7 +390,7 @@ void AppCoordinator::Start()
     // 1. Core 1 专用于高速协议解析与串口收发 (实时性要求极高)
     xTaskCreatePinnedToCore(CommRxTaskEntry,
                             "comm_rx",
-                            4096,
+                            8192,
                             this,
                             10,
                             nullptr,
@@ -428,8 +423,6 @@ void AppCoordinator::Start()
     // 5. 双核编排完成：向串口与控制台输出系统就绪通知 (保证文本终端绝对干净整洁)
     const char *ready_msg = "[LINKNEXUS] SYSTEM_READY: ESP32-S3 Dual-Core Orchestrator Initialized.\r\n";
     CommManager::Instance().Print(ready_msg);
-    printf("%s", ready_msg);
-    fflush(stdout);
 
     // 5.1 若上位机此时已连接，则补发二进制心跳响应与 CLI 激活通知
     if (IsHostActive()) {

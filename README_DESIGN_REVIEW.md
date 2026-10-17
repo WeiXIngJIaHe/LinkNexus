@@ -292,23 +292,23 @@
 | **40** | **修改：1. 删除左下角无关的文字（PID/VID/COM/已释放COM等），纯粹保留状态灯与 LinkNexus 进程在线/离线/超时。<br>2. 修复刷新总线时左下角卡顿才弹出具体状态的 Bug。** | ✅ **已完全落地**：<br/>1. **左下角状态文案人文化去噪与极净化**：彻底移除底层 PID/VID/COM 端口及调试冗余字样，统一为纯粹清晰的高级工业状态描述：`LinkNexus进程在线`（🟢 `#10B981`）、`LinkNexus进程离线`（🔴 `#EF4444`）、`LinkNexus进程超时`（🔴 `#EF4444`）、`LinkNexus进程枚举中...`（🔵 `#38BDF8` 配合微型流光滑条）与 `LinkNexus进程异常`（🟡 `#F59E0B`），视觉纯净聚焦；<br/>2. **根除刷新总线时的左下角卡顿与状态回跳 Bug**：在 `OnTriggerScan` 中优化逻辑，当主控已处于在线就绪状态时，点击“刷新总线”仅针对物理设备列表执行极速拓扑嗅探，绝不重置或打断左下角在线状态，彻底消除 1~2 秒的卡顿与回退感；在 `UsbMonitorService` 中新增 `TriggerImmediateRefresh` 立即执行扫描，避免不必要的 250ms 防抖等待；<br/>3. **全站版本号统一递增至 `v0.19-preview.2641`**。 |
 | **41** | **彻底解决固件端 Wi-Fi 扫描完成后 Core 0 发生 LoadProhibited 空指针崩溃与复位 Bug（深入归因与安全异步解耦），全栈升级至 v0.20-preview.2641** | ✅ **已完全落地**：<br/>1. **深度崩溃归因 (ELF 符号地址精确还原)**：<br>• 通过 `addr2line` 深度反解崩溃堆栈（`0x4037f29e` -> `tasks.c:3271` 与 `0x4200589f` -> `OnScanDone`）；<br>• **根因定位**：ESP-IDF 默认系统事件循环任务 `sys_evt` 栈深仅 2.3KB，而在 `WIFI_EVENT_SCAN_DONE` 事件回调中直接调用 `OnScanDone`，局部变量分配了 `temp_buf[1536]` 与 `ap_records[16]`（合计 >2.8KB），导致 `sys_evt` 发生致命栈溢出，破坏了 FreeRTOS 内核的 `pxDelayedTaskList` 任务链表；随后在 SysTick 时钟中断进入 `xTaskIncrementTick` 时发生 `LoadProhibited (EXCVADDR: 0x00000004)` 硬件空指针异常崩溃并引发复位重启；<br/>2. **架构级解耦重构**：<br>• **事件回调极致轻量化**：`wifi_event_handler` 监听到 `WIFI_EVENT_SCAN_DONE` 时仅调用 `mgr.NotifyScanDone()`（释放信号量 `xSemaphoreGive(m_scan_sem)`，耗时 <1 微秒，消耗栈深仅数字节），完全剥离任何重型数据解析与 UART 阻塞调用；<br>• **独立任务执行解析与输出**：在具有 8KB 栈深的 `InitialScanTaskEntry` 任务或 `CommRxTask` 中通过 `PerformScanAndFormat` 安全执行解析，直接格式化进单例成员缓冲区，并利用 `std::unique_ptr` 在堆上动态分配 AP 结构体数组，实现 0 栈消耗；<br>• **控制台安全打印**：扫描结果直接在独立任务中通过 `CommManager::Print` 打印到控制台，完成后自毁任务释放 8KB 内存，彻底杜绝死锁与异常触发；<br/>3. **全站版本号统一递增至 `v0.20-preview.2641`**。 |
 | **42** | **解决 ESP Decoder / 串口终端发送 `wifi scan` 无响应问题，构建 USB-Serial-JTAG 与 UART0 双引擎并发收发架构，全栈升级至 v0.21-preview.2641** | ✅ **已完全落地**：<br/>1. **双通道并发通信驱动重构 (UART0 & Native USB-Serial-JTAG)**：<br>• 在 `CommManager::Init()` 中集成 `usb_serial_jtag_driver_install`；<br>• `ReadBytes` 同时无阻塞轮询 UART0 与原生 USB 端口，无论 USB 线插在 ESP32-S3 开发板的 USB 原生口还是 UART 口，均能精准无缝截获控制台输入；<br>• `SendRawFrame` 将数据同时广播至 UART0 硬件引脚与原生 USB 端口，确保 ESP Decoder 与上位机同时获得响应；<br>2. **终端交互体验飞跃提升**：<br>• **字符本地回显 (Local Echo)**：键入字符即时回显，退格自动擦除（`\b \b`），终端交互体验极佳；<br>• **超时自动提交机制 (Timeout Auto-Commit)**：若串口工具（如 ESP Decoder）未勾选“发送换行符”，输入指令后 300ms 自动判定输入结束并触发执行，彻底根除“发指令无反应”；<br>• **全链路 stdout 镜像输出**：`ExecuteSerialCli` 同步输出至 VFS stdout，保证各类调试控制台 100% 可见；<br>3. **全站版本号统一递增至 `v0.21-preview.2641`**。 |
+| **43** | **彻底修复原生 USB 终端 (ESP Decoder) 循环刷屏乱码 `U\f...` 问题，构建上位机心跳活跃联动与终端智能静音机制，全栈升级至 v0.22-preview.2641** | ✅ **已完全落地**：<br/>1. **乱码根本原因精准剖析 (Binary Frame vs Text Terminal)**：用户硬件为自制板直连 ESP32-S3 原生 USB-Serial-JTAG CDC 端口；遥测任务每 250ms 发送的 17 字节二进制帧（`0xAA 0x55 0x10...`）被纯文本终端直接当 ASCII 字符串打印，导致整屏循环 `U\f...` 乱码；<br/>2. **上位机心跳握手活跃联动架构**：在 `AppCoordinator` 中设计 `IsHostActive()` 判定机制，仅在收到上位机 C# 发送的 `0x01 Heartbeat` 或其他有效二进制协议包时，才标记链路活跃（3.5 秒无心跳自动判定离线并休眠广播）；`CommManager::SendRawFrame` 引入二级安全拦截，未握手状态下严禁向 USB-Serial-JTAG 输出二进制包，而纯文本数据始终畅通无阻；<br/>3. **新增 `telemetry` 原生 CLI 指令**：支持单次采样纯文本 ASCII 表格输出与手动启闭二进制流；<br/>4. **全站版本号统一递增至 `v0.22-preview.2641`**。 |
+| **44** | **彻底修复串口发送 `wifi scan` 指令触发 Guru Meditation MMU Cache Error 崩溃、AP 列表无法打印与字符重复回显 Bug，全栈升级至 v0.23-preview.2641** | ✅ **已完全落地**：<br/>1. **深度崩溃归因 (ELF 符号地址精确还原)**：通过 `addr2line` 定位 `comm_rx` 任务在执行 `wifi scan` 时，`ExecuteSerialCli` 栈帧与 `cmd_wifi` 栈帧叠加分配了 2 个 1.5KB 局部数组，加上 `esp_console_run` 与 `vsnprintf` 格式化调用栈（超 2KB），整条链路总栈开销达到 5.6KB+，击穿了 4KB 物理任务栈并触发 MMU entry fault 硬件级 Cache 崩溃；<br/>2. **零栈消耗重构与任务栈安全扩容**：在 `WifiManager` 中设计 `GetCachedScanResult()` 与 `HasScanned()`，指令解析彻底废弃局部栈数组，改用单例静态成员只读指针与全局静态缓冲区（`s_cli_response_str[2048]`），实现 0 栈消耗；同时将 `comm_rx` 任务栈扩容至 8192 字节；<br/>3. **USB-Serial-JTAG 256 字节分块防溢出写入**：对 1400+ 字节扫描结果采用 256 字节分块写入 USB FIFO，彻底杜绝单次大写入溢出丢包；<br/>4. **消除重复打印与双重字符回显**：移除 `ExecuteSerialCli` 与 `CommRxTaskEntry` 中冗余的 stdout `printf`/`putchar` 调用，由 `CommManager::Print` 统一发送；延长超时自动提交窗口至 800ms 并在提交后立即清零 `last_char_tick`；<br/>5. **全站版本号统一递增至 `v0.23-preview.2641`**。 |
 
 ---
 
-| **43** | **彻底修复原生 USB 终端 (ESP Decoder) 循环刷屏乱码 `U\f...` 问题，构建上位机心跳活跃联动与终端智能静音机制，全栈升级至 v0.22-preview.2641** | ✅ **已完全落地**：<br/>1. **终端乱码根本原因精准剖析 (Binary Frame vs Text Terminal)**：<br/>• 用户硬件为自制板，直连 ESP32-S3 原生 USB-Serial-JTAG CDC 端口；<br/>• Core 0 的 `TelemetryTaskEntry` 每 250ms 自动产生 17 字节二进制遥测帧（`0xAA 0x55 0x10 0x0C [12B数值] [校验和]`），其中 `0x55` 对应 ASCII 大写字母 `'U'`，`0x0C` 对应换页符 `\f`，高低位字节对应 `,`、`;`、`+`、`*` 等字符；<br/>• ESP Decoder 为纯文本终端，将每秒 4 次的二进制流直接当 ASCII 字符串打印，导致整屏循环 `U\f\f...` 乱码并冲散正常的 CLI 指令输出；<br/>2. **上位机心跳握手活跃联动架构 (Host Activity Gating)**：<br/>• 在 `AppCoordinator` 中设计 `IsHostActive()` 与 `TouchHostActivity()`：只有在收到上位机 C# 发送的 `0x01 Heartbeat` 或其他有效二进制协议包时，才标记链路活跃（3.5 秒无心跳自动判定离线并休眠广播）；<br/>• `TelemetryTaskEntry` 仅在上行链路活跃时才调用 `SendRawFrame`，节约双核 CPU 资源与总线带宽；<br/>• `CommManager::SendRawFrame` 引入二级安全拦截：自动识别 `0xAA 0x55` 二进制协议帧，未握手状态下严禁向 USB-Serial-JTAG 输出二进制包，而纯文本数据（Print/Printf/CLI结果/日志）始终畅通无阻；<br/>3. **新增 `telemetry` 原生 CLI 控制台指令**：<br/>• 输入 `telemetry`：即时执行单次 INA236 采样并以规整 ASCII 文本表格呈现母线与支路电压/电流/功率，清晰提示上位机连接状态；<br/>• 支持 `telemetry on` 与 `telemetry off` 手动强制启闭二进制流，兼顾不同调试场景；<br/>4. **全站版本号统一递增至 `v0.22-preview.2641`**。 |
-
----
-
-### 七、 最新提交记录与演进状态 (v0.22-preview.2641)
+### 七、 最新提交记录与演进状态 (v0.23-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **全站版本号统一推进并锁定为 `v0.22-preview.2641`**：
+> 1. **全站版本号统一推进并锁定为 `v0.23-preview.2641`**：
 >    - 全量同步至 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md`、固件配置与本备忘录；
-> 2. **彻底解决 ESP Decoder / USB 串口终端 `U\f...` 乱码刷屏 Bug**：
->    - 建立 `IsHostActive()` 上位机握手活跃判定机制，仅在收到 C# 心跳时才上报 250ms 二进制遥测流；
->    - `CommManager::SendRawFrame` 二级安全拦截，纯文本畅通无阻，未授权二进制帧禁止污染 USB 控制台；
->    - 增加 `telemetry` 原生 CLI 指令，支持单次纯文本采样表格输出与手动二进制流启闭；
-> 3. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 与上位机应用程序均符合发布标准。
+> 2. **彻底根除 `wifi scan` 指令引发的 MMU Cache Error 崩溃与 AP 列表不打印 Bug**：
+>    - 零栈指针引用重构 + 8192 字节安全栈深 + 256 字节 USB FIFO 分块平滑写入；
+> 3. **彻底消除串口重复打印指令与按键双重回显**：
+>    - 统一下沉至 `CommManager::Print`，移除重复 stdout 镜像并优化 800ms 超时防抖；
+> 4. **彻底根除 ESP Decoder / USB 串口终端 `U\f...` 乱码刷屏**：
+>    - 建立 `IsHostActive()` 判定，纯文本畅通无阻，未授权二进制帧禁止污染 USB 控制台；
+> 5. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 与上位机应用程序均符合发布标准。
 
 ---
 

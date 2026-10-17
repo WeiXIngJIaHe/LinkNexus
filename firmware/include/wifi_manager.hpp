@@ -104,6 +104,16 @@ public:
      */
     size_t PerformScanAndFormat(bool print_to_console = false);
 
+    /**
+     * @brief 获取已缓存的 Wi-Fi 扫描结果文本指针 (0 内存拷贝与 0 任务栈消耗)
+     */
+    const char* GetCachedScanResult() const { return m_cached_scan_result; }
+
+    /**
+     * @brief 检查是否已有缓存的扫描结果
+     */
+    bool HasScanned() const { return m_has_scanned && m_cached_scan_len > 0; }
+
 private:
     WifiManager();
     ~WifiManager() = default;

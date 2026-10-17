@@ -80,7 +80,16 @@ size_t CommManager::SendRawFrame(const uint8_t *frame_buf, size_t frame_len, boo
     //    - 如果是二进制协议帧：仅在上位机握手在线 (IsHostActive) 或 force_usb 时输出，
     //      彻底阻断向纯文本终端 (ESP Decoder) 盲推二进制数据，杜绝 "U\f..." 刷屏乱码。
     if (!is_binary_frame || force_usb || AppCoordinator::Instance().IsHostActive()) {
-        usb_serial_jtag_write_bytes(frame_buf, frame_len, pdMS_TO_TICKS(30));
+        // 分块写入 USB-Serial-JTAG FIFO，防止单次大报文 (如 wifi scan 的 1400 字节结果) 溢出硬件 FIFO
+        size_t total_written = 0;
+        while (total_written < frame_len) {
+            size_t chunk_size = (frame_len - total_written > 256) ? 256 : (frame_len - total_written);
+            int written = usb_serial_jtag_write_bytes(frame_buf + total_written, chunk_size, pdMS_TO_TICKS(50));
+            if (written <= 0) {
+                break;
+            }
+            total_written += static_cast<size_t>(written);
+        }
     }
 
     return bytes_sent > 0 ? static_cast<size_t>(bytes_sent) : 0;

@@ -16,6 +16,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <algorithm>
+#include <memory>
 
 namespace LinkNexus {
 
@@ -81,8 +82,8 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             ESP_LOGW(TAG, "Station disconnected from AP.");
             mgr.OnStaDisconnected();
         } else if (event_id == WIFI_EVENT_SCAN_DONE) {
-            ESP_LOGI(TAG, "Hardware Wi-Fi channel scan completed. Fetching records...");
-            mgr.OnScanDone();
+            ESP_LOGI(TAG, "Hardware Wi-Fi channel scan completed (WIFI_EVENT_SCAN_DONE).");
+            mgr.NotifyScanDone();
         }
     } else if (event_base == IP_EVENT) {
         if (event_id == IP_EVENT_STA_GOT_IP) {
@@ -273,70 +274,120 @@ bool WifiManager::Disconnect()
     return true;
 }
 
-void WifiManager::OnScanDone()
+void WifiManager::NotifyScanDone()
 {
+    if (m_scan_sem) {
+        xSemaphoreGive(m_scan_sem);
+    }
+}
+
+size_t WifiManager::PerformScanAndFormat(bool print_to_console)
+{
+    // 确保 Wi-Fi 模式为 APSTA 或 STA，以保证 Station 射频扫描接口处于就绪态
+    wifi_mode_t cur_mode = WIFI_MODE_NULL;
+    esp_wifi_get_mode(&cur_mode);
+    if (cur_mode == WIFI_MODE_AP) {
+        esp_wifi_set_mode(WIFI_MODE_APSTA);
+    } else if (cur_mode != WIFI_MODE_APSTA && cur_mode != WIFI_MODE_STA) {
+        esp_wifi_set_mode(WIFI_MODE_STA);
+        esp_wifi_start();
+    }
+
+    if (m_scan_sem) {
+        xSemaphoreTake(m_scan_sem, 0); // 清空历史信号量
+    }
+
+    {
+        LockGuard lock(m_mutex);
+        m_is_scanning = true;
+    }
+
+    // 调用非阻塞异步扫描 (block = false, config = nullptr 采用乐鑫官方最优 dwell 时间)
+    esp_err_t err = esp_wifi_scan_start(nullptr, false);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_wifi_scan_start failed: %d", err);
+        LockGuard lock(m_mutex);
+        m_is_scanning = false;
+        m_cached_scan_len = snprintf(m_cached_scan_result, sizeof(m_cached_scan_result),
+                                     "[WiFi Scan] 启动扫描失败 (错误码: %d)\r\n", err);
+        return m_cached_scan_len;
+    }
+
+    // 等待后台扫描完成信号量 (最多等待 4500ms)，等待期间任务处于阻塞态，零消耗 CPU
+    bool scan_ok = (m_scan_sem && xSemaphoreTake(m_scan_sem, pdMS_TO_TICKS(4500)) == pdTRUE);
+    if (!scan_ok) {
+        ESP_LOGW(TAG, "Wi-Fi scan wait timeout.");
+        LockGuard lock(m_mutex);
+        m_is_scanning = false;
+        m_cached_scan_len = snprintf(m_cached_scan_result, sizeof(m_cached_scan_result),
+                                     "[WiFi Scan] 扫描等待超时，建议稍后重试。\r\n");
+        return m_cached_scan_len;
+    }
+
+    // 扫描成功完成，开始获取并解析 AP 记录 (在此具有 8KB+ 充足栈深的工作任务中安全执行)
     uint16_t ap_count = 0;
     esp_wifi_scan_get_ap_num(&ap_count);
 
-    char temp_buf[1536];
+    LockGuard lock(m_mutex);
     size_t offset = 0;
 
     if (ap_count == 0) {
-        offset = snprintf(temp_buf, sizeof(temp_buf),
+        offset = snprintf(m_cached_scan_result, sizeof(m_cached_scan_result),
             "\r\n================ 周边 2.4GHz Wi-Fi 热点扫描结果 ================\r\n"
             "  未扫描到周围可用的 2.4GHz Wi-Fi 无线网络。\r\n"
             "=================================================================\r\n");
     } else {
         uint16_t records_to_get = (ap_count > 16) ? 16 : ap_count;
-        wifi_ap_record_t ap_records[16];
-        esp_wifi_scan_get_ap_records(&records_to_get, ap_records);
+        // 使用堆内存分配 ap_records，杜绝消耗任何任务栈深
+        auto ap_records = std::unique_ptr<wifi_ap_record_t[]>(new (std::nothrow) wifi_ap_record_t[records_to_get]);
+        if (ap_records) {
+            esp_wifi_scan_get_ap_records(&records_to_get, ap_records.get());
 
-        std::sort(ap_records, ap_records + records_to_get, [](const wifi_ap_record_t &a, const wifi_ap_record_t &b) {
-            return a.rssi > b.rssi;
-        });
+            std::sort(ap_records.get(), ap_records.get() + records_to_get, [](const wifi_ap_record_t &a, const wifi_ap_record_t &b) {
+                return a.rssi > b.rssi;
+            });
 
-        offset = snprintf(temp_buf, sizeof(temp_buf),
-            "\r\n================ 周边 2.4GHz Wi-Fi 热点扫描结果 ================\r\n"
-            "  序号  SSID                      RSSI     信道  加密认证\r\n"
-            "-----------------------------------------------------------------\r\n");
+            offset = snprintf(m_cached_scan_result, sizeof(m_cached_scan_result),
+                "\r\n================ 周边 2.4GHz Wi-Fi 热点扫描结果 ================\r\n"
+                "  序号  SSID                      RSSI     信道  加密认证\r\n"
+                "-----------------------------------------------------------------\r\n");
 
-        for (uint16_t i = 0; i < records_to_get && offset < sizeof(temp_buf) - 80; ++i) {
-            const char *auth_str = AuthModeToString(ap_records[i].authmode);
-            char ssid_str[33];
-            strncpy(ssid_str, (const char *)ap_records[i].ssid, sizeof(ssid_str) - 1);
-            ssid_str[sizeof(ssid_str) - 1] = '\0';
-            if (strlen(ssid_str) == 0) {
-                strcpy(ssid_str, "<Hidden-SSID>");
+            for (uint16_t i = 0; i < records_to_get && offset < sizeof(m_cached_scan_result) - 80; ++i) {
+                const char *auth_str = AuthModeToString(ap_records[i].authmode);
+                char ssid_str[33];
+                strncpy(ssid_str, (const char *)ap_records[i].ssid, sizeof(ssid_str) - 1);
+                ssid_str[sizeof(ssid_str) - 1] = '\0';
+                if (strlen(ssid_str) == 0) {
+                    strcpy(ssid_str, "<Hidden-SSID>");
+                }
+
+                offset += snprintf(m_cached_scan_result + offset, sizeof(m_cached_scan_result) - offset,
+                                   "  [%02u] %-24s  %4d dBm  CH%2u  %-10s\r\n",
+                                   i + 1, ssid_str, ap_records[i].rssi, ap_records[i].primary, auth_str);
             }
 
-            offset += snprintf(temp_buf + offset, sizeof(temp_buf) - offset,
-                               "  [%02u] %-24s  %4d dBm  CH%2u  %-10s\r\n",
-                               i + 1, ssid_str, ap_records[i].rssi, ap_records[i].primary, auth_str);
+            offset += snprintf(m_cached_scan_result + offset, sizeof(m_cached_scan_result) - offset,
+                               "-----------------------------------------------------------------\r\n"
+                               "  扫描完成: 检索到 %u 个无线网络 (已展示信号最强的前 %u 个)\r\n"
+                               "=================================================================\r\n",
+                               ap_count, records_to_get);
+        } else {
+            offset = snprintf(m_cached_scan_result, sizeof(m_cached_scan_result),
+                              "[WiFi Scan] 内存不足，无法解析 AP 列表。\r\n");
         }
-
-        offset += snprintf(temp_buf + offset, sizeof(temp_buf) - offset,
-                           "-----------------------------------------------------------------\r\n"
-                           "  扫描完成: 检索到 %u 个无线网络 (已展示信号最强的前 %u 个)\r\n"
-                           "=================================================================\r\n",
-                           ap_count, records_to_get);
     }
 
-    {
-        LockGuard lock(m_mutex);
-        m_cached_scan_len = (offset < sizeof(m_cached_scan_result) - 1) ? offset : sizeof(m_cached_scan_result) - 1;
-        memcpy(m_cached_scan_result, temp_buf, m_cached_scan_len);
-        m_cached_scan_result[m_cached_scan_len] = '\0';
-        m_has_scanned = true;
-        m_is_scanning = false;
+    m_cached_scan_len = (offset < sizeof(m_cached_scan_result) - 1) ? offset : sizeof(m_cached_scan_result) - 1;
+    m_cached_scan_result[m_cached_scan_len] = '\0';
+    m_has_scanned = true;
+    m_is_scanning = false;
+
+    if (print_to_console) {
+        CommManager::Instance().Print(m_cached_scan_result);
+        ESP_LOGI(TAG, "Wi-Fi scan cached & printed to console (%u networks detected).", ap_count);
     }
 
-    // 主动在串口控制台打印扫描结果，直观呈现给工程师与调试终端
-    CommManager::Instance().Print(m_cached_scan_result);
-    ESP_LOGI(TAG, "Wi-Fi scan cached & printed to console (%u networks detected).", ap_count);
-
-    if (m_scan_sem) {
-        xSemaphoreGive(m_scan_sem);
-    }
+    return m_cached_scan_len;
 }
 
 size_t WifiManager::ScanNetworks(char *out_buf, size_t max_len, bool force_rescan)
@@ -357,49 +408,20 @@ size_t WifiManager::ScanNetworks(char *out_buf, size_t max_len, bool force_resca
         if (m_is_scanning) {
             return snprintf(out_buf, max_len, "[WiFi Scan] 正在扫描周边无线射频信道中，请稍候...\r\n");
         }
-        m_is_scanning = true;
     }
 
     if (!m_initialized) Init();
 
-    ESP_LOGI(TAG, "Starting non-blocking background Wi-Fi channel scan...");
-    CommManager::Instance().Print("[WIFI] 启动非阻塞周边 Wi-Fi 射频信道扫描...\r\n");
+    ESP_LOGI(TAG, "Starting on-demand background Wi-Fi channel scan...");
+    CommManager::Instance().Print("[WIFI] 启动按需周边 Wi-Fi 射频信道扫描...\r\n");
 
-    // 确保 Wi-Fi 模式为 APSTA 或 STA，以保证 Station 射频扫描接口处于就绪态
-    wifi_mode_t cur_mode = WIFI_MODE_NULL;
-    esp_wifi_get_mode(&cur_mode);
-    if (cur_mode == WIFI_MODE_AP) {
-        esp_wifi_set_mode(WIFI_MODE_APSTA);
-    } else if (cur_mode != WIFI_MODE_APSTA && cur_mode != WIFI_MODE_STA) {
-        esp_wifi_set_mode(WIFI_MODE_STA);
-        esp_wifi_start();
-    }
+    size_t scan_len = PerformScanAndFormat(false);
 
-    if (m_scan_sem) {
-        xSemaphoreTake(m_scan_sem, 0); // 清空历史信号量
-    }
-
-    // 调用非阻塞扫描 (block = false, config = nullptr 采用乐鑫官方最优信道 dwell 时间)
-    esp_err_t err = esp_wifi_scan_start(nullptr, false);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "esp_wifi_scan_start failed: %d", err);
-        LockGuard lock(m_mutex);
-        m_is_scanning = false;
-        return snprintf(out_buf, max_len, "[WiFi Scan] 启动扫描失败 (错误码: %d)\r\n", err);
-    }
-
-    // 等待后台扫描完成信号量 (最多等待 4000ms)，等待期间不持有 m_mutex，其他子系统零阻塞运行！
-    if (m_scan_sem && xSemaphoreTake(m_scan_sem, pdMS_TO_TICKS(4000)) == pdTRUE) {
-        LockGuard lock(m_mutex);
-        size_t copy_len = (m_cached_scan_len < max_len - 1) ? m_cached_scan_len : max_len - 1;
-        memcpy(out_buf, m_cached_scan_result, copy_len);
-        out_buf[copy_len] = '\0';
-        return copy_len;
-    } else {
-        LockGuard lock(m_mutex);
-        m_is_scanning = false;
-        return snprintf(out_buf, max_len, "[WiFi Scan] 扫描等待超时，建议稍后重试。\r\n");
-    }
+    LockGuard lock(m_mutex);
+    size_t copy_len = (scan_len < max_len - 1) ? scan_len : max_len - 1;
+    memcpy(out_buf, m_cached_scan_result, copy_len);
+    out_buf[copy_len] = '\0';
+    return copy_len;
 }
 
 void WifiManager::InitialScanTaskEntry(void *pvParameters)
@@ -413,18 +435,14 @@ void WifiManager::InitialScanTaskEntry(void *pvParameters)
 
     vTaskDelay(pdMS_TO_TICKS(500));
 
-    // 2. 触发非阻塞周边 Wi-Fi 射频扫描：扫描在硬件底层异步进行，完成后由 WIFI_EVENT_SCAN_DONE 事件自动输出结果
-    ESP_LOGI(TAG, "Triggering initial non-blocking background Wi-Fi scan...");
+    // 2. 触发周边 Wi-Fi 射频扫描并等待结果 (在当前任务 8192 栈深中安全处理与输出，完全解耦事件循环 sys_evt)
+    ESP_LOGI(TAG, "Triggering initial non-blocking background Wi-Fi scan in dedicated worker task...");
     CommManager::Instance().Print("[WIFI] 正在执行系统开机初始周边 Wi-Fi 射频扫描 (异步无阻塞)...\r\n");
 
-    if (WifiManager::Instance().m_scan_sem) {
-        xSemaphoreTake(WifiManager::Instance().m_scan_sem, 0);
-    }
-    esp_err_t err = esp_wifi_scan_start(nullptr, false);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Initial scan trigger failed: %d", err);
-    }
+    WifiManager::Instance().PerformScanAndFormat(true);
 
+    // 扫描并在控制台安全输出完成后，自毁临时任务释放 8KB 堆内存
+    ESP_LOGI(TAG, "Initial Wi-Fi scan task completed and exiting.");
     vTaskDelete(nullptr);
 }
 

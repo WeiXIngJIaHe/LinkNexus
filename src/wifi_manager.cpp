@@ -1,4 +1,5 @@
 #include "wifi_manager.hpp"
+#include "comm_manager.hpp"
 #include "cli_engine.hpp"
 #include "linknexus_config.hpp"
 #include "esp_log.h"
@@ -266,14 +267,30 @@ bool WifiManager::Disconnect()
     return true;
 }
 
-size_t WifiManager::ScanNetworks(char *out_buf, size_t max_len)
+size_t WifiManager::ScanNetworks(char *out_buf, size_t max_len, bool force_rescan)
 {
     if (!out_buf || max_len == 0) return 0;
 
     LockGuard lock(m_mutex);
     if (!m_initialized) Init();
 
-    ESP_LOGI(TAG, "Starting hardware Wi-Fi channel scan...");
+    // 如果已执行过扫描且未指定强制重扫，直接复用已扫描结果（确保仅需执行一次！）
+    if (m_has_scanned && !force_rescan && m_cached_scan_len > 0) {
+        size_t copy_len = (m_cached_scan_len < max_len - 1) ? m_cached_scan_len : max_len - 1;
+        memcpy(out_buf, m_cached_scan_result, copy_len);
+        out_buf[copy_len] = '\0';
+        ESP_LOGI(TAG, "Returning cached Wi-Fi scan result (executed once, len=%u).", copy_len);
+        CommManager::Instance().Printf("[WIFI] 上位机获取 AP 扫描结果 (复用已扫描记录，无需重复扫描)\r\n");
+        return copy_len;
+    }
+
+    if (m_is_scanning) {
+        return snprintf(out_buf, max_len, "[WiFi Scan] 正在扫描射频信道中，请稍候...\r\n");
+    }
+
+    m_is_scanning = true;
+    ESP_LOGI(TAG, "Starting hardware Wi-Fi channel scan (executing once)...");
+    CommManager::Instance().Print("[WIFI] 正在执行真实周边 Wi-Fi 射频信道扫描 (仅需执行一次)...\r\n");
 
     wifi_mode_t cur_mode = WIFI_MODE_NULL;
     esp_wifi_get_mode(&cur_mode);
@@ -303,6 +320,7 @@ size_t WifiManager::ScanNetworks(char *out_buf, size_t max_len)
         if (restore_ap) {
             esp_wifi_set_mode(WIFI_MODE_AP);
         }
+        m_is_scanning = false;
         return snprintf(out_buf, max_len, "[WiFi Scan] 扫描失败或 Wi-Fi 驱动正忙 (错误代码: %d)\r\n", err);
     }
 
@@ -312,7 +330,14 @@ size_t WifiManager::ScanNetworks(char *out_buf, size_t max_len)
         if (restore_ap) {
             esp_wifi_set_mode(WIFI_MODE_AP);
         }
-        return snprintf(out_buf, max_len, "[WiFi Scan] 扫描完成: 周围未发现可用的 2.4GHz Wi-Fi 热点。\r\n");
+        m_is_scanning = false;
+        m_has_scanned = true;
+        size_t len = snprintf(out_buf, max_len, "[WiFi Scan] 扫描完成: 周围未发现可用的 2.4GHz Wi-Fi 热点。\r\n");
+        m_cached_scan_len = (len < sizeof(m_cached_scan_result) - 1) ? len : sizeof(m_cached_scan_result) - 1;
+        memcpy(m_cached_scan_result, out_buf, m_cached_scan_len);
+        m_cached_scan_result[m_cached_scan_len] = '\0';
+        CommManager::Instance().Print(out_buf);
+        return len;
     }
 
     uint16_t records_to_get = (ap_count > 16) ? 16 : ap_count;
@@ -344,14 +369,48 @@ size_t WifiManager::ScanNetworks(char *out_buf, size_t max_len)
 
     offset += snprintf(out_buf + offset, max_len - offset,
                        "----------------------------------------------------------\r\n"
-                       "  扫描完成: 检索到 %u 个真实无线网络 (显示前 %u 个)\r\n",
+                       "  扫描完成: 检索到 %u 个真实无线网络 (显示前 %u 个)\r\n"
+                       "==========================================================\r\n",
                        ap_count, records_to_get);
 
     if (restore_ap) {
         esp_wifi_set_mode(WIFI_MODE_AP);
     }
 
+    m_cached_scan_len = (offset < sizeof(m_cached_scan_result) - 1) ? offset : sizeof(m_cached_scan_result) - 1;
+    memcpy(m_cached_scan_result, out_buf, m_cached_scan_len);
+    m_cached_scan_result[m_cached_scan_len] = '\0';
+    m_has_scanned = true;
+    m_is_scanning = false;
+
+    // 串口打印AP扫描结果
+    CommManager::Instance().Print(out_buf);
+
     return offset;
+}
+
+void WifiManager::InitialScanTaskEntry(void *pvParameters)
+{
+    (void)pvParameters;
+    vTaskDelay(pdMS_TO_TICKS(1200)); // 等待系统各子系统及串口初始化完全就绪
+
+    char scan_buf[1536];
+    ESP_LOGI(TAG, "Starting system initial one-time background Wi-Fi scan...");
+    CommManager::Instance().Print("\r\n[WIFI] 正在执行系统开机初始 Wi-Fi 射频扫描 (仅需执行一次)...\r\n");
+
+    WifiManager::Instance().ScanNetworks(scan_buf, sizeof(scan_buf), true);
+    vTaskDelete(nullptr);
+}
+
+void WifiManager::StartInitialScanTask()
+{
+    xTaskCreatePinnedToCore(InitialScanTaskEntry,
+                            "init_wifi_scan",
+                            4096,
+                            nullptr,
+                            3,
+                            nullptr,
+                            Cores::SYSTEM_CORE);
 }
 
 WifiStatusInfo WifiManager::GetStatus()

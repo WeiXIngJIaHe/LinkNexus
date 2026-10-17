@@ -1,6 +1,9 @@
 #include "comm_manager.hpp"
 #include "linknexus_config.hpp"
 #include "esp_log.h"
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
 
 namespace LinkNexus {
 
@@ -61,6 +64,27 @@ int CommManager::ReadBytes(uint8_t *buf, size_t max_len, TickType_t wait_ticks)
 {
     if (!buf || max_len == 0 || !m_initialized) return -1;
     return uart_read_bytes(Pins::COMM_UART_PORT, buf, max_len, wait_ticks);
+}
+
+size_t CommManager::Print(const char *str)
+{
+    if (!str || !m_initialized) return 0;
+    return SendRawFrame(reinterpret_cast<const uint8_t*>(str), strlen(str));
+}
+
+size_t CommManager::Printf(const char *fmt, ...)
+{
+    if (!fmt || !m_initialized) return 0;
+    char buf[512];
+    va_list args;
+    va_start(args, fmt);
+    int len = vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    if (len > 0) {
+        size_t actual_len = (len < static_cast<int>(sizeof(buf))) ? static_cast<size_t>(len) : sizeof(buf) - 1;
+        return SendRawFrame(reinterpret_cast<const uint8_t*>(buf), actual_len);
+    }
+    return 0;
 }
 
 } // namespace LinkNexus

@@ -11,7 +11,7 @@ namespace LinkNexus
     /// - AAA: 发布修订阶段标识 (小写，如 preview, beta, release)
     /// - YY:  年份后两位 (如 2026年 -> 26)
     /// - WW:  所在工作周 (01~53，基于 ISO 8601 第一周规则计算，如 41)
-    /// 当前工程基准版本：v0.21-preview.2641
+    /// 当前工程基准版本：v0.22-preview.2641
     /// </summary>
     public static class VersionInfo
     {
@@ -21,9 +21,9 @@ namespace LinkNexus
         public const int MajorVersion = 0;
 
         /// <summary>
-        /// 小版本号 xx (当前为 21)
+        /// 小版本号 xx (当前为 22)
         /// </summary>
-        public const int MinorRevision = 21;
+        public const int MinorRevision = 22;
 
         /// <summary>
         /// 修订阶段标识 AAA (当前为 "preview")

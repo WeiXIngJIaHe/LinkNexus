@@ -19,7 +19,7 @@
 >  
 > **文档性质**：架构设计现状白皮书与修改演进基准文档（修改性 README）  
 > **文档目的**：汇整当前 LinkNexus 的完整架构设计、底层通信机制与功能实现逻辑（采用通俗严谨的自然语句表述）。**已根据您在备忘录下方提交的全部修改要求严格实施落地**。您可以随时通过自然语言继续审查或提出后续迭代意见。  
-> **当前工程基线版本**：`v0.21-preview.2641`  
+> **当前工程基线版本**：`v0.22-preview.2641`  
 > **技术栈**：.NET 10.0 | WPF (MVVM) | Model Context Protocol (MCP) | Win32 PnP 消息泵 | WMI 底层拓扑枚举 | Minimalist Tech-Anime 战术二次元机能风 | Frosted Glassmorphism 毛玻璃质感 | 深浅主题热切换引擎
 
 ---
@@ -295,15 +295,19 @@
 
 ---
 
-### 七、 最新提交记录与演进状态 (v0.21-preview.2641)
+| **43** | **彻底修复原生 USB 终端 (ESP Decoder) 循环刷屏乱码 `U\f...` 问题，构建上位机心跳活跃联动与终端智能静音机制，全栈升级至 v0.22-preview.2641** | ✅ **已完全落地**：<br/>1. **终端乱码根本原因精准剖析 (Binary Frame vs Text Terminal)**：<br/>• 用户硬件为自制板，直连 ESP32-S3 原生 USB-Serial-JTAG CDC 端口；<br/>• Core 0 的 `TelemetryTaskEntry` 每 250ms 自动产生 17 字节二进制遥测帧（`0xAA 0x55 0x10 0x0C [12B数值] [校验和]`），其中 `0x55` 对应 ASCII 大写字母 `'U'`，`0x0C` 对应换页符 `\f`，高低位字节对应 `,`、`;`、`+`、`*` 等字符；<br/>• ESP Decoder 为纯文本终端，将每秒 4 次的二进制流直接当 ASCII 字符串打印，导致整屏循环 `U\f\f...` 乱码并冲散正常的 CLI 指令输出；<br/>2. **上位机心跳握手活跃联动架构 (Host Activity Gating)**：<br/>• 在 `AppCoordinator` 中设计 `IsHostActive()` 与 `TouchHostActivity()`：只有在收到上位机 C# 发送的 `0x01 Heartbeat` 或其他有效二进制协议包时，才标记链路活跃（3.5 秒无心跳自动判定离线并休眠广播）；<br/>• `TelemetryTaskEntry` 仅在上行链路活跃时才调用 `SendRawFrame`，节约双核 CPU 资源与总线带宽；<br/>• `CommManager::SendRawFrame` 引入二级安全拦截：自动识别 `0xAA 0x55` 二进制协议帧，未握手状态下严禁向 USB-Serial-JTAG 输出二进制包，而纯文本数据（Print/Printf/CLI结果/日志）始终畅通无阻；<br/>3. **新增 `telemetry` 原生 CLI 控制台指令**：<br/>• 输入 `telemetry`：即时执行单次 INA236 采样并以规整 ASCII 文本表格呈现母线与支路电压/电流/功率，清晰提示上位机连接状态；<br/>• 支持 `telemetry on` 与 `telemetry off` 手动强制启闭二进制流，兼顾不同调试场景；<br/>4. **全站版本号统一递增至 `v0.22-preview.2641`**。 |
+
+---
+
+### 七、 最新提交记录与演进状态 (v0.22-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **全站版本号统一推进并锁定为 `v0.21-preview.2641`**：
+> 1. **全站版本号统一推进并锁定为 `v0.22-preview.2641`**：
 >    - 全量同步至 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md`、固件配置与本备忘录；
-> 2. **彻底解决 ESP Decoder / 串口终端发送指令无反应问题**：
->    - 引入 USB-Serial-JTAG CDC 与 UART0 双引擎并发收发，无论插哪个 Type-C 口皆可收发指令；
->    - 增加 300ms 超时自动提交执行，即使串口调试助手未追加 `\r\n` 亦能自动执行；
->    - 支持本地字符回显与 stdout 镜像输出；
+> 2. **彻底解决 ESP Decoder / USB 串口终端 `U\f...` 乱码刷屏 Bug**：
+>    - 建立 `IsHostActive()` 上位机握手活跃判定机制，仅在收到 C# 心跳时才上报 250ms 二进制遥测流；
+>    - `CommManager::SendRawFrame` 二级安全拦截，纯文本畅通无阻，未授权二进制帧禁止污染 USB 控制台；
+>    - 增加 `telemetry` 原生 CLI 指令，支持单次纯文本采样表格输出与手动二进制流启闭；
 > 3. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 与上位机应用程序均符合发布标准。
 
 ---

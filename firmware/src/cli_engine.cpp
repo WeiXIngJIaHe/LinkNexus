@@ -2,6 +2,8 @@
 #include "esp_console.h"
 #include "wifi_manager.hpp"
 #include "power_manager.hpp"
+#include "telemetry_manager.hpp"
+#include "app_coordinator.hpp"
 #include "linknexus_config.hpp"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -62,6 +64,7 @@ static int cmd_help(int argc, char **argv)
         "  wifi disconnect              - 断开并停止 Wi-Fi 与无线调试监听\r\n"
         "  power <ch 0-5> <0|1>         - 控制指定通道 MOS 供电开通/隔离\r\n"
         "  status                       - 查询 ESP32-S3 双核系统资源与运行状态\r\n"
+        "  telemetry [on|off]           - 查询 INA236 文本遥测采样或控制二进制广播流\r\n"
         "  reboot                       - 软复位重启 ESP32-S3\r\n"
         "=================================================================================\r\n");
     return 0;
@@ -168,6 +171,7 @@ static int cmd_status(int argc, char **argv)
     (void)argc;
     (void)argv;
     WifiStatusInfo st = WifiManager::Instance().GetStatus();
+    bool host_active = AppCoordinator::Instance().IsHostActive();
     CliEngine::PrintResponse(
         "ESP32-S3 双核系统遥测 (esp_console):\r\n"
         "  CPU 架构     : Xtensa LX7 双核 @ 240MHz (Core 0 + Core 1)\r\n"
@@ -175,12 +179,60 @@ static int cmd_status(int argc, char **argv)
         "  系统剩余堆栈 : %u Bytes (SRAM)\r\n"
         "  固件版本号   : %s\r\n"
         "  Wi-Fi IP     : %s (模式: %s)\r\n"
-        "  无线调试服务 : %s\r\n",
+        "  无线调试服务 : %s\r\n"
+        "  上位机链路   : %s\r\n"
+        "  遥测广播流   : %s\r\n",
         static_cast<unsigned int>(esp_get_free_heap_size()),
         LINKNEXUS_FIRMWARE_VERSION,
         st.ip_str,
         (st.mode == WifiWorkMode::SoftAP) ? "主动 AP" : (st.mode == WifiWorkMode::Station) ? "从 AP (STA)" : "OFF",
-        st.is_wireless_debug_active ? "TCP :8266 监听中" : "未启动");
+        st.is_wireless_debug_active ? "TCP :8266 监听中" : "未启动",
+        host_active ? "在线 (C# Heartbeat 活跃)" : "离线 (CLI独立终端模式)",
+        host_active ? "广播中 (Active)" : "已静音 (保护终端杜绝乱码)");
+    return 0;
+}
+
+static int cmd_telemetry(int argc, char **argv)
+{
+    if (argc > 1) {
+        const char *arg = argv[1];
+        if (strcasecmp(arg, "on") == 0 || strcasecmp(arg, "stream") == 0) {
+            AppCoordinator::Instance().SetManualTelemetryStream(true);
+            CliEngine::PrintResponse(
+                "[遥测控制] 已手动强制开启 250ms 二进制遥测广播流。\r\n"
+                "  提示: 纯文本终端将开始接收二进制原始数据帧并显示字符。\r\n"
+                "  输入 'telemetry off' 可随时关闭并恢复智能静音模式。\r\n");
+            return 0;
+        } else if (strcasecmp(arg, "off") == 0) {
+            AppCoordinator::Instance().SetManualTelemetryStream(false);
+            CliEngine::PrintResponse("[遥测控制] 已关闭手动遥测流，恢复智能静音保护模式 (杜绝终端乱码)。\r\n");
+            return 0;
+        }
+    }
+
+    TelemetryPayload tel;
+    TelemetryManager::Instance().ReadTelemetry(tel, PowerManager::Instance());
+
+    bool host_active = AppCoordinator::Instance().IsHostActive();
+    bool manual = AppCoordinator::Instance().IsManualTelemetryStream();
+
+    CliEngine::PrintResponse(
+        "================ INA236 硬件传感器实时遥测采样 ================\r\n"
+        "  母线总线   (Bus)   : %5.2f V, %5.0f mA  (%5.2f W)\r\n"
+        "  XDS110通道 (Port 1): %5.2f V, %5.0f mA  (%5.2f W)\r\n"
+        "  DAPLink通道(Port 2): %5.2f V, %5.0f mA  (%5.2f W)\r\n"
+        "----------------------------------------------------------------\r\n"
+        "  上位机连接状态     : %s\r\n"
+        "  二进制广播流模式   : %s\r\n"
+        "================================================================\r\n",
+        tel.bus_voltage_mv / 1000.0f, static_cast<float>(tel.bus_current_ma),
+        (tel.bus_voltage_mv / 1000.0f) * (tel.bus_current_ma / 1000.0f),
+        tel.xds_voltage_mv / 1000.0f, static_cast<float>(tel.xds_current_ma),
+        (tel.xds_voltage_mv / 1000.0f) * (tel.xds_current_ma / 1000.0f),
+        tel.dap_voltage_mv / 1000.0f, static_cast<float>(tel.dap_current_ma),
+        (tel.dap_voltage_mv / 1000.0f) * (tel.dap_current_ma / 1000.0f),
+        host_active ? (manual ? "手动开启 (CLI Override)" : "在线 (C# Heartbeat 活跃)") : "离线 (CLI 独立终端模式)",
+        host_active ? "广播中 (Active)" : "已静音 (保护终端杜绝乱码)");
     return 0;
 }
 
@@ -239,6 +291,17 @@ void CliEngine::RegisterCommands()
         .context = NULL
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&status_cmd));
+
+    const esp_console_cmd_t telemetry_cmd = {
+        .command = "telemetry",
+        .help = "查询 INA236 文本遥测采样或控制二进制广播流 (on/off)",
+        .hint = "[on|off]",
+        .func = &cmd_telemetry,
+        .argtable = NULL,
+        .func_w_context = NULL,
+        .context = NULL
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&telemetry_cmd));
 
     const esp_console_cmd_t reboot_cmd = {
         .command = "reboot",

@@ -25,9 +25,10 @@ public:
      * @brief 线程安全发送原始字节流数据帧
      * @param frame_buf 数据帧缓冲区
      * @param frame_len 数据帧字节数
+     * @param force_usb 是否强制向原生 USB-Serial-JTAG 发送 (默认 false，智能拦截未握手的二进制包防终端乱码)
      * @return 实际成功写入字节数
      */
-    size_t SendRawFrame(const uint8_t *frame_buf, size_t frame_len);
+    size_t SendRawFrame(const uint8_t *frame_buf, size_t frame_len, bool force_usb = false);
 
     /**
      * @brief 从串口驱动环形缓冲区读取数据

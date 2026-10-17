@@ -56,6 +56,9 @@ void AppCoordinator::Init()
 
 void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_t len)
 {
+    // 收到合法二进制协议帧，立刻标记上位机链路活跃 (保持 250ms 遥测上报流)
+    TouchHostActivity();
+
     uint8_t tx_buf[512];
     size_t tx_len = 0;
 
@@ -313,9 +316,45 @@ void AppCoordinator::CommRxTaskEntry(void *pvParameters)
     }
 }
 
+bool AppCoordinator::IsHostActive() const
+{
+    if (m_manual_telemetry_stream.load()) {
+        return true;
+    }
+    uint32_t last_tick = m_last_host_activity_tick.load();
+    if (last_tick == 0) return false;
+    // 上位机每 1000ms 发送一次心跳，若超过 3500ms 未收到任何协议包，则判定上位机离线
+    return (xTaskGetTickCount() - last_tick) < pdMS_TO_TICKS(3500);
+}
+
+void AppCoordinator::TouchHostActivity()
+{
+    bool was_active = IsHostActive();
+    m_last_host_activity_tick.store(xTaskGetTickCount());
+    if (!was_active) {
+        ESP_LOGI(TAG, "LinkNexus C# Host connected. Activated 250ms telemetry binary stream.");
+    }
+}
+
+void AppCoordinator::SetManualTelemetryStream(bool enable)
+{
+    m_manual_telemetry_stream.store(enable);
+    ESP_LOGI(TAG, "Manual telemetry stream set to: %s", enable ? "ON" : "OFF");
+}
+
+bool AppCoordinator::IsManualTelemetryStream() const
+{
+    return m_manual_telemetry_stream.load();
+}
+
+uint32_t AppCoordinator::GetLastHostActivityTick() const
+{
+    return m_last_host_activity_tick.load();
+}
+
 void AppCoordinator::TelemetryTaskEntry(void *pvParameters)
 {
-    (void)pvParameters;
+    auto *self = static_cast<AppCoordinator*>(pvParameters);
     uint8_t tx_buf[32];
     TelemetryPayload telemetry;
     ESP_LOGI(TAG, "TelemetryTask running on Core %d (Priority: 5, Period: 250ms).", xPortGetCoreID());
@@ -323,9 +362,13 @@ void AppCoordinator::TelemetryTaskEntry(void *pvParameters)
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(250));
 
-        TelemetryManager::Instance().ReadTelemetry(telemetry, PowerManager::Instance());
-        size_t len = ProtocolUtils::PackTelemetry(telemetry, tx_buf);
-        CommManager::Instance().SendRawFrame(tx_buf, len);
+        // 仅在上位机处于活跃握手状态 (已收到心跳且未超时) 或 开发者开启手动遥测流时才发送二进制帧
+        // 彻底杜绝纯文本终端 (ESP Decoder) 刷屏乱码，并节约双核 CPU 与总线资源
+        if (self && self->IsHostActive()) {
+            TelemetryManager::Instance().ReadTelemetry(telemetry, PowerManager::Instance());
+            size_t len = ProtocolUtils::PackTelemetry(telemetry, tx_buf);
+            CommManager::Instance().SendRawFrame(tx_buf, len);
+        }
     }
 }
 
@@ -358,11 +401,11 @@ void AppCoordinator::Start()
                             nullptr,
                             Cores::COMMUNICATION_CORE);
 
-    // 2. Core 0 专用于传感器 I2C 遥测采集 (250ms 周期)
+    // 2. Core 0 专用于传感器 I2C 遥测采集 (250ms 周期，仅在握手在线时上报)
     xTaskCreatePinnedToCore(TelemetryTaskEntry,
                             "telemetry",
                             4096,
-                            nullptr,
+                            this,
                             5,
                             nullptr,
                             Cores::SYSTEM_CORE);
@@ -382,21 +425,25 @@ void AppCoordinator::Start()
     m_started = true;
     ESP_LOGI(TAG, "All dual-core tasks spawned and running smoothly.");
 
-    // 5. 双核编排完成：通过 CDC-ACM 向上位机发送启动就绪信号，对齐软件枚举机制
-    // 5.1 发送 0x01 二进制心跳响应包 (对齐 C# HeartbeatAckReceived)
-    uint8_t ready_frame[16];
-    size_t ready_len = ProtocolUtils::PackHeartbeatAck(0x00, ready_frame);
-    CommManager::Instance().SendRawFrame(ready_frame, ready_len);
-
-    // 5.2 发送 0x50 二进制 CLI 就绪通知包 (对齐 C# CliResponseReceived，直接唤醒 UI 枚举完成并投递终端)
+    // 5. 双核编排完成：向串口与控制台输出系统就绪通知 (保证文本终端绝对干净整洁)
     const char *ready_msg = "[LINKNEXUS] SYSTEM_READY: ESP32-S3 Dual-Core Orchestrator Initialized.\r\n";
-    uint8_t cli_frame[128];
-    size_t cli_len = ProtocolUtils::PackFrame(static_cast<uint8_t>(ProtocolCmd::CliTransfer),
-                                              reinterpret_cast<const uint8_t*>(ready_msg),
-                                              strlen(ready_msg),
-                                              cli_frame);
-    CommManager::Instance().SendRawFrame(cli_frame, cli_len);
     CommManager::Instance().Print(ready_msg);
+    printf("%s", ready_msg);
+    fflush(stdout);
+
+    // 5.1 若上位机此时已连接，则补发二进制心跳响应与 CLI 激活通知
+    if (IsHostActive()) {
+        uint8_t ready_frame[16];
+        size_t ready_len = ProtocolUtils::PackHeartbeatAck(0x00, ready_frame);
+        CommManager::Instance().SendRawFrame(ready_frame, ready_len);
+
+        uint8_t cli_frame[128];
+        size_t cli_len = ProtocolUtils::PackFrame(static_cast<uint8_t>(ProtocolCmd::CliTransfer),
+                                                  reinterpret_cast<const uint8_t*>(ready_msg),
+                                                  strlen(ready_msg),
+                                                  cli_frame);
+        CommManager::Instance().SendRawFrame(cli_frame, cli_len);
+    }
 }
 
 } // namespace LinkNexus

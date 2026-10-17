@@ -25,7 +25,7 @@
 >  
 > **文档性质**：硬件固件架构设计现状白皮书与修改演进基准文档（修改性 README）  
 > **文档目的**：汇整当前 ESP32-S3 固件的完整架构设计、底层通信机制与功能实现逻辑（采用通俗严谨的自然语句表述）。**已根据您在备忘录下方提交的全部修改要求严格实施落地**。您可以随时通过自然语言在文档末尾继续审查或提出后续迭代意见。  
-> **当前工程基线版本**：`v0.21-preview.2641`  
+> **当前工程基线版本**：`v0.22-preview.2641`  
 > **技术栈**：ESP32-S3 (Xtensa LX7 240MHz 双核) | ESP-IDF v5.x | FreeRTOS SMP | C++17 | 全双工二进制防粘包协议 | INA236 I2C 采样 | 802.11 b/g/n Wi-Fi AP/STA | 原生 CLI 引擎 (esp_console) | PlatformIO
 
 ---
@@ -242,18 +242,19 @@ LinkNexus (Firmware Workspace)
 | **13** | **修改：1. 修复开机 Wi-Fi 扫描挂死、上位机无法枚举握手以及 ESP Decoder 终端无响应 Bug。** | 1. **根治 Wi-Fi 扫描阻塞死锁与非阻塞化重构**：<br>• 将 `ScanNetworks` 彻底重构为基于乐鑫官方事件 `WIFI_EVENT_SCAN_DONE` 驱动的非阻塞异步扫描；<br>• 移除长达数秒持有 `m_mutex` 互斥锁的设计，杜绝 `cmd_status` 或其他线程获取 Wi-Fi 状态时被阻塞死锁；<br>• 在 APSTA 模式下传递 `nullptr` 让 IDF 驱动自动采用经校准的最优通道停留时间（dwell time），确保 SoftAP beacon 广播与后台信道扫描互不冲突；<br>• 扫描完成后由 `OnScanDone()` 自动格式化并在串口控制台主动输出周边 2.4GHz 热点列表并更新单次缓存；<br>2. **串口 CLI 与 ESP Decoder 终端交互深度优化**：<br>• 在 `ExecuteSerialCli` 中注入回车提示符 `\r\n> ` 与退格消除支持，无论通过 ESP Decoder 发送还是按回车均获得即时终端响应；<br>• 彻底解除串口通信接收任务 `CommRxTask` 的阻塞源，上位机插入 USB 后 0x01 心跳握手与 0x50 就绪帧毫秒级互通；<br>3. **全站版本号统一递增至 `v0.19-preview.2641`**。 | ✅ **已完全落地** |
 | **14** | **修改：1. 彻底解决 Wi-Fi 扫描完成后 Core 0 发生 LoadProhibited 空指针崩溃与复位 Bug（深入归因与安全异步解耦）。** | 1. **深度崩溃归因 (ELF 符号地址精确还原)**：<br>• 通过 `addr2line` 深度反解崩溃堆栈（`0x4037f29e` -> `tasks.c:3271` 与 `0x4200589f` -> `OnScanDone`）；<br>• **根因定位**：ESP-IDF 默认系统事件循环任务 `sys_evt` 栈深仅 2.3KB，而在 `WIFI_EVENT_SCAN_DONE` 事件回调中直接调用 `OnScanDone`，局部变量分配了 `temp_buf[1536]` 与 `ap_records[16]`（合计 >2.8KB），导致 `sys_evt` 发生致命栈溢出，破坏了 FreeRTOS 内核的 `pxDelayedTaskList` 任务链表；随后在 SysTick 时钟中断进入 `xTaskIncrementTick` 时发生 `LoadProhibited (EXCVADDR: 0x00000004)` 硬件空指针异常崩溃并引发复位重启；<br>2. **架构级解耦重构**：<br>• **事件回调极致轻量化**：`wifi_event_handler` 监听到 `WIFI_EVENT_SCAN_DONE` 时仅调用 `mgr.NotifyScanDone()`（释放信号量 `xSemaphoreGive(m_scan_sem)`，耗时 <1 微秒，消耗栈深仅数字节），完全剥离任何重型数据解析与 UART 阻塞调用；<br>• **独立任务执行解析与输出**：在具有 8KB 栈深的 `InitialScanTaskEntry` 任务或 `CommRxTask` 中通过 `PerformScanAndFormat` 安全执行解析，直接格式化进单例成员缓冲区，并利用 `std::unique_ptr` 在堆上动态分配 AP 结构体数组，实现 0 栈消耗；<br>• **控制台安全打印**：扫描结果直接在独立任务中通过 `CommManager::Print` 打印到控制台，完成后自毁任务释放 8KB 内存，彻底杜绝死锁与异常触发；<br>3. **全站版本号统一递增至 `v0.20-preview.2641`**。 | ✅ **已完全落地** |
 | **15** | **修改：1. 解决 ESP Decoder / 串口终端发送 `wifi scan` 无响应问题，构建 USB-Serial-JTAG 与 UART0 双引擎并发收发架构。** | 1. **双通道并发通信驱动重构 (UART0 & Native USB-Serial-JTAG)**：<br>• 在 `CommManager::Init()` 中集成 `usb_serial_jtag_driver_install`；<br>• `ReadBytes` 同时无阻塞轮询 UART0 与原生 USB 端口，无论 USB 线插在 ESP32-S3 开发板的 USB 原生口还是 UART 口，均能精准无缝截获控制台输入；<br>• `SendRawFrame` 将数据同时广播至 UART0 硬件引脚与原生 USB 端口，确保 ESP Decoder 与上位机同时获得响应；<br>2. **终端交互体验飞跃提升**：<br>• **字符本地回显 (Local Echo)**：键入字符即时回显，退格自动擦除（`\b \b`），终端交互体验极佳；<br>• **超时自动提交机制 (Timeout Auto-Commit)**：若串口工具（如 ESP Decoder）未勾选“发送换行符”，输入指令后 300ms 自动判定输入结束并触发执行，彻底根除“发指令无反应”；<br>• **全链路 stdout 镜像输出**：`ExecuteSerialCli` 同步输出至 VFS stdout，保证各类调试控制台 100% 可见；<br>3. **全站版本号统一递增至 `v0.21-preview.2641`**。 | ✅ **已完全落地** |
+| **16** | **修改：1. 彻底修复原生 USB 终端 (ESP Decoder) 循环刷屏乱码 `U\f...` 问题，构建上位机心跳活跃联动与终端智能静音机制。<br>2. 明确用户自制硬件板架构（USB直连ESP原生虚拟串口USB-Serial-JTAG，不走外置UART芯片）。** | 1. **乱码根本原因精准剖析 (Binary Frame vs Text Terminal)**：<br>• 用户硬件为自制板，直连 ESP32-S3 原生 USB-Serial-JTAG CDC 端口；<br>• Core 0 的 `TelemetryTaskEntry` 每 250ms 自动产生 17 字节二进制遥测帧（`0xAA 0x55 0x10 0x0C [12B数值] [校验和]`），其中 `0x55` 对应 ASCII 大写字母 `'U'`，`0x0C` 对应换页符 `\f`，高低位字节对应 `,`、`;`、`+`、`*` 等字符；<br>• ESP Decoder 为纯文本终端，将每秒 4 次的二进制流直接当 ASCII 字符串打印，导致整屏循环 `U\f\f...` 乱码并冲散正常的 CLI 指令输出；<br>2. **上位机心跳握手活跃联动架构 (Host Activity Gating)**：<br>• 在 `AppCoordinator` 中设计 `IsHostActive()` 与 `TouchHostActivity()`：只有在收到上位机 C# 发送的 `0x01 Heartbeat` 或其他有效二进制协议包时，才标记链路活跃（3.5 秒无心跳自动判定离线并休眠广播）；<br>• `TelemetryTaskEntry` 仅在上行链路活跃时才调用 `SendRawFrame`，节约双核 CPU 资源与总线带宽；<br>• `CommManager::SendRawFrame` 引入二级安全拦截：自动识别 `0xAA 0x55` 二进制协议帧，未握手状态下严禁向 USB-Serial-JTAG 输出二进制包，而纯文本数据（Print/Printf/CLI结果/日志）始终畅通无阻；<br>3. **新增 `telemetry` 原生 CLI 控制台指令**：<br>• 输入 `telemetry`：即时执行单次 INA236 采样并以规整 ASCII 文本表格呈现母线与支路电压/电流/功率，清晰提示上位机连接状态；<br>• 支持 `telemetry on` 与 `telemetry off` 手动强制启闭二进制流，兼顾不同调试场景；<br>4. **全站版本号统一递增至 `v0.22-preview.2641`**。 | ✅ **已完全落地** |
 
 ---
 
-# 七、 最新提交记录与演进状态 (v0.21-preview.2641)
+# 七、 最新提交记录与演进状态 (v0.22-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **版本号统一推进并锁定为 `v0.21-preview.2641`**：
+> 1. **版本号统一推进并锁定为 `v0.22-preview.2641`**：
 >    - 全量同步至 [`include/linknexus_config.hpp`](file:///c:/Users/17368/Desktop/LinkNexus/include/linknexus_config.hpp)、[`CMakeLists.txt`](file:///c:/Users/17368/Desktop/LinkNexus/CMakeLists.txt)、[`README.md`](file:///c:/Users/17368/Desktop/LinkNexus/README.md) 与本备忘录；
-> 2. **彻底解决 ESP Decoder / 串口终端发送指令无反应问题**：
->    - 引入 USB-Serial-JTAG CDC 与 UART0 双引擎并发收发，无论插哪个 Type-C 口皆可收发指令；
->    - 增加 300ms 超时自动提交执行，即使串口调试助手未追加 `\r\n` 亦能自动执行；
->    - 支持本地字符回显与 stdout 镜像输出；
+> 2. **彻底根除 ESP Decoder / USB 串口终端 `U\f...` 乱码刷屏 Bug**：
+>    - 建立 `IsHostActive()` 上位机握手活跃判定机制，仅在收到 C# 心跳时才上报 250ms 二进制遥测流；
+>    - `CommManager::SendRawFrame` 二级安全拦截，纯文本畅通无阻，未授权二进制帧禁止污染 USB 控制台；
+>    - 增加 `telemetry` 原生 CLI 指令，支持单次纯文本采样表格输出与手动二进制流启闭；
 > 3. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 符合 ESP32-S3 生产标准。
 
 ---
@@ -267,5 +268,4 @@ LinkNexus (Firmware Workspace)
 > - *“修改：当上位机断开连接超过 3 秒时，自动关闭所有 MOS 通道供电，做安全离线保护”*
 >
 > 随时在此下方直接书写，保存后呼叫我，我将立即严格按照本 DESIGN 备忘录规范为您推进落地并步进版本号！
-
 *(如需继续修改或增加功能，可直接在此下方追加您的想法与需求)*

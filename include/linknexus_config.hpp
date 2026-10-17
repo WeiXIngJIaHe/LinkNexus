@@ -10,7 +10,7 @@ namespace LinkNexus {
 /**
  * @brief 固件版本号基线规范 (与 C# 上位机 LinkNexus 完全保持统一)
  */
-#define LINKNEXUS_FIRMWARE_VERSION  "0.22-preview-2641"
+#define LINKNEXUS_FIRMWARE_VERSION  "0.23-preview-2641"
 #define LINKNEXUS_HARDWARE_MODEL    "LinkNexus-Pro-ESP32S3"
 
 /**

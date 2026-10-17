@@ -131,10 +131,20 @@ static int cmd_wifi(int argc, char **argv)
     else if (strcasecmp(sub_cmd, "scan") == 0 || strcasecmp(sub_cmd, "rescan") == 0) {
         bool force = (argc > 2 && (strcasecmp(argv[2], "force") == 0 || strcasecmp(argv[2], "-f") == 0)) ||
                      (strcasecmp(sub_cmd, "rescan") == 0);
-        char scan_result[1536];
-        size_t scan_len = WifiManager::Instance().ScanNetworks(scan_result, sizeof(scan_result), force);
-        if (scan_len > 0) {
-            CliEngine::PrintResponse("%s", scan_result);
+        
+        // 直接从 WifiManager 获取格式化结果指针，0 栈内存消耗，彻底根除栈溢出崩溃
+        if (!force && WifiManager::Instance().HasScanned()) {
+            const char *cached = WifiManager::Instance().GetCachedScanResult();
+            if (cached && strlen(cached) > 0) {
+                CliEngine::PrintResponse("%s", cached);
+                return 0;
+            }
+        }
+
+        size_t scan_len = WifiManager::Instance().PerformScanAndFormat(false);
+        const char *res = WifiManager::Instance().GetCachedScanResult();
+        if (scan_len > 0 && res) {
+            CliEngine::PrintResponse("%s", res);
         } else {
             CliEngine::PrintResponse("[WiFi Scan] 未扫描到可用无线网络。\r\n");
         }

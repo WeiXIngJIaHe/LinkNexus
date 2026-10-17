@@ -12,9 +12,20 @@
 > 📌 **版本递增永久规范 (Rule 2)**：  
 > **版本格式严格遵循 `vX.xx-AAA.YYWW`（`X` 为大版本号不补零，`xx` 为小版本修改号两位补零，`AAA` 为修订发布阶段如 `preview` / `beta` / `release`，`YYWW` 为年周数）。每一次修改 DESIGN 备忘录或落地新需求时，必须将工程小版本（Minor `xx`）递增推进一次，并在 `include/linknexus_config.hpp`、`CMakeLists.txt`、`README.md` 与本备忘录中全量同步更新。**  
 >  
+> 📌 **自动化 Git Commit 提交准则 (Rule 3 - Conventional Commits)**：  
+> **每次需求与缺陷修复提交至 Git 仓库时，必须严格遵循 Angular / Conventional Commits 语义化前缀规范，严禁无意义的提交说明**：  
+> - `feat`: 新增功能特性（如：`feat(firmware): 开机默认广播 SoftAP 与单次真实 AP 扫描`）；  
+> - `fix`: 修复缺陷与异常（如：`fix(comm): 对齐串口参数，防止 RTS 信号导致芯片复位`）；  
+> - `docs`: 文档变更与备忘录更新（如：`docs(design): 同步落地需求 37 并步进至 v0.16`）；  
+> - `style`: 界面样式调整与视觉去噪（如：`style(ui): 精简背景多余二次元线稿与图标`）；  
+> - `refactor`: 代码重构（不影响功能的架构优化）；  
+> - `perf`: 性能调优（如消除扫描卡顿与缓存复用）；  
+> - `test`: 单元测试或端到端验证；  
+> - `chore`: 构建配置、依赖项或辅助工具调整。  
+>  
 > **文档性质**：硬件固件架构设计现状白皮书与修改演进基准文档（修改性 README）  
 > **文档目的**：汇整当前 ESP32-S3 固件的完整架构设计、底层通信机制与功能实现逻辑（采用通俗严谨的自然语句表述）。**已根据您在备忘录下方提交的全部修改要求严格实施落地**。您可以随时通过自然语言在文档末尾继续审查或提出后续迭代意见。  
-> **当前工程基线版本**：`v0.15-preview.2641`  
+> **当前工程基线版本**：`v0.16-preview.2641`  
 > **技术栈**：ESP32-S3 (Xtensa LX7 240MHz 双核) | ESP-IDF v5.x | FreeRTOS SMP | C++17 | 全双工二进制防粘包协议 | INA236 I2C 采样 | 802.11 b/g/n Wi-Fi AP/STA | 原生 CLI 引擎 | PlatformIO
 
 ---
@@ -35,7 +46,7 @@
 - [四、 硬件引脚分配与物理接口映射表](#四-硬件引脚分配与物理接口映射表)
 - [五、 源码文件职责与核心映射清单](#五-源码文件职责与核心映射清单)
 - [六、 您的修改提交与落地状态对照表 (需求回顾与验证)](#六-您的修改提交与落地状态对照表-需求回顾与验证)
-- [七、 最新提交记录与演进状态 (v0.15-preview.2641)](#七-最新提交记录与演进状态-v015-preview2641)
+- [七、 最新提交记录与演进状态 (v0.16-preview.2641)](#七-最新提交记录与演进状态-v016-preview2641)
 - [八、 后续修改提交区（您可直接在此下方追加自然语言修改意见）](#八-后续修改提交区您可直接在此下方追加自然语言修改意见)
 
 ---
@@ -182,7 +193,7 @@
 ```text
 LinkNexus (Firmware Workspace)
 ├── include/
-│   ├── linknexus_config.hpp         # 全局引脚映射、版本基线 (0.14-preview-2641) 与双核绑定常量
+│   ├── linknexus_config.hpp         # 全局引脚映射、版本基线 (0.16-preview-2641) 与双核绑定常量
 │   ├── freertos_mutex.hpp           # RAII 互斥锁核心类 (Mutex & LockGuard)，确保双核线程安全
 │   ├── protocol.hpp                 # 二进制帧结构、命令字枚举 (0x01~0x50) 与流式有限状态机声明
 │   ├── power_manager.hpp            # 6 路 MOS 电源控制管理器头文件 (单例模式)
@@ -204,7 +215,7 @@ LinkNexus (Firmware Workspace)
 │   ├── cli_engine.cpp               # CLI 指令分词解析 (help/wifi/power/status/reboot) 格式化实现
 │   └── display_manager.cpp          # 屏幕状态模型缓存与 LVGL 刷新管线预留实现
 ├── platformio.ini                   # PlatformIO 编译环境配置 (esp32-s3-devkitm-1 / espidf 框架)
-├── CMakeLists.txt                   # 顶层 CMake 工程配置 (固化 PROJECT_VER 为 0.15-preview-2641)
+├── CMakeLists.txt                   # 顶层 CMake 工程配置 (固化 PROJECT_VER 为 0.16-preview-2641)
 ├── sdkconfig.esp32-s3-devkitm-1     # ESP32-S3 专用 Kconfig 固化配置
 ├── README-DESIGN.md                 # 【当前文档】硬件设计审查与修改提交对齐备忘录
 └── README.md                        # 面向工程展示的高质感项目技术说明文档
@@ -220,26 +231,26 @@ LinkNexus (Firmware Workspace)
 | **02** | **严格区分功能.c和.h，每一个模块都区分开，尽量在main中使用调用而不是构建** | 彻底拆分 8 大独立模块（`.hpp` + `.cpp`）；`src/main.cpp` 仅保留 15 行调度调用（`AppCoordinator::Init()` 与 `Start()`），无任何直接硬件构建代码。 | ✅ **已完全落地** |
 | **03** | **使用FreeRtos调用ESP32S3的双核，使用互斥锁和“线程”管理避免双核同时调用一个函数导致指针异常** | Core 1 专攻高速通信与流式解包（优先级 10）；Core 0 专攻遥测、UI 与无线服务；引入 RAII `Mutex` 与 `LockGuard`，所有状态访问全量受锁保护，杜绝双核竞态。 | ✅ **已完全落地** |
 | **04** | **本项目会使用到UI，可能使用LVGL绘制UI** | 构建独立 `DisplayManager` 屏幕状态模型，支持上位机 0x20 命令反向同步通道与烧录进度（0~100%），预留 LVGL 局部刷新与定时渲染管线。 | ✅ **已完全落地** |
-| **05** | **严格对其上位机的C#格式，修改前需要查看软件的修改版本是否更新，目前硬件版本与软件统一为“0.13-preview-2641”，需要在README中同步版本号** | 深入审查 `C:\Users\17368\source\repos\LinkNexus` 源码与协议定义，0x01~0x50 命令字 100% 逐字节对齐；随当前演进将全站版本号统一推进至 **`v0.14-preview.2641`**。 | ✅ **已完全落地** |
+| **05** | **严格对其上位机的C#格式，修改前需要查看软件的修改版本是否更新，目前硬件版本与软件统一为“0.13-preview-2641”，需要在README中同步版本号** | 深入审查 `C:\Users\17368\source\repos\LinkNexus` 源码与协议定义，0x01~0x50 命令字 100% 逐字节对齐；随当前演进将全站版本号统一推进至 **`v0.16-preview.2641`**。 | ✅ **已完全落地** |
 | **06** | **C#的软件放置位置为C:\Users\17368\source\repos\LinkNexus** | 上位机参考位置明确锁定为该绝对路径，下位机以该工程中的 `ProtocolEngine.cs` 作为最高通信契约。 | ✅ **已完全落地** |
 | **07** | **只需要完成硬件部分，C#的软件部分只供参考，不需要在此更改 2026.10.14** | 严格贯彻职责边界，所有改动均集中于下位机固件工程；上位机 C# 业务代码保持独立，仅做接口协议镜像对齐。 | ✅ **已完全落地** |
 | **08** | **在ESP中加入CLI，能在软件中调用进入CLI页面，加入无线功能，能主动AP和从AP** | 1. 架构 `WifiManager`，完整支持 SoftAP（独立热点 `192.168.4.1`）、Station（从 AP 局域网接入）及 TCP `8266` 无线调试监听；<br>2. 架构 `CliEngine`，实现 9 大原生指令（`help`, `wifi ap`, `wifi connect`, `wifi status`, `wifi scan`, `wifi disconnect`, `power`, `status`, `reboot`）；<br>3. 扩展协议引入 `0x40 WifiControl` 与 `0x50 CliTransfer`，上位机双击就绪标签即可拉起 CLI 页面交互。 | ✅ **已完全落地** |
 | **09** | **在CLI中加入串口，让软件获取真实WIFI列表，软件能控制ESP32的无线功能** | 1. **串口双模无缝兼容**：重构 `CommRxTaskEntry`，实现原生串口终端 ASCII CLI 与二进制协议双模并发解析。无论上位机串口监视器、Putty 还是 C# CLI 页面，输入 `wifi scan\r\n`、`status\r\n` 即可直出纯文本结果；<br>2. **真实 Wi-Fi 信道扫描**：重构 `WifiManager::ScanNetworks`，基于 ESP-IDF 射频底层主动扫描周围信道 1~13，获取真实周围热点并按 RSSI 信号降序排序，输出规范表格（SSID/RSSI/信道/加密认证方式）；<br>3. **分包防截断传输**：在 0x40 (Action 4) 与 0x50 中增加 240 字节无损分包传输，彻底解决长 Wi-Fi 列表被截断问题；<br>4. **无线状态动态驱动**：Station 模式接入外部网络时动态获取真实 DHCP IP 与实时 RSSI，SoftAP 模式下实时维护已连客户端数量，下位机可通过 0x40 或 CLI 随时受控。 | ✅ **已完全落地** |
+| **10** | **加入串口打印，实时获取上位机的指令和AP扫描结果（只需要执行一次）** | 1. **指令实时串口监控打印**：在 `CommManager` 中实现线程安全的 `Print` 与 `Printf` 接口（受 `m_tx_mutex` 互斥保护）；在 `AppCoordinator::OnFrameReceived` 中为上位机下发的全部核心指令（0x01 心跳、0x10 遥测上报、0x20 屏幕同步、0x30 供电控制、0x40 无线控制、0x50 CLI 穿透传输）及物理控制台输入挂载实时串口回显日志；<br>2. **AP 扫描单次执行与毫秒级缓存机制**：在 `WifiManager` 中设计 `m_cached_scan_result`、`m_has_scanned` 与 `force_rescan` 机制，彻底避免上位机或 CLI 重复触发耗时 2~3 秒的阻塞式射频扫描；开机在 Core 0 后台自动执行一次全面扫描并直接在串口打印热点列表；后续查询一律毫秒级返回已缓存结果（亦支持 `wifi scan force` 手动刷新）；<br>3. **双模串口接收状态机容错防丢字**：优化 `ProtocolParser::FeedByte` 机制，在收到非帧头字节时优雅返回未消费状态，确保控制台键入的 ASCII 字符完整回填至命令行缓冲区。 | ✅ **已完全落地** |
 
 ---
 
-# 七、 最新提交记录与演进状态 (v0.15-preview.2641)
+# 七、 最新提交记录与演进状态 (v0.16-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **版本号统一推进并锁定为 `v0.15-preview.2641`**：
+> 1. **版本号统一推进并锁定为 `v0.16-preview.2641`**：
 >    - 全量同步至 [`include/linknexus_config.hpp`](file:///c:/Users/17368/Desktop/LinkNexus/include/linknexus_config.hpp)、[`CMakeLists.txt`](file:///c:/Users/17368/Desktop/LinkNexus/CMakeLists.txt)、[`README.md`](file:///c:/Users/17368/Desktop/LinkNexus/README.md) 与本备忘录；
-> 2. **串口原生 CLI 终端无缝落地**：
->    - `AppCoordinator::CommRxTaskEntry` 增强 ASCII 命令行解析器（`\r\n` 换行分词、退格处理与标准 ASCII 过滤），无需二进制封包即可直接在物理串口中敲击 CLI 指令调试；
-> 3. **真实周边 Wi-Fi 扫描与长文本分包传输**：
->    - `WifiManager::ScanNetworks` 执行真实射频扫描，安全兼顾 AP/STA/APSTA 模式保护，返回周边真实热点列表；
->    - 协议层实现 240 字节分块传输（Chunking），杜绝超过单帧 255 字节上限造成的截断；
-> 4. **事件驱动真实 IP 与 RSSI 遥测**：
->    - `IP_EVENT_STA_GOT_IP` 事件驱动更新真实路由器分配 IP 地址与动态信号强度。
+> 2. **上位机指令全量实时串口打印**：
+>    - 在 `AppCoordinator` 中捕获 0x01、0x10、0x20、0x30、0x40、0x50 及物理串口控制台输入，通过 `CommManager::Printf` 线程安全输出详细的中文解析日志；
+> 3. **AP 扫描单次执行与串口直出**：
+>    - 开机后台自动扫描一次周边 AP，完成扫描后直接通过串口打印规范的热点表格；后续调用自动走缓存，彻底杜绝重复扫描导致的串口通讯停顿与心跳超时；
+> 4. **双模串口解包健壮性增强**：
+>    - 彻底解决误检 0xAA 导致后续字符丢失问题，CLI 与二进制协议双模并发顺畅稳定。
 
 ---
 
@@ -254,3 +265,4 @@ LinkNexus (Firmware Workspace)
 > 随时在此下方直接书写，保存后呼叫我，我将立即严格按照本 DESIGN 备忘录规范为您推进落地并步进版本号！
 
 *(如需继续修改或增加功能，可直接在此下方追加您的想法与需求)*
+修改：1.在DESIGN中加入自动commit，按照feat、fix、docs、style、refactor、perf、test、chore等类型自动生成commit message，提交到github上，作为全局DESIGN实现。

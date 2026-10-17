@@ -464,84 +464,12 @@
             <RowDefinition Height="32" />
         </Grid.RowDefinitions>
 
-        <!-- 二次元机能手绘线条背景与战术蓝图 (Hand-Drawn Anime Tech Line-Art & Celestial Blueprint) -->
-        <Canvas Grid.Row="0" Grid.RowSpan="3" IsHitTestVisible="False" ClipToBounds="True" Opacity="0.32">
-            <!-- 1. 左上方科技切线与网格标尺 -->
-            <Path Data="M 0,36 L 36,0 M 0,72 L 72,0 M 14,0 H 160 M 0,14 V 160" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.8" StrokeDashArray="3,3" />
-
-            <!-- 2. 战术星轨与同心刻度环 (Celestial Astrolabe & Reticle) -->
-            <Path Data="M 760,280 m -160,0 a 160,160 0 1,0 320,0 a 160,160 0 1,0 -320,0" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.7" StrokeDashArray="5,5" />
-            <Path Data="M 760,280 m -210,0 a 210,210 0 1,0 420,0 a 210,210 0 1,0 -420,0" 
-                  Stroke="{DynamicResource AppAnimeFineBrush}" StrokeThickness="0.6" StrokeDashArray="12,6" />
-            <Path Data="M 760,280 m -70,0 a 70,70 0 1,0 140,0 a 70,70 0 1,0 -140,0" 
-                  Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="0.9" Opacity="0.5" />
-            <Path Data="M 520,280 H 1000 M 760,40 V 520" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.5" StrokeDashArray="4,4" />
-
-            <!-- 3. 手绘二次元机能操纵者/少女侧颜线稿 (Hand-Drawn Anime Tech Operative Profile) -->
-            <!-- 头部与面部精细轮廓线 (额头、鼻梁、唇部、下巴与下颌角) -->
-            <Path Data="M 780,185 C 795,205 802,225 805,245 C 808,258 812,263 818,266 C 822,268 815,274 813,278 C 811,283 816,287 814,292 C 808,306 794,324 780,334 C 762,347 745,354 732,358" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="1.2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-
-            <!-- 眼睛与战术目镜细节 (睫毛弧线、瞳孔校准环、眼睑刻线与眉线) -->
-            <Path Data="M 788,242 C 796,237 805,240 811,246" 
-                  Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1.4" StrokeLineJoin="Round" StrokeStartLineCap="Round"/>
-            <Path Data="M 797,244 A 4,4 0 1,0 803,248" 
-                  Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1" Fill="{DynamicResource AccentCyanBrush}" Opacity="0.3"/>
-            <Path Data="M 793,249 C 797,251 801,251 804,249" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.8"/>
-            <Path Data="M 786,232 C 794,227 804,228 812,234" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="1" StrokeStartLineCap="Round"/>
-
-            <!-- 手绘飘逸发丝与刘海流线 (Front Bangs, Side Locks & Sweeping Back Hair) -->
-            <Path Data="M 765,175 C 778,205 794,228 798,242 M 755,190 C 768,228 782,275 776,312" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-            <Path Data="M 740,160 C 712,205 692,270 682,365 C 678,415 696,480 720,538" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="1.1" StrokeStartLineCap="Round"/>
-            <Path Data="M 722,148 C 685,195 656,280 648,395 C 644,455 662,512 688,578" 
-                  Stroke="{DynamicResource AppAnimeFineBrush}" StrokeThickness="0.8" StrokeStartLineCap="Round"/>
-            <Path Data="M 750,138 C 796,110 842,145 852,212 C 862,280 844,365 824,442 C 806,518 814,595 842,670" 
-                  Stroke="{DynamicResource AppAnimeFineBrush}" StrokeThickness="0.9" StrokeDashArray="18,3"/>
-
-            <!-- 战术通信耳麦与高科技目镜装具 (Cybernetic Headset & Acoustic Nodes) -->
-            <Path Data="M 735,255 A 24,24 0 1,1 735,303 A 24,24 0 1,1 735,255" 
-                  Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1.2"/>
-            <Path Data="M 735,266 A 13,13 0 1,1 735,292 A 13,13 0 1,1 735,266" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.8" StrokeDashArray="3,2"/>
-            <Path Data="M 730,258 C 720,205 734,158 772,135" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="1.4" StrokeStartLineCap="Round"/>
-            <Path Data="M 738,295 C 752,310 776,315 795,308 L 802,307" 
-                  Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1" StrokeStartLineCap="Round"/>
-            <Ellipse Canvas.Left="802" Canvas.Top="305" Width="4" Height="4" Fill="{DynamicResource AccentCyanBrush}"/>
-
-            <!-- 战术立领风衣与机能肩线 (Tactical Collar, Zipper Line & Armor Lapel) -->
-            <Path Data="M 732,358 C 727,382 736,406 750,420 L 722,434 C 694,448 646,472 618,520" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="1.1" StrokeStartLineCap="Round"/>
-            <Path Data="M 746,420 L 746,560" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.8" StrokeDashArray="4,3"/>
-            <Path Data="M 750,420 L 782,406 C 792,402 796,410 794,420 L 772,454 C 812,472 868,492 915,510" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="1"/>
-
-            <!-- 4. 底部微电子拓扑总线 (Tactical Bus Waveform & Circuit Traces) -->
-            <Path Data="M 0,680 H 260 L 300,640 H 580 L 610,670 H 1200" 
-                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.8" StrokeDashArray="6,4" />
-            <Path Data="M 280,640 L 290,630 H 420" 
-                  Stroke="{DynamicResource AppAnimeFineBrush}" StrokeThickness="0.6" />
-
-            <!-- 5. 战术坐标瞄准十字与刻度标记 (Tactical Reticles & Coordinate Marks) -->
-            <Path Data="M 60,220 H 74 M 67,213 V 227" Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1" Opacity="0.7"/>
-            <Path Data="M 520,140 H 534 M 527,133 V 147" Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.8" Opacity="0.5"/>
-            <Path Data="M 1040,480 H 1054 M 1047,473 V 487" Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1" Opacity="0.7"/>
-
-            <!-- 6. 极简机能技术代码微水印 -->
-            <TextBlock Text="NEXUS_SCHEMATICS // LINE_ART_07" Canvas.Left="35" Canvas.Top="230" 
-                       FontFamily="Consolas" FontSize="8" Foreground="{DynamicResource AppAnimeLineBrush}" Opacity="0.6"/>
-            <TextBlock Text="BUS_TOPOLOGY : 4_CHANNEL_ACTIVE" Canvas.Left="35" Canvas.Top="242" 
-                       FontFamily="Consolas" FontSize="8" Foreground="{DynamicResource AppAnimeLineBrush}" Opacity="0.4"/>
-            <TextBlock Text="HARDWARE_RECEPTOR // LINK_READY" Canvas.Right="40" Canvas.Bottom="70" 
-                       FontFamily="Consolas" FontSize="8" Foreground="{DynamicResource AppAnimeLineBrush}" Opacity="0.6"/>
+        <!-- 极简工业拓扑参考基准线 (精简纯净背景，去繁就简) -->
+        <Canvas Grid.Row="0" Grid.RowSpan="3" IsHitTestVisible="False" ClipToBounds="True" Opacity="0.12">
+            <!-- 极简科技切角标尺与刻度十字 -->
+            <Path Data="M 0,32 L 32,0 M 12,0 H 120 M 0,12 V 120" 
+                  Stroke="{DynamicResource AppAnimeLineBrush}" StrokeThickness="0.6" StrokeDashArray="3,3" />
+            <Path Data="M 40,160 H 52 M 46,154 V 166" Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="0.8" Opacity="0.5"/>
         </Canvas>
 
         <!-- ========================================================= -->
@@ -2340,7 +2268,7 @@
                                                Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
                                     <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
                                             BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="v0.14-preview.2641 · Dual-Core" FontSize="9" FontFamily="Consolas" Foreground="{DynamicResource AccentCyanBrush}"/>
+                                        <TextBlock Text="{Binding VersionString, StringFormat='{}{0} · Dual-Core'}" FontSize="9" FontFamily="Consolas" Foreground="{DynamicResource AccentCyanBrush}"/>
                                     </Border>
                                 </StackPanel>
                                 <TextBlock Text="无线 TCP 调试服务 (端口 8266) · AP/STA 双模网络调度与物理总线控制"
@@ -2394,35 +2322,17 @@
                         <WrapPanel VerticalAlignment="Center">
                             <TextBlock Text="快捷指令:" FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
-                                    Command="{Binding SetWifiApPresetCommand}" ToolTip="启动 ESP32-S3 SoftAP 独立热点并开启无线 TCP 调试">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Data="M 2 8 C 2 8 4 6 7 6 C 10 6 12 8 12 8 M 2 12 C 2 12 5 9 10 9 C 15 9 18 12 18 12 M 10 16 L 10 22"
-                                          Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1.4" Width="9" Height="9" Stretch="Uniform" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="设为独立热点 (AP)" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
+                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="设为独立热点 (AP)" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
+                                    Command="{Binding SetWifiApPresetCommand}" ToolTip="启动 ESP32-S3 SoftAP 独立热点并开启无线 TCP 调试"/>
 
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
-                                    Command="{Binding SetWifiStaPresetCommand}" ToolTip="连接已有 Wi-Fi 路由器 (STA 模式)">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Data="M 5 12.55 C 8.87 9.17 15.13 9.17 19 12.55 M 1.42 9 C 7.26 3.67 16.74 3.67 22.58 9"
-                                          Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1.4" Width="9" Height="9" Stretch="Uniform" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="接入局域网 (STA)" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
+                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="接入局域网 (STA)" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
+                                    Command="{Binding SetWifiStaPresetCommand}" ToolTip="连接已有 Wi-Fi 路由器 (STA 模式)"/>
 
                             <Button Style="{StaticResource IndustrialBtnStyle}" Content="查询 Wi-Fi 状态" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
                                     Command="{Binding QueryWifiStatusPresetCommand}" ToolTip="查看当前 Wi-Fi 工作模式、IP 与无线调试端口"/>
 
-                            <Button Style="{StaticResource IndustrialBtnStyle}" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
-                                    Command="{Binding ConnectWirelessTcpCommand}" ToolTip="通过 TCP 建立与当前 ESP32-S3 IP:8266 的无线调试直连链路">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Data="M 12 2 C 6.48 2 2 6.48 2 12 C 2 17.52 6.48 22 12 22 C 17.52 22 22 17.52 22 12 C 22 6.48 17.52 2 12 2 Z M 11 16 L 7 12 L 8.41 10.59 L 11 13.17 L 15.59 8.59 L 17 10 L 11 16 Z"
-                                          Fill="{DynamicResource TerminalTextGreenBrush}" Width="9" Height="9" Stretch="Uniform" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="无线 TCP 直连" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
+                            <Button Style="{StaticResource IndustrialBtnStyle}" Content="无线 TCP 直连" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
+                                    Command="{Binding ConnectWirelessTcpCommand}" ToolTip="通过 TCP 建立与当前 ESP32-S3 IP:8266 的无线调试直连链路"/>
 
                             <Button Style="{StaticResource IndustrialBtnStyle}" Content="扫描附近热点" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10"
                                     Command="{Binding ScanWifiPresetCommand}" ToolTip="扫描周围 2.4GHz 射频网络"/>
@@ -2506,44 +2416,45 @@
                 <Border Background="Transparent" Cursor="Hand" ToolTip="双击“正常就绪”唤醒 ESP32-S3 无线调试与网络控制 CLI"
                         MouseLeftButtonDown="OnStatusBadgeMouseLeftButtonDown" VerticalAlignment="Center" HorizontalAlignment="Left">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Ellipse Width="7" Height="7" Fill="{Binding DaemonStatusDotColor}" Margin="0,0,7,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding DaemonStatusText}" FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <Ellipse Width="7" Height="7" Fill="{Binding DaemonStatusDotColor}" Margin="0,0,6,0" VerticalAlignment="Center"/>
 
-                    <!-- 开启软件时枚举 ESP32 状态的微型流光滑动条动画 (VS Code 风格) -->
-                    <Border Margin="10,0,0,0" Width="68" Height="3" VerticalAlignment="Center" CornerRadius="1.5" ClipToBounds="True"
-                            Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0.6"
-                            Visibility="{Binding IsDaemonEnumerating, Converter={StaticResource BoolToVisConverter}}"
-                            ToolTip="正在枚举 ESP32 物理拓扑链路与总线设备...">
-                        <Border x:Name="DaemonScanBar" Width="26" Height="3" CornerRadius="1.5" HorizontalAlignment="Left"
-                                Background="{DynamicResource AccentCyanBrush}">
-                            <Border.OpacityMask>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                    <GradientStop Color="Transparent" Offset="0.0"/>
-                                    <GradientStop Color="#FFFFFF" Offset="0.5"/>
-                                    <GradientStop Color="Transparent" Offset="1.0"/>
-                                </LinearGradientBrush>
-                            </Border.OpacityMask>
-                            <Border.RenderTransform>
-                                <TranslateTransform x:Name="DaemonScanTransform" X="-30"/>
-                            </Border.RenderTransform>
-                            <Border.Triggers>
-                                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
-                                    <BeginStoryboard>
-                                        <Storyboard RepeatBehavior="Forever">
-                                            <DoubleAnimation Storyboard.TargetName="DaemonScanTransform"
-                                                             Storyboard.TargetProperty="X"
-                                                             From="-30" To="70" Duration="0:0:0.95">
-                                                <DoubleAnimation.EasingFunction>
-                                                    <SineEase EasingMode="EaseInOut"/>
-                                                </DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </EventTrigger>
-                            </Border.Triggers>
+                        <!-- 开启软件时枚举 ESP32 状态的微型流光滑动条动画 (在状态图标旁滑动，枚举完成后停止收起，绿灯就绪) -->
+                        <Border Margin="0,0,8,0" Width="48" Height="3" VerticalAlignment="Center" CornerRadius="1.5" ClipToBounds="True"
+                                Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0.6"
+                                Visibility="{Binding IsDaemonEnumerating, Converter={StaticResource BoolToVisConverter}}"
+                                ToolTip="正在枚举 ESP32 物理拓扑链路与总线设备...">
+                            <Border x:Name="DaemonScanBar" Width="20" Height="3" CornerRadius="1.5" HorizontalAlignment="Left"
+                                    Background="{DynamicResource AccentCyanBrush}">
+                                <Border.OpacityMask>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="Transparent" Offset="0.0"/>
+                                        <GradientStop Color="#FFFFFF" Offset="0.5"/>
+                                        <GradientStop Color="Transparent" Offset="1.0"/>
+                                    </LinearGradientBrush>
+                                </Border.OpacityMask>
+                                <Border.RenderTransform>
+                                    <TranslateTransform x:Name="DaemonScanTransform" X="-24"/>
+                                </Border.RenderTransform>
+                                <Border.Triggers>
+                                    <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation Storyboard.TargetName="DaemonScanTransform"
+                                                                 Storyboard.TargetProperty="X"
+                                                                 From="-24" To="52" Duration="0:0:0.95">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <SineEase EasingMode="EaseInOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Border.Triggers>
+                            </Border>
                         </Border>
-                    </Border>
-                </StackPanel>
+
+                        <TextBlock Text="{Binding DaemonStatusText}" FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
                 </Border>
 
                 <!-- 右下角: 规范工程版本号 (1.5秒内连续点击5次触发开发者模式，无其他入口) -->

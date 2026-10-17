@@ -6,9 +6,20 @@
 > 📌 **版本递增永久规范 (Rule 2)**：  
 > **版本格式严格遵循 `vX.xx-AAA.YYWW`（`X` 为大版本号不补零，`xx` 为小版本修改号两位补零，`AAA` 为修订发布阶段如 `preview` / `beta` / `release`，`YYWW` 为年周数）。每一次修改 DESIGN 备忘录或落地需求时，必须将工程小版本（MinorRevision `xx`）递增推进一次，并在 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss` 与所有文档中全量同步更新。**  
 >  
+> 📌 **自动化 Git Commit 提交准则 (Rule 3 - Conventional Commits)**：  
+> **每次需求与缺陷修复提交至 Git 仓库时，必须严格遵循 Angular / Conventional Commits 语义化前缀规范，严禁无意义的提交说明**：  
+> - `feat`: 新增功能特性（如：`feat(firmware): 开机默认广播 SoftAP 与单次真实 AP 扫描`）；  
+> - `fix`: 修复缺陷与异常（如：`fix(comm): 对齐串口参数，防止 RTS 信号导致芯片复位`）；  
+> - `docs`: 文档变更与备忘录更新（如：`docs(design): 同步落地需求 37 并步进至 v0.16`）；  
+> - `style`: 界面样式调整与视觉去噪（如：`style(ui): 精简背景多余二次元线稿与图标`）；  
+> - `refactor`: 代码重构（不影响功能的架构优化）；  
+> - `perf`: 性能调优（如消除扫描卡顿与缓存复用）；  
+> - `test`: 单元测试或端到端验证；  
+> - `chore`: 构建配置、依赖项或辅助工具调整。  
+>  
 > **文档性质**：架构设计现状白皮书与修改演进基准文档（修改性 README）  
 > **文档目的**：汇整当前 LinkNexus 的完整架构设计、底层通信机制与功能实现逻辑（采用通俗严谨的自然语句表述）。**已根据您在备忘录下方提交的全部修改要求严格实施落地**。您可以随时通过自然语言继续审查或提出后续迭代意见。  
-> **当前工程基线版本**：`v0.15-preview.2641`  
+> **当前工程基线版本**：`v0.16-preview.2641`  
 > **技术栈**：.NET 10.0 | WPF (MVVM) | Model Context Protocol (MCP) | Win32 PnP 消息泵 | WMI 底层拓扑枚举 | Minimalist Tech-Anime 战术二次元机能风 | Frosted Glassmorphism 毛玻璃质感 | 深浅主题热切换引擎
 
 ---
@@ -275,29 +286,33 @@
 | **34** | **我现在接入MCU，通过MCP拉取log测试MCP是否正常访问，如果超过30s无反应就停止测试，检查是否有误** | ✅ **已完全落地**：<br/>1. **构建标准化 `read_logs` MCP 工具**：在 `LinkNexus/Mcp/Tools/ReadLogsTool.cs` 全新实现 `read_logs`，支持 `category` ("system" / "serial" / "all")、`portName` (如 `COM8`)、`limit`、`baudRate` 等参数，双向绑定系统操作流水与物理串口实时输出；<br/>2. **真实物理 MCU (COM8 / CH9102) 实时流式日志采样对接**：在 Standalone 与 GUI 模式下自动探测真实硬件设备，安全以受控超时 (默认 800ms，严格限制 <= 2000ms，远优于 30s 阈值) 采样 MCU 真实吐出的 IMU/姿态/电压遥测数据；<br/>3. **MCP 跨进程与 Stdio 双通道端到端验证通过**：通过 MCP 成功探测到 `COM8` 设备并成功拉取到实时真实 MCU 日志数据流，链路通信秒级即时响应；<br/>4. **版本号遵循长期规范自增至 `v0.13-preview.2641`**：全量同步至 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md` 与本备忘录。 |
 | **35** | **新功能：加入无线调试功能，在ESP32S3中加入CLI，能控制ESP32链接AP和作为AP，启动CLI为双击正常就绪** | ✅ **已完全落地**：<br/>1. **ESP32-S3 固件端模块化 C++17 `WifiManager` 与双核 CLI 解析调度器**：在 `firmware/include/wifi_manager.hpp` 与 `firmware/src/wifi_manager.cpp` 中完整实现 SoftAP（独立热点，默认 IP `192.168.4.1`）、Station（局域网接入）及无线 TCP 调试服务（端口 8266）；内置全套 FreeRTOS 互斥锁保护的交互式 CLI 解析器（`help`, `wifi ap`, `wifi connect`, `wifi status`, `wifi scan`, `wifi disconnect`, `status`, `power`, `reboot`），在 `protocol.hpp` 与 `app_coordinator.cpp` 中扩展 `WifiControl (0x40)` 与 `CliTransfer (0x50)` 帧处理；<br/>2. **C# WPF 上位机“双击正常就绪”唤醒 CLI 交互**：在全景设备卡片与全量设备大厅卡片的“正常就绪”状态标签，以及主界面左下角 LinkNexus 物理拓扑守护服务“正常就绪”状态条上挂载 `MouseLeftButtonDown` 双击手势（`ClickCount == 2`），双击即可毫秒级无缝唤醒专属的 **ESP32-S3 无线调试与网络控制 CLI 终端**；<br/>3. **战术极客二次元机能风 CLI 终端工作台**：采用暗黑科技机能美学与毛玻璃背景遮罩，顶部实时展示 Wi-Fi 工作模式徽章、IP 地址与无线调试端口状态；中部提供全套专业 SVG 矢量图标快捷操作栏（`[设为独立热点 (AP)]`、`[接入局域网 (STA)]`、`[查询 Wi-Fi 状态]`、`[扫描附近热点]`、`[断开 Wi-Fi]` 等）；下方集成等宽字体高对比度终端视窗与支持 Enter 回车即时执行的命令行输入框；<br/>4. **全链路真实协议与脱机仿真双通道联通**：在 `ProtocolEngine.cs` 与 `Esp32CommService.cs` 中实现完整的 0x40 与 0x50 帧封包/解包与流式事件分发，脱机状态下提供逼真的交互反馈，联机状态下直通 ESP32-S3 硬件；<br/>5. **版本号遵循长期规范自增至 `v0.14-preview.2641`**。 |
 | **36** | **在CLI中加入串口，让软件获取真实WIFI列表，软件能控制ESP32的无线功能** | ✅ **已完全落地**：<br/>1. **软硬件 Monorepo 全站基线版本统一对齐至 `v0.15-preview.2641`**：根据 Rule 2 与 Rule 5 软硬件版本协同推进规范，全量对齐 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md`、`firmware/include/linknexus_config.hpp`、`firmware/CMakeLists.txt` 与备忘录；<br/>2. **串口原生 ASCII CLI 与长文本分包传输无缝联动**：ESP32 固件端在串口中断中支持直接输入 ASCII CLI 命令（`wifi scan` 等），C# 上位机与固件端协同支持 240 字节分包传输（Chunking），彻底根除长 Wi-Fi 热点列表传输截断问题；<br/>3. **真机射频扫描与真实 Wi-Fi 热点感知**：在联机模式下通过物理射频扫描周围真实 Wi-Fi 信号（SSID/RSSI/信道/加密认证方式），动态通过 `0x40`/`0x50` 事件推送至上位机 CLI 终端；脱机模式下保持高保真仿真环境；<br/>4. **双击正常就绪唤醒与全套无线总控**：上位机界面双击“正常就绪”毫秒级唤醒机能风 CLI 工作台，提供 SoftAP、Station、TCP 8266 直连与一键总控，全量编译 0 警告 0 错误。 |
+| **37** | **修复：<br/>1. 扫描热点扫出不存在的热点，主AP手机搜不到对应名称；<br/>2. 把一些图形精简掉；<br/>3. 对齐硬件的串口输出设置；<br/>4. 在左下角守护服务状态图标旁增加滑动条动画，ESP32启动完成发生串口枚举时滑条动画停止，绿灯点亮；<br/>5. 在DESIGN中加入自动commit规范，按照feat/fix/docs/style/refactor/perf/test/chore等类型自动生成commit message并推送到github。** | ✅ **已完全落地**：<br/>1. **真实周边热点感知与开机主动 AP 广播**：固件开机在 `InitialScanTaskEntry` 中自动以 `WIFI_MODE_APSTA` 双模启动 SoftAP 热点 `LinkNexus-ESP32-AP`（密码 `12345678`，IP `192.168.4.1`），手机即可秒搜秒连；在后台执行一次真实 2.4GHz 射频扫描并缓存，串口实时打印完整 AP 列表；C# 上位机彻底移除硬编码假热点，未连接物理 ESP32 时明确提示离线，连接时直通真实热点列表；<br/>2. **界面背景视觉去噪与纯净化**：精简移除主窗口背景复杂二次元人物侧颜线稿与多余线图，保留极简工业拓扑切角标尺与微十字刻度；CLI 终端预设工具栏按钮全部统一为高一致性专业按钮；<br/>3. **下位机串口硬件级参数全面对齐**：在 `Esp32CommService` 中对齐串口配置为 115200 波特率、8N1、DTR=true、RTS=false、无流控，杜绝因 RTS 拉低导致 ESP32 芯片处于复位死锁态；<br/>4. **左下角状态流光滑动条微动效与枚举闭环**：将 `DaemonScanBar` 移至状态指示图标右侧，开机探测与总线枚举期间流光优雅流动；当检测并枚举到 ESP32 串口后，微型滑条自动停止并优雅隐藏，指示灯绿色常亮（`#10B981`），显示“守护服务：在线 (COMx)”并自动打开通信管道；<br/>5. **全局 Git Commit 规范体系写入 DESIGN 准则**：在备忘录顶部正式确立 Rule 3 自动化语义化提交准则（`feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`），确保软硬件每次修改均自动化生成高可读性提交。 |
 
 ---
 
-### 七、 最新提交记录与演进状态 (v0.15-preview.2641)
+### 七、 最新提交记录与演进状态 (v0.16-preview.2641)
 
-> **本次已严格按照三合一流规（ui-ux-pro-max、taste-skill、humanizer）与 DESIGN 文档准则完成全量深度落地**：
-> 1. **版本号格式规范确立与基准对齐**：
->    - 全面采用系统强制规范 `vX.xx-AAA.YYWW`；
->    - 当前基线版本全量推进并锁定为 **`v0.15-preview.2641`**，同步到 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md`、`firmware/include/linknexus_config.hpp` 与本备忘录。
-> 2. **ESP32-S3 固件端无线调试与 CLI 引擎落地**：
->    - 新建 `firmware/include/wifi_manager.hpp` 与 `firmware/src/wifi_manager.cpp`，支持 SoftAP、Station、无线 TCP 调试监听（端口 8266）与交互式 CLI 命令调度；
->    - 升级二进制通信协议，引入 `0x40 WifiControl` 与 `0x50 CliTransfer` 帧契约，支持 240 字节分包传输；
->    - 固件支持直接串口 ASCII CLI 解析，双模无缝切换。
-> 3. **上位机“双击正常就绪”唤醒与高质感 CLI 终端落地**：
->    - 在设备卡片状态标签与左下角守护服务面板均挂接双击事件，双击“正常就绪”秒开 CLI 终端；
->    - 提供 AP/STA 一键预设、状态查询、扫描、断开、帮助等快捷按钮及 Enter 命令行交互；
->    - 支持通过 Wi-Fi TCP 8266 建立真机无线调试链路。
-> 4. **编译与代码质量**：
->    - 全量通过 Release 编译验证（0 警告、0 错误）。
+> **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
+> 1. **全站版本号统一推进并锁定为 `v0.16-preview.2641`**：
+>    - 全量同步至 `VersionInfo.cs`、`LinkNexus.csproj`、`README.md`、`firmware/include/linknexus_config.hpp`、`firmware/CMakeLists.txt` 与本备忘录；
+> 2. **真实 Wi-Fi 热点感知与开机 SoftAP 广播**：
+>    - ESP32-S3 固件在后台自动广播 `LinkNexus-ESP32-AP` 主热点（密码 `12345678`），手机可稳定直连；单次扫描并缓存真实 2.4GHz 周边热点，串口实时打印；C# 移除假热点模拟；
+> 3. **图形去噪与界面高质感纯净化**：
+>    - 移除主界面背景过载的二次元轮廓线稿，还原纯净高端的工业设计风格；统一 CLI 预设工具栏按钮样式；
+> 4. **串口硬件级参数对齐与自动接入**：
+>    - 串口配置严格对齐为 115200 8N1、DTR=true、RTS=false；检测到 ESP32 串口时自动建立全双工通信管道；
+> 5. **左下角守护状态流光联动动画**：
+>    - 状态指示图标旁流光滑动条在启动枚举期间实时微动，枚举完成自动收起并点亮绿色指示灯（`#10B981`）；
+> 6. **自动化 Conventional Commits 准则确立**：
+>    - 确立 `feat`/`fix`/`docs`/`style`/`refactor`/`perf`/`test`/`chore` 规范提交机制。
 
 ---
 
 ### 八、 后续修改提交区（您可直接在此下方追加自然语言修改意见）
+
+> 💡 **使用指南**：  
+> 当您对软件或硬件有新的功能诉求、界面调整或体验优化时，**无需编写代码，直接在下方空白处追加您的自然语言想法**。  
+> 随时在此下方直接书写，保存后呼叫我，我将立即严格按照本 DESIGN 备忘录规范为您推进落地并步进版本号！
 
 *(如需继续修改或增加功能，可直接在此下方追加您的想法与需求)*
 

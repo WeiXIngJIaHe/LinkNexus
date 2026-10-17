@@ -34,6 +34,16 @@ public:
      */
     int ReadBytes(uint8_t *buf, size_t max_len, TickType_t wait_ticks);
 
+    /**
+     * @brief 线程安全向串口打印格式化文本 (便于用户在串口助手或监控端实时观察)
+     */
+    size_t Printf(const char *fmt, ...);
+
+    /**
+     * @brief 线程安全向串口输出文本字符串
+     */
+    size_t Print(const char *str);
+
 private:
     CommManager() = default;
     ~CommManager() = default;

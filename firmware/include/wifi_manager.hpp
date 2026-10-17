@@ -64,9 +64,12 @@ public:
     bool Disconnect();
 
     /**
-     * @brief 扫描周围可用 Wi-Fi 热点并格式化返回
+     * @brief 扫描周围可用 Wi-Fi 热点并格式化返回 (支持一次性扫描与缓存复用)
+     * @param out_buf 输出缓冲区
+     * @param max_len 最大长度
+     * @param force_rescan 是否强制重新扫描 (默认 false: 已扫描则直接复用缓存，确保仅需执行一次)
      */
-    size_t ScanNetworks(char *out_buf, size_t max_len);
+    size_t ScanNetworks(char *out_buf, size_t max_len, bool force_rescan = false);
 
     /**
      * @brief 线程安全获取当前 Wi-Fi 与无线调试状态
@@ -77,6 +80,11 @@ public:
      * @brief 启停无线 TCP 调试服务 (默认端口 8266)
      */
     void SetWirelessDebug(bool enable, uint16_t port = 8266);
+
+    /**
+     * @brief 启动系统开机初始 Wi-Fi 扫描任务 (后台单次执行，并在串口打印扫描结果)
+     */
+    void StartInitialScanTask();
 
     /**
      * @brief 供底层事件驱动回调更新内部状态模型
@@ -94,11 +102,18 @@ private:
     WifiManager& operator=(const WifiManager&) = delete;
 
     static void WirelessDebugServerTask(void *pvParameters);
+    static void InitialScanTaskEntry(void *pvParameters);
 
     Mutex m_mutex;
     bool m_initialized{false};
     WifiStatusInfo m_status;
     bool m_server_task_running{false};
+
+    // Wi-Fi 扫描一次性执行与缓存机制 (彻底避免重复 3 秒阻塞)
+    bool m_has_scanned{false};
+    bool m_is_scanning{false};
+    char m_cached_scan_result[1536]{0};
+    size_t m_cached_scan_len{0};
 };
 
 } // namespace LinkNexus

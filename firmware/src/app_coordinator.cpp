@@ -59,14 +59,14 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
     switch (static_cast<ProtocolCmd>(cmd)) {
         case ProtocolCmd::Heartbeat: {
             uint8_t seq = (len > 0) ? payload[0] : 0;
-            ESP_LOGD(TAG, "[RX] Heartbeat packet received (Seq: 0x%02X)", seq);
+            CommManager::Instance().Printf("[上位机指令] 收到 0x01 心跳握手包 (Seq: 0x%02X)\r\n", seq);
             tx_len = ProtocolUtils::PackHeartbeatAck(seq, tx_buf);
             CommManager::Instance().SendRawFrame(tx_buf, tx_len);
             break;
         }
 
         case ProtocolCmd::TelemetryReport: {
-            // 上位机主动下发 0x10 请求即时刷新
+            CommManager::Instance().Printf("[上位机指令] 收到 0x10 遥测上报即时刷新请求\r\n");
             TelemetryPayload telemetry;
             TelemetryManager::Instance().ReadTelemetry(telemetry, PowerManager::Instance());
             tx_len = ProtocolUtils::PackTelemetry(telemetry, tx_buf);
@@ -77,6 +77,9 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
         case ProtocolCmd::ScreenSync: {
             ScreenSyncInfo sync_info;
             if (ProtocolUtils::ParseScreenSync(payload, len, sync_info)) {
+                CommManager::Instance().Printf("[上位机指令] 收到 0x20 屏幕同步 -> 通道: #%u, 烧录: %u%%, 设备: '%s', 正在烧录: %s\r\n",
+                                               sync_info.active_channel, sync_info.flash_progress, sync_info.device_name,
+                                               (sync_info.status_flags & 0x01) ? "是" : "否");
                 DisplayManager::Instance().UpdateState(sync_info);
             }
             break;
@@ -86,6 +89,8 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
             if (len >= 2) {
                 uint8_t channel = payload[0];
                 bool enable = (payload[1] != 0x00);
+                CommManager::Instance().Printf("[上位机指令] 收到 0x30 供电控制 -> 通道 #%u MOS 切换为: %s\r\n",
+                                               channel, enable ? "导通 (ON)" : "隔离 (OFF)");
                 bool ok = PowerManager::Instance().SetPower(channel, enable);
                 if (ok) {
                     tx_len = ProtocolUtils::PackPowerAck(channel, enable, tx_buf);
@@ -122,6 +127,14 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
                     }
                 }
 
+                const char *act_desc = (action == 0) ? "查询状态" :
+                                       (action == 1) ? "启动SoftAP" :
+                                       (action == 2) ? "连接Station" :
+                                       (action == 3) ? "断开Wi-Fi" :
+                                       (action == 4) ? "扫描周边热点" : "未知动作";
+                CommManager::Instance().Printf("[上位机指令] 收到 0x40 Wi-Fi控制 -> 动作: 0x%02X (%s), 信道: %u, SSID: '%s'\r\n",
+                                               action, act_desc, channel, ssid);
+
                 if (action == 1) { // 启动 SoftAP (主动 AP)
                     if (strlen(ssid) == 0) strcpy(ssid, "LinkNexus-ESP32-AP");
                     if (strlen(pwd) == 0) strcpy(pwd, "12345678");
@@ -132,7 +145,7 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
                     }
                 } else if (action == 3) { // 断开 Wi-Fi
                     WifiManager::Instance().Disconnect();
-                } else if (action == 4) { // 扫描周边真实 Wi-Fi 热点
+                } else if (action == 4) { // 扫描周边真实 Wi-Fi 热点 (仅需执行一次与复用缓存)
                     char scan_buf[1536];
                     size_t scan_len = WifiManager::Instance().ScanNetworks(scan_buf, sizeof(scan_buf));
                     if (scan_len > 0) {
@@ -171,6 +184,8 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
                 memcpy(cmd_str, payload, copy_len);
                 cmd_str[copy_len] = '\0';
 
+                CommManager::Instance().Printf("[上位机指令] 收到 0x50 CLI交互传输 -> 执行命令: \"%s\"\r\n", cmd_str);
+
                 char response_str[1536];
                 size_t resp_len = CliEngine::Instance().Execute(cmd_str, response_str, sizeof(response_str));
                 if (resp_len > 0) {
@@ -203,7 +218,7 @@ void AppCoordinator::ExecuteSerialCli(const char *cmd)
 {
     if (!cmd || strlen(cmd) == 0) return;
 
-    ESP_LOGI(TAG, "[Serial CLI] Received command: '%s'", cmd);
+    CommManager::Instance().Printf("[串口终端] 收到控制台输入: \"%s\"\r\n", cmd);
 
     char response_str[1536];
     size_t resp_len = CliEngine::Instance().Execute(cmd, response_str, sizeof(response_str) - 2);
@@ -232,8 +247,14 @@ void AppCoordinator::CommRxTaskEntry(void *pvParameters)
                 uint8_t b = rx_buffer[i];
 
                 if (self->m_parser.IsParsingFrame()) {
-                    self->m_parser.FeedByte(b);
-                    cli_len = 0;
+                    bool consumed = self->m_parser.FeedByte(b);
+                    if (!consumed && (b >= 32 && b <= 126)) {
+                        if (cli_len < sizeof(cli_line) - 1) {
+                            cli_line[cli_len++] = static_cast<char>(b);
+                        }
+                    } else if (consumed) {
+                        cli_len = 0;
+                    }
                 } else if (b == PROTOCOL_HEADER1) {
                     self->m_parser.FeedByte(b);
                 } else {
@@ -320,6 +341,9 @@ void AppCoordinator::Start()
                             4,
                             nullptr,
                             Cores::SYSTEM_CORE);
+
+    // 4. Core 0 启动开机初始 Wi-Fi 扫描任务 (后台单次执行并串口打印 AP 列表，彻底避免阻塞)
+    WifiManager::Instance().StartInitialScanTask();
 
     m_started = true;
     ESP_LOGI(TAG, "All dual-core tasks spawned and running smoothly.");

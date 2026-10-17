@@ -31,34 +31,37 @@ void ProtocolParser::Reset()
     memset(m_payload, 0, sizeof(m_payload));
 }
 
-void ProtocolParser::FeedByte(uint8_t b)
+bool ProtocolParser::FeedByte(uint8_t b)
 {
     switch (m_state) {
         case State::WaitForHeader1:
             if (b == PROTOCOL_HEADER1) {
                 m_state = State::WaitForHeader2;
                 m_calc_checksum = PROTOCOL_HEADER1;
+                return true;
             }
-            break;
+            return false;
 
         case State::WaitForHeader2:
             if (b == PROTOCOL_HEADER2) {
                 m_state = State::WaitForCmd;
                 m_calc_checksum += PROTOCOL_HEADER2;
+                return true;
             } else if (b == PROTOCOL_HEADER1) {
                 // 连续 0xAA 容错维持
                 m_state = State::WaitForHeader2;
                 m_calc_checksum = PROTOCOL_HEADER1;
+                return true;
             } else {
                 m_state = State::WaitForHeader1;
+                return false;
             }
-            break;
 
         case State::WaitForCmd:
             m_current_cmd = b;
             m_calc_checksum += b;
             m_state = State::WaitForLength;
-            break;
+            return true;
 
         case State::WaitForLength:
             m_expected_len = b;
@@ -69,7 +72,7 @@ void ProtocolParser::FeedByte(uint8_t b)
             } else {
                 m_state = State::WaitForPayload;
             }
-            break;
+            return true;
 
         case State::WaitForPayload:
             if (m_payload_idx < PROTOCOL_MAX_PAYLOAD_LEN) {
@@ -80,7 +83,7 @@ void ProtocolParser::FeedByte(uint8_t b)
             if (m_payload_idx >= m_expected_len) {
                 m_state = State::WaitForChecksum;
             }
-            break;
+            return true;
 
         case State::WaitForChecksum:
             if (b == m_calc_checksum) {
@@ -91,11 +94,11 @@ void ProtocolParser::FeedByte(uint8_t b)
             }
             // 无论是否匹配，重置状态等待下一帧
             m_state = State::WaitForHeader1;
-            break;
+            return true;
 
         default:
             m_state = State::WaitForHeader1;
-            break;
+            return false;
     }
 }
 

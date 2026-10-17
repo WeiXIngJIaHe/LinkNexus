@@ -116,8 +116,10 @@ size_t CliEngine::Execute(const char *cmd_line, char *out_response, size_t max_o
                 st.is_wireless_debug_active ? "已启动 [LISTENING]" : "未运行",
                 st.wireless_debug_port);
         }
-        else if (strcasecmp(sub_cmd, "scan") == 0) {
-            return WifiManager::Instance().ScanNetworks(out_response, max_out_len);
+        else if (strcasecmp(sub_cmd, "scan") == 0 || strcasecmp(sub_cmd, "rescan") == 0) {
+            char *opt = strtok(nullptr, " ");
+            bool force = (opt && (strcasecmp(opt, "force") == 0 || strcasecmp(opt, "-f") == 0)) || (strcasecmp(sub_cmd, "rescan") == 0);
+            return WifiManager::Instance().ScanNetworks(out_response, max_out_len, force);
         }
         else if (strcasecmp(sub_cmd, "disconnect") == 0 || strcasecmp(sub_cmd, "stop") == 0 || strcasecmp(sub_cmd, "off") == 0) {
             WifiManager::Instance().Disconnect();

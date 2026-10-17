@@ -96,10 +96,11 @@ namespace LinkNexus
                 BaudRate = baudRate;
                 _serialPort = new SerialPort(portName, baudRate, Parity.None, 8, StopBits.One)
                 {
-                    ReadTimeout = 2000,
+                    ReadTimeout = 1000,
                     WriteTimeout = 1000,
                     DtrEnable = true,
-                    RtsEnable = true
+                    RtsEnable = false,
+                    Handshake = Handshake.None
                 };
 
                 _serialPort.Open();

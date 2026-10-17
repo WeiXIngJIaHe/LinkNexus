@@ -1157,7 +1157,7 @@ namespace LinkNexus
             OpenEsp32CliCommand = new RelayCommand(OpenEsp32Cli);
             CloseEsp32CliCommand = new RelayCommand(CloseEsp32Cli);
             SendEsp32CliCommand = new RelayCommand(OnSendEsp32Cli);
-            SetWifiApPresetCommand = new RelayCommand(() => ExecuteEsp32Cli("wifi ap LinkNexus-ESP32-S3 12345678"));
+            SetWifiApPresetCommand = new RelayCommand(() => ExecuteEsp32Cli("wifi ap LinkNexus-ESP32-AP 12345678"));
             SetWifiStaPresetCommand = new RelayCommand(() => ExecuteEsp32Cli("wifi connect LabRouter_5G pass8888"));
             QueryWifiStatusPresetCommand = new RelayCommand(() => ExecuteEsp32Cli("wifi status"));
             ScanWifiPresetCommand = new RelayCommand(() => ExecuteEsp32Cli("wifi scan"));
@@ -1270,7 +1270,18 @@ namespace LinkNexus
                 {
                     IsEsp32Online = true;
                     DaemonStatusDotColor = "#10B981"; // 绿色：正常就绪/在线
-                    DaemonStatusText = "LinkNexus 物理拓扑守护服务：在线";
+                    DaemonStatusText = string.IsNullOrWhiteSpace(espDev.ComPort) || espDev.ComPort == "--"
+                        ? "LinkNexus 物理拓扑守护服务：在线"
+                        : $"LinkNexus 物理拓扑守护服务：在线 ({espDev.ComPort})";
+
+                    // 自动与 ESP32-S3 物理串口建立双向二进制与 CLI 通信
+                    if (!string.IsNullOrWhiteSpace(espDev.ComPort) && espDev.ComPort != "--")
+                    {
+                        if (!Esp32CommService.Instance.IsConnected || Esp32CommService.Instance.ConnectedPortName != espDev.ComPort)
+                        {
+                            Esp32CommService.Instance.Connect(espDev.ComPort, 115200);
+                        }
+                    }
                 }
 
                 _esp32DeviceModel = new PortDeviceModel
@@ -1292,6 +1303,10 @@ namespace LinkNexus
                 _esp32DeviceModel = null;
                 DaemonStatusDotColor = "#EF4444"; // 红色：离线
                 DaemonStatusText = "LinkNexus 物理拓扑守护服务：离线";
+                if (Esp32CommService.Instance.IsConnected)
+                {
+                    Esp32CommService.Instance.Disconnect();
+                }
             }
 
             // 2. 分离设备：
@@ -2747,7 +2762,7 @@ namespace LinkNexus
                 string sub = parts[1].ToLowerInvariant();
                 if (sub == "ap")
                 {
-                    string ssid = parts.Length >= 3 ? parts[2] : "LinkNexus-ESP32-S3";
+                    string ssid = parts.Length >= 3 ? parts[2] : "LinkNexus-ESP32-AP";
                     string pwd = parts.Length >= 4 ? parts[3] : "12345678";
                     byte ch = parts.Length >= 5 && byte.TryParse(parts[4], out byte c) ? c : (byte)1;
 
@@ -2802,13 +2817,7 @@ namespace LinkNexus
                 }
                 else if (sub == "scan")
                 {
-                    Esp32CliTerminalLines.Add("[WIFI] 正在扫描 2.4GHz 射频信道 (1~13)...");
-                    await Task.Delay(250);
-                    Esp32CliTerminalLines.Add("  [01] SSID: 'LinkNexus-Lab-AP'    RSSI: -42 dBm  AUTH: WPA2-PSK  CH: 1");
-                    Esp32CliTerminalLines.Add("  [02] SSID: 'Office-R&D-Mesh'     RSSI: -58 dBm  AUTH: WPA2/WPA3 CH: 6");
-                    Esp32CliTerminalLines.Add("  [03] SSID: 'Embedded-Debug-STA'  RSSI: -65 dBm  AUTH: WPA2-PSK  CH: 11");
-                    Esp32CliTerminalLines.Add("  [04] SSID: 'Guest-Free-WiFi'     RSSI: -78 dBm  AUTH: OPEN      CH: 3");
-                    Esp32CliTerminalLines.Add("[WIFI] 扫描完成: 发现 4 个可用 AP。");
+                    Esp32CliTerminalLines.Add("[WIFI] 未连接物理 ESP32 硬件，无法执行真实射频信道扫描。请检查 USB 串口连接。");
                 }
                 else if (sub == "disconnect")
                 {

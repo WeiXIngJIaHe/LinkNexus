@@ -65,6 +65,7 @@ void AppCoordinator::Init()
 
 void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_t len)
 {
+    bool was_active = IsHostActive();
     // 收到合法二进制协议帧，立刻标记上位机链路活跃 (保持 250ms 遥测上报流)
     TouchHostActivity();
 
@@ -74,14 +75,16 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
     switch (static_cast<ProtocolCmd>(cmd)) {
         case ProtocolCmd::Heartbeat: {
             uint8_t seq = (len > 0) ? payload[0] : 0;
-            ESP_LOGI(TAG, "Heartbeat ping received (Seq: 0x%02X), returning ACK with MAC %s.", seq, LINKNEXUS_DEFAULT_MAC);
+            if (!was_active) {
+                ESP_LOGI(TAG, "Host connected (Heartbeat ACK sent, MAC: %s).", LINKNEXUS_DEFAULT_MAC);
+            }
             tx_len = ProtocolUtils::PackHeartbeatAck(seq, tx_buf);
             CommManager::Instance().SendRawFrame(tx_buf, tx_len);
             break;
         }
 
         case ProtocolCmd::TelemetryReport: {
-            CommManager::Instance().Printf("[上位机指令] 收到 0x10 遥测上报即时刷新请求\r\n");
+            CommManager::Instance().Printf("[指令] 刷新遥测数据 (0x10)\r\n");
             TelemetryPayload telemetry;
             TelemetryManager::Instance().ReadTelemetry(telemetry, PowerManager::Instance());
             tx_len = ProtocolUtils::PackTelemetry(telemetry, tx_buf);
@@ -92,9 +95,8 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
         case ProtocolCmd::ScreenSync: {
             ScreenSyncInfo sync_info;
             if (ProtocolUtils::ParseScreenSync(payload, len, sync_info)) {
-                CommManager::Instance().Printf("[上位机指令] 收到 0x20 屏幕同步 -> 通道: #%u, 烧录: %u%%, 设备: '%s', 正在烧录: %s\r\n",
-                                               sync_info.active_channel, sync_info.flash_progress, sync_info.device_name,
-                                               (sync_info.status_flags & 0x01) ? "是" : "否");
+                CommManager::Instance().Printf("[指令] 屏幕同步: 通道 #%u, 进度 %u%%, 设备: %s\r\n",
+                                               sync_info.active_channel, sync_info.flash_progress, sync_info.device_name);
                 DisplayManager::Instance().UpdateState(sync_info);
             }
             break;
@@ -104,7 +106,7 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
             if (len >= 2) {
                 uint8_t channel = payload[0];
                 bool enable = (payload[1] != 0x00);
-                CommManager::Instance().Printf("[上位机指令] 收到 0x30 供电控制 -> 通道 #%u MOS 切换为: %s\r\n",
+                CommManager::Instance().Printf("[供电] 通道 #%u MOS: %s\r\n",
                                                channel, enable ? "导通 (ON)" : "隔离 (OFF)");
                 bool ok = PowerManager::Instance().SetPower(channel, enable);
                 if (ok) {
@@ -199,7 +201,7 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
                 memcpy(cmd_str, payload, copy_len);
                 cmd_str[copy_len] = '\0';
 
-                CommManager::Instance().Printf("[上位机指令] 收到 0x50 CLI交互传输 -> 执行命令: \"%s\"\r\n", cmd_str);
+                CommManager::Instance().Printf("[CLI] 执行: \"%s\"\r\n", cmd_str);
 
                 char response_str[1536];
                 size_t resp_len = CliEngine::Instance().Execute(cmd_str, response_str, sizeof(response_str));
@@ -429,8 +431,8 @@ void AppCoordinator::Start()
     m_started = true;
     ESP_LOGI(TAG, "All dual-core tasks spawned and running smoothly.");
 
-    // 5. 双核编排完成：向串口与控制台输出系统就绪通知 (保证文本终端绝对干净整洁)
-    const char *ready_msg = "[LINKNEXUS] SYSTEM_READY: ESP32-S3 Dual-Core Orchestrator Initialized (MAC: " LINKNEXUS_DEFAULT_MAC ").\r\n";
+    // 5. 双核初始化完成：输出系统就绪通知
+    const char *ready_msg = "[LINKNEXUS] SYSTEM_READY (MAC: " LINKNEXUS_DEFAULT_MAC ").\r\n";
     CommManager::Instance().Print(ready_msg);
 
     // 5.1 若上位机此时已连接，则补发二进制心跳响应与 CLI 激活通知

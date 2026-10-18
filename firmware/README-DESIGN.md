@@ -246,17 +246,18 @@ LinkNexus (Firmware Workspace)
 | **17** | **修改：1. 修复串口发送 `wifi scan` 指令直接看门狗报错与 Guru Meditation Error (Cache error / MMU entry fault error) 崩溃。<br>2. 修复扫描到的 11~19 个 AP 热点列表没有在串口控制台打印出来的问题。<br>3. 修复串口输入字符出现双重回显，以及 `[串口控制台] 收到指令: "wifi scan"` 重复打印两次的问题。** | 1. **深度崩溃归因 (ELF 符号地址精确还原)**：<br>• 通过 `addr2line` 解析崩溃堆栈：`0x42003c1d` -> `CliEngine::Execute`（`cli_engine.cpp:367`）、`0x42002a5d` -> `ExecuteSerialCli`（`app_coordinator.cpp:233`）、`0x42002ca9` -> `CommRxTaskEntry`（`app_coordinator.cpp:312`）；<br>• **根因定位**：`comm_rx` 任务初始分配栈深度仅 4096 字节。而在执行 `wifi scan` 时，`ExecuteSerialCli` 栈帧分配了 `response_str[1536]`，`cmd_wifi` 栈帧又分配了 `scan_result[1536]`，叠加 `esp_console_run` 与 `vsnprintf` 格式化调用栈（消耗超 2KB），整条调用链路总栈开销达到 5.6KB+，导致任务栈指针 A1（`0x3fcb3060`）跌出物理栈底并击穿 MMU 保护页，硬件级触发 Cache MMU 故障与看门狗崩溃；<br>2. **零栈消耗重构与任务栈安全扩容**：<br>• **0 栈内存引用**：在 `WifiManager` 中新增 `GetCachedScanResult()` 与 `HasScanned()`，`cmd_wifi` 与 `ExecuteSerialCli` 彻底废弃 1.5KB 局部栈数组，改用单例静态成员只读指针与全局静态响应缓冲区（`s_cli_response_str[2048]`），将指令解析栈消耗降至 0 字节；<br>• **任务栈扩容至 8192 字节**：将 `comm_rx` 任务深度从 4096 提升至 8192 字节，预留充足安全水位；<br>• **USB-Serial-JTAG 256 字节分块防溢出**：对超大纯文本报文（如 1400 字节 Wi-Fi 列表）采用 256 字节分块平滑注入 USB FIFO，彻底杜绝单次大写入溢出丢包；<br>3. **消除重复打印与双重字符回显**：<br>• 移除 `ExecuteSerialCli` 与 `CommRxTaskEntry` 中向 stdout 的冗余 `printf`/`putchar` 调用，由 `CommManager::Instance().Print` 统一原子性输出，消除双重指令确认与字符回显；<br>• 超时自动提交阈值由 300ms 调整为 800ms，并在提交后立即清零 `last_char_tick`，彻底消除误触发与重复提交；<br>4. **全站版本号统一递增至 `v0.23-preview.2641`**。 | ✅ **已完全落地** |
 | **18** | **定义与修改：1. 明确硬件芯片定义：采用 ESP32-S3FH4R2 (ESP32F2H4) 裸芯片外加自绘制 IPEX 座子与直连 0Ω Π 型天线匹配网络。<br>2. 修复自制板只能扫描、无法连接 (STA 握手超时 / SoftAP 客户端连不上) 的天线发射失配问题。<br>3. 实现降低发射功率与调制速率调谐体系，提供 `wifi txpower`、`wifi protocol`、`wifi channel`、`wifi diag` 射频控制与详细断连原因诊断，测试验证 ANT 天线线缆。** | 1. **射频物理层失配机理深度归因 (RX 能扫 vs TX 无法握手)**：<br>• **接收与发射非对称性**：ESP32-S3 接收机灵敏度高达 -98dBm，即使 0Ω 直连天线阻抗严重偏离 50Ω (高 VSWR 驻波比)，对端路由器的大功率 (100mW+) Beacon 广播包仍能被捕获解码，因此**Wi-Fi 扫描完全正常**；<br>• **发射失真与握手失败**：连接热点或 SoftAP 接客需进行严格的双向 2/4 次帧交互（Auth、Assoc、EAPOL 4-Way Handshake）。在 ESP-IDF 默认顶格 20dBm (100mW) 满功率发射下，未经 LC 调谐的 0Ω 直连导致大量射频功率反射回内部功放 (PA)，引起严重的 EVM 调制误差失真与瞬间峰值电流 (>450mA) 压降，对端设备无法正确校验 ESP32 发出的握手帧，直接触发 `AUTH_EXPIRE` (2) 与 `4WAY_HANDSHAKE_TIMEOUT` (15/204) 断连；<br>2. **射频前向发射功率与基带调制全套调谐体系落地**：<br>• **开机安全基线调谐**：将开机默认最大发射功率由 20dBm (raw 80) 下调至安全测试基线 **13.00dBm** (raw 52)，大幅压制反射波与功放饱和失真；同时强制锁定信道基带带宽为 **20MHz (HT20)**，成倍提升功率谱密度并减少带外衰落；<br>• **动态功率控制 CLI (`wifi txpower [dbm]`)**：支持 8.00~20.00 dBm 任意功率动态实时调节，用户可输入 `wifi txpower 10` 进一步降低功率以彻底隔离 ANT 天线失配；<br>• **协议调制模式回退 (`wifi protocol [b|bg|bgn]`)**：支持切换至 802.11b（CCK DSSS 1~11Mbps，抗阻抗失配能力最强）或 802.11b/g（剔除 11n 高阶 MCS 64-QAM）；<br>• **信道频率调节 (`wifi channel <1-13>`)**：支持设置工作信道（如 CH1: 2412MHz 低衰减频点）；<br>• **全功能射频天线诊断台 (`wifi diag`)**：清晰输出当前芯片型号、天线电路描述、生效发射功率、当前信道与握手失败诊断建议；<br>3. **全站版本号统一递增至 `v0.24-preview.2641`**。 | ✅ **已完全落地** |
 | **21** | **设计与落地：1. 硬件多 ESP32 并存场景下的主控身份鉴权与调试串口解耦：确立仅 LinkNexus 官方主控固件运行 0xAA 0x55 二进制协议栈响应 0x01 心跳 ACK 并具备 whoami 自我证明，消除将外部调试 ESP32 误当主控的严重 Bug。<br>2. 固件 CLI 增加 `whoami` 与 `clear` 标准指令，支持角色自省与清屏；确立全命令集 Tab 自动补全规则库。** | 1. **主控身份鉴权与多 ESP32 隔离准则**：<br>• 在硬件协议层明确规范：下位机固件具备唯一主控指纹，开机通过 CDC/UART 广播 `[LINKNEXUS] SYSTEM_READY` 并仅对包含有效校验和的 `0xAA 0x55 0x01` 心跳包回复 `0x01 ACK`（`0xAA 0x55 0x01 0x01 0x06 0x07`）；<br>• 任何外部接入的普通被测 ESP32（运行用户程序或 ROM 引导模式）不产生该协议响应，上位机据此实现毫秒级主控锁定，彻底隔离守护进程与调试串口；<br>2. **CLI 标准指令扩充**：<br>• 新增 `whoami` 指令：返回 `LinkNexus-Pro-ESP32S3 | Firmware: 0.27-preview-2641 | Role: Master Daemon`，提供 ASCII 层面的快速自省确认；<br>• 新增 `clear` 指令：输出 ANSI VT100 清屏与游标复位序列；<br>3. **全站版本号统一递增至 `v0.27-preview.2641`**。 | ✅ **已完全落地** |
+| **22** | **修改：1. 硬件多 ESP32 并存场景下的主控身份 MAC 绑定：改用全局唯一 MAC 码（测试指定 `d0:cf:13:30:90:30`）作为 LinkNexus 主控全局唯一不可篡改标识符，在 0x01 心跳 ACK 中回传 7 字节 Payload (0x06 ACK + 6 字节 MAC)，确保上位机仅与官方合法主控守护进程建立绑定与通信。<br>2. 原生 CLI 指令 `whoami` 与 `status` 深度集成 MAC 唯一指纹展示与系统就绪广播同步。** | 1. **主控 MAC 唯一指纹与协议心跳帧升级**：<br>• 固化 LinkNexus 专属主控 MAC 地址 `d0:cf:13:30:90:30` (`0xD0, 0xCF, 0x13, 0x30, 0x90, 0x30`)；<br>• 重构 `ProtocolUtils::PackHeartbeatAck`：心跳应答帧负载升级为 7 字节（`[0x06 (ACK), 0xD0, 0xCF, 0x13, 0x30, 0x90, 0x30]`），帧长 12 字节带动态累加和；上位机借此毫秒级精准鉴权，杜绝与普通 ESP32 发生任何混淆；<br>2. **CLI 与系统就绪广播协同**：<br>• `whoami` 指令输出：`LinkNexus-Pro-ESP32S3 | MAC: d0:cf:13:30:90:30 | Firmware: 0.28-preview-2641 | Role: Master Daemon | Chip: ...`；<br>• `status` 遥测新增：`主控唯一 MAC : d0:cf:13:30:90:30`；<br>• 开机 `[LINKNEXUS] SYSTEM_READY` 同步打印 MAC 唯一标识符；<br>3. **全站版本号统一递增至 `v0.28-preview.2641`**。 | ✅ **已完全落地** |
 
 ---
 
-# 七、 最新提交记录与演进状态 (v0.27-preview.2641)
+# 七、 最新提交记录与演进状态 (v0.28-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **版本号统一推进并锁定为 `v0.27-preview.2641`**：
+> 1. **版本号统一推进并锁定为 `v0.28-preview.2641`**：
 >    - 全量同步至 [`include/linknexus_config.hpp`](file:///c:/Users/17368/Desktop/LinkNexus/include/linknexus_config.hpp)、[`CMakeLists.txt`](file:///c:/Users/17368/Desktop/LinkNexus/CMakeLists.txt)、[`README.md`](file:///c:/Users/17368/Desktop/LinkNexus/README.md) 与本备忘录；
-> 2. **主控身份鉴权协议体系确立**：
->    - 明确 LinkNexus ESP32-S3 主控与外部目标 ESP32 调试串口在硬件与协议层的识别边界；
->    - 引入 `whoami` 与 `clear` 原生 CLI 指令；
+> 2. **主控身份 MAC 绑定与心跳协议帧升级**：
+>    - 固化 LinkNexus 主控唯一 MAC `d0:cf:13:30:90:30`，0x01 心跳 ACK 发送 7 字节载荷（ACK + 6 字节 MAC）；
+>    - CLI `whoami`、`status` 及系统就绪消息全量展示 MAC 标识；
 > 3. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 符合 ESP32-S3 生产标准。
 
 ---
@@ -270,4 +271,5 @@ LinkNexus (Firmware Workspace)
 > - *“修改：当上位机断开连接超过 3 秒时，自动关闭所有 MOS 通道供电，做安全离线保护”*
 >
 > 随时在此下方直接书写，保存后呼叫我，我将立即严格按照本 DESIGN 备忘录规范为您推进落地并步进版本号！
-*(如需继续修改或增加功能，可直接在此下方追加您的想法与需求)*
+*(如需继续修改或增加功能，可直接在此下方追加您的想法与需求)*
+

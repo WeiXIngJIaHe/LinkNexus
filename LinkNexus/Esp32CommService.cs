@@ -41,6 +41,7 @@ namespace LinkNexus
         public event Action<string>? LogMessage;
         public event Action<byte, bool>? PowerControlAckReceived;
         public event Action<byte>? HeartbeatAckReceived;
+        public event Action<byte, string?>? HeartbeatAckReceivedWithMac;
         public event Action<string>? CliResponseReceived;
         public event Action<Esp32WifiStatus>? WifiStatusReceived;
 
@@ -297,7 +298,9 @@ namespace LinkNexus
             {
                 case ProtocolCommand.Heartbeat:
                     byte ack = payload.Length > 0 ? payload[0] : (byte)0x06;
+                    string? mac = ProtocolEngine.ParseHeartbeatMacPayload(payload);
                     HeartbeatAckReceived?.Invoke(ack);
+                    HeartbeatAckReceivedWithMac?.Invoke(ack, mac);
                     break;
 
                 case ProtocolCommand.TelemetryReport:

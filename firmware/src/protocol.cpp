@@ -1,4 +1,5 @@
 #include "protocol.hpp"
+#include "linknexus_config.hpp"
 #include <string.h>
 #include <algorithm>
 
@@ -144,11 +145,18 @@ size_t ProtocolUtils::PackFrame(uint8_t cmd, const uint8_t *payload, uint8_t pay
     return static_cast<size_t>(5 + payload_len);
 }
 
-size_t ProtocolUtils::PackHeartbeatAck(uint8_t seq, uint8_t *out_buf)
+size_t ProtocolUtils::PackHeartbeatAck(uint8_t seq, uint8_t *out_buf, const uint8_t *mac)
 {
-    // 与 C# ProtocolEngine 对齐：返回 0x06 (ACK) 或序号回显
-    uint8_t payload = 0x06;
-    return PackFrame(static_cast<uint8_t>(ProtocolCmd::Heartbeat), &payload, 1, out_buf);
+    // 与 C# ProtocolEngine 对齐：返回 0x06 (ACK) + 6 字节 MAC 全局唯一标识符
+    (void)seq;
+    uint8_t payload[7];
+    payload[0] = 0x06;
+    if (mac) {
+        memcpy(&payload[1], mac, 6);
+    } else {
+        memcpy(&payload[1], Security::TARGET_MAC, 6);
+    }
+    return PackFrame(static_cast<uint8_t>(ProtocolCmd::Heartbeat), payload, sizeof(payload), out_buf);
 }
 
 size_t ProtocolUtils::PackTelemetry(const TelemetryPayload &telemetry, uint8_t *out_buf)

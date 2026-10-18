@@ -272,6 +272,27 @@ namespace LinkNexus
         }
 
         /// <summary>
+        /// 解析 0x01 心跳应答数据包中的 MAC 物理地址 (全局唯一主控标识符)
+        /// 负载格式：[0] ACK 标志 (0x06), [1..6] 6 字节 MAC 地址
+        /// </summary>
+        public static string? ParseHeartbeatMacPayload(byte[] payload)
+        {
+            if (payload == null || payload.Length < 7)
+            {
+                return null;
+            }
+
+            try
+            {
+                return $"{payload[1]:x2}:{payload[2]:x2}:{payload[3]:x2}:{payload[4]:x2}:{payload[5]:x2}:{payload[6]:x2}";
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// 解析 0x10 I2C 采样上报数据
         /// 协议定义：3 组定长 INA236 数据 (Bus, XDS110, DAPLink)
         /// 每组 4 字节：电压 (uint16_t mV) + 电流 (int16_t mA) -> 共 12 字节

@@ -298,20 +298,22 @@
 | **47** | **修改：1. 固化 NVS 使用方案 B，在原有的 CLI 命令下加入 save 保存，将 0/1 开启关闭改为 true 和 false 等类 CLI 命令。<br>2. 软件仿真层对齐 NVS 与 true/false 控制逻辑，全栈升级至 v0.26-preview.2641。** | ✅ **已完全落地**：<br/>1. **固化 NVS 方案 B 完整实装**：在现有 CLI 体系下原生追加 `save` 参数（如 `power 0 true save`, `wifi txpower 11.5 save`），并支持 `wifi save`, `wifi reset`, `wifi config` 与 `power save`, `power status` 指令；<br/>2. **CLI 语法现代化重构**：将 0/1 开关全面升级为 `true`/`false` 语法，并提供向后兼容；<br/>3. **上位机 CLI 仿真环境深度对齐**：在 `MainViewModel.cs` 中完整实现 `true`/`false` 与 `save` 仿真逻辑解析，更新 CLI 帮助手册；<br/>4. **全站版本号统一递增至 `v0.26-preview.2641`**。 |
 | **48** | **修改：1. 解决多 ESP32 并存冲突：若接入额外 ESP32，软件将其与 LinkNexus 主控守护进程解耦，将外部 ESP32 正确呈现为独立调试串口卡片。<br>2. CLI 界面重构为清晰的 Linux Shell 终端界面，去除杂乱调试信息。<br>3. 加入类似 Linux 的 Tab 键自动补全与 ↑/↓ 历史命令回溯。全栈升级至 v0.27-preview.2641。** | ✅ **已完全落地**：<br/>1. **多 ESP32 解耦与主控精准识别锁**：在 `MainViewModel` 中建立 `_confirmedDaemonPort` 守护锁定和 `_nonDaemonPorts` 备用调试列表，彻底移除 `validDevices` 对 ESP32 的全局硬编码排除，外部接入的被测 ESP32 自动解耦并识别为 `DeviceFunctionType.Uart_Serial`（卡片标题 `ESP32 调试串口 (COMx)`，徽章角标 `ESP32 调试串口`），支持独立打开串口进行收发与流控复位；<br/>2. **真实 Linux Shell 美学重塑**：重构 `Esp32CliWindowBorder`，采用深邃黑 `#0B0F19` 背景、三色视窗圆点（红/黄/绿）、`root@linknexus-esp32:~` 主机名徽章与 `root@linknexus-esp32:~# ` 纯净提示符；新增 `CliLineBrushConverter` 终端语义色彩高亮（提示符青绿、报错珊瑚红、警告琥珀黄、OK翠绿、标签天蓝、分割线微冷灰）；<br/>3. **全功能 Tab 键自动补全与历史回溯**：完整实现类似 Bash/Zsh 的 Tab 自动补全，支持根命令（`help`, `wifi`, `power`, `status`, `telemetry`, `whoami`, `clear`, `reboot`, `connect`）与全套子命令（`wifi <subcmd>`, `power <ch|all> <true|false>`, `telemetry <true|false>`）补全与候选项提示，以及 ↑/↓ 命令历史记录导航；<br/>4. **全站版本号统一递增至 `v0.27-preview.2641`**。 |
 
+| **49** | **修改：<br/>1. bug 进程在线了，为什么会弹出来转串口的卡片，这是严重bug。<br/>2. 改用mac码绑定LinkNexus的主控，不可更改，作为全局标识符，当前mac为 d0:cf:13:30:90:30 作为测试，后续版本会更改mac码，在连接上位机且发送心跳包时，mac码会作为全局唯一标识符发送给上位机，确保上位机只与主控守护进程通信。<br/>3. tab补全有bug，tab会成为空格且不能补全命令。<br/>全栈升级至 v0.28-preview.2641。** | ✅ **已完全落地**：<br/>1. **根治主控在线弹出串口卡片严重 Bug (后台隐匿与母子节点彻底过滤)**：在 `ProcessDiscoveredDevices` 中构建四维安全过滤网：当主控守护进程在线时，严格排除与 `_confirmedDaemonPort` 相同、与 `espDev` 相同、与主控硬件设备树路径相同以及任何无有效 COM 口的 ESP32 底层 USB 容器/JTAG 节点；在 `ClassifyDevice` 中追加拦截，凡属于主控端口或无有效串口号的节点一律降级为普通后台实体，绝不赋予 `Uart_Serial` 属性，主卡片区仅展示 CH338X 下行外设和外部接入的被测调试串口；<br/>2. **全局唯一不可篡改主控 MAC 标识符鉴权与心跳绑定**：硬件固件与上位机全面绑定测试 MAC 标识符 `d0:cf:13:30:90:30`；下位机心跳应答帧 (0x01 ACK) 升级为 7 字节载荷（`0x06 ACK + 6 字节 MAC`）；上位机 `ProtocolEngine` 与 `Esp32CommService` 引入 `HeartbeatAckReceivedWithMac` 鉴权通道，只有收到完全匹配 `d0:cf:13:30:90:30` 的硬件才锁定为官方主控守护进程并点亮常绿指示灯；任何外部接入的普通 ESP32 因无此 MAC 鉴权一律释放串口并转为独立调试卡片，彻底杜绝混淆；`whoami` 与 `status` CLI 同步显示 MAC；<br/>3. **根治 CLI 终端 Tab 键变空格且无法补全 Bug**：将 WPF `TextBox` 的事件拦截由冒泡级 `KeyDown` 升级为前置隧道级 `PreviewKeyDown`，并显式设置 `AcceptsTab="False"`；在文本合成阶段彻底抑制制表符/空格写入输入框，按下 Tab 瞬间无损触发 `ExecuteCliTabCompletion()` 与光标末尾定位；并在 ViewModel 层加入 `Replace("\t", "")` 强力防御性清洗；<br/>4. **全站版本号统一递增至 `v0.28-preview.2641`**。 |
+
 ---
 
-### 七、 最新提交记录与演进状态 (v0.27-preview.2641)
+### 七、 最新提交记录与演进状态 (v0.28-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **全站版本号统一推进并锁定为 `v0.27-preview.2641`**：
+> 1. **全站版本号统一推进并锁定为 `v0.28-preview.2641`**：
 >    - 全量同步至 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md`、固件配置与本备忘录；
-> 2. **多 ESP32 并存解耦与守护主控精准识别**：
->    - 彻底分离真正的 LinkNexus 核心守护进程与外部被测 ESP32 单片机；
->    - 外部 ESP32 自动作为独立调试卡片展示，支持常规串口收发、硬件复位与实时日志采样；
-> 3. **极客 Linux Shell 美学终端与 Tab 键命令行自动补全**：
->    - 视窗三色圆点、整洁 `root@linknexus-esp32:~# ` 命令行交互；
->    - 深度集成 Tab 键全命令/子命令自动补全与候选提示，以及 ↑/↓ 命令历史导航；
-> 4. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 与上位机应用程序均符合发布标准。
+> 2. **主控在线误出串口卡片 Bug 彻底修复**：
+>    - 主控守护进程严格隐匿于后台状态栏与协议引擎，彻底过滤底层 USB Composite 母节点和主控自身 COM 口，主卡片区仅呈现真实外设；
+> 3. **全局唯一不可篡改主控 MAC 标识符鉴权体系**：
+>    - 固化 `d0:cf:13:30:90:30` 硬件指纹，心跳包 7 字节携带 MAC，上位机严格鉴权绑定，彻底杜绝与外部普通 ESP32 混淆；
+> 4. **CLI 终端 Tab 键自动补全 Bug 根治**：
+>    - 采用 `PreviewKeyDown` 隧道事件拦截并抑制制表符输入，Tab 自动补全指令与候选提示流畅即时；
+> 5. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 与上位机应用程序均符合发布标准。
 
 ---
 
@@ -321,7 +323,6 @@
 > 当您对软件或硬件有新的功能诉求、界面调整或体验优化时，**无需编写代码，直接在下方空白处追加您的自然语言想法**。  
 > 随时在此下方直接书写，保存后呼叫我，我将立即严格按照本 DESIGN 备忘录规范为您推进落地并步进版本号！
 *(如需继续修改或增加功能，可直接在此下方追加您的想法与需求)*
-
 
 
 

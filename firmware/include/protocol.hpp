@@ -110,9 +110,13 @@ public:
     static size_t PackFrame(uint8_t cmd, const uint8_t *payload, uint8_t payload_len, uint8_t *out_buf);
 
     /**
-     * @brief 组装心跳应答帧 (Cmd: 0x01, Payload: 0x06 ACK)
+     * @brief 组装心跳应答帧 (Cmd: 0x01, Payload: 0x06 ACK + 6字节唯一 MAC 标识符)
+     * @param seq 心跳序列号
+     * @param out_buf 输出缓冲区 (至少 12 字节)
+     * @param mac 可选 6 字节 MAC 地址指针，若为 nullptr 则默认采用系统固化 MAC
+     * @return 实际组帧字节数 (12 字节: 5 字节包头包尾 + 7 字节 Payload)
      */
-    static size_t PackHeartbeatAck(uint8_t seq, uint8_t *out_buf);
+    static size_t PackHeartbeatAck(uint8_t seq, uint8_t *out_buf, const uint8_t *mac = nullptr);
 
     /**
      * @brief 组装 3 路 INA236 遥测上报帧 (Cmd: 0x10, Payload: 12字节)

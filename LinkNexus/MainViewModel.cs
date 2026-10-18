@@ -163,6 +163,11 @@ namespace LinkNexus
         private readonly object _enumLock = new();
 
         // 多 ESP32 并存解耦与守护主控识别锁
+        /// <summary>
+        /// LinkNexus 官方主控硬件固化的全局唯一不可篡改 MAC 物理标识符
+        /// 当前测试 MAC 码锁定为: d0:cf:13:30:90:30 (后续版本随固件更新)
+        /// </summary>
+        public const string LinkNexusTargetMac = "d0:cf:13:30:90:30";
         private string? _confirmedDaemonPort = null;
         private readonly HashSet<string> _nonDaemonPorts = new(StringComparer.OrdinalIgnoreCase);
 
@@ -1218,24 +1223,33 @@ namespace LinkNexus
                 });
             };
 
-            // 当下位机响应心跳包时，触发枚举成功逻辑：停止左下角滑动条动画，点亮绿灯
-            Esp32CommService.Instance.HeartbeatAckReceived += ack =>
+            // 当下位机响应心跳包时，触发基于全局唯一不可篡改 MAC 码的严格鉴权：
+            // 必须收到包含 LinkNexus 官方主控 MAC (d0:cf:13:30:90:30) 的 7 字节载荷，才锁定为主控守护进程！
+            // 任何外部 ESP32 (无此 MAC 码) 均判定为被测调试单片机，拒绝绑定守护进程并释放串口
+            Esp32CommService.Instance.HeartbeatAckReceivedWithMac += (ack, mac) =>
             {
                 _dispatcher.InvokeAsync(() =>
                 {
-                    OnEnumerationSuccess();
+                    if (!string.IsNullOrEmpty(mac) && string.Equals(mac, LinkNexusTargetMac, StringComparison.OrdinalIgnoreCase))
+                    {
+                        AddLog($"[主控鉴权] 收到心跳响应 ACK (0x{ack:X2})，MAC 码鉴权通过 [{mac}]！确认为 LinkNexus 官方主控守护进程。", "SUCCESS");
+                        OnEnumerationSuccess();
+                    }
+                    else
+                    {
+                        string port = _enumeratingComPort ?? Esp32CommService.Instance.ConnectedPortName;
+                        AddLog($"[主控鉴权] 警告: 串口硬件 {port} 响应 MAC [{mac ?? "无"}] 与 LinkNexus 官方主控 MAC [{LinkNexusTargetMac}] 不符！判定为外部被测 ESP32，拒绝绑定守护进程。", "WARNING");
+                        RejectNonMasterDaemon(port);
+                    }
                 });
             };
 
-            // 当收到物理硬件上报的真实遥测数据时，若正在枚举，立即确认枚举成功并点亮绿灯
+            // 当收到物理硬件上报的真实遥测数据时，若为主控且已鉴权在线，正常接收
             Esp32CommService.Instance.TelemetryReceived += data =>
             {
                 _dispatcher.InvokeAsync(() =>
                 {
-                    if (!Esp32CommService.Instance.IsSimulationMode && (_isEnumerating || !IsEsp32Online))
-                    {
-                        OnEnumerationSuccess();
-                    }
+                    // 遥测数据流由已鉴权在线的主控守护进程处理
                 });
             };
 
@@ -1424,11 +1438,53 @@ namespace LinkNexus
             var otherCards = new List<PortDeviceModel>();
 
             var validDevices = devices.Where(d =>
-                d != espDev && // 仅过滤掉当前被选定为主控守护进程或正在握手枚举的单一下位机，其余外部接入的 ESP32 均保留！
-                !d.Name.Equals("Generic USB Hub", StringComparison.OrdinalIgnoreCase) &&
-                !d.Name.Equals("USB Root Hub", StringComparison.OrdinalIgnoreCase) &&
-                !d.Name.Contains("根集线器", StringComparison.OrdinalIgnoreCase)
-            ).ToList();
+            {
+                // 1. 过滤掉标准系统 Hub
+                if (d.Name.Equals("Generic USB Hub", StringComparison.OrdinalIgnoreCase) ||
+                    d.Name.Equals("USB Root Hub", StringComparison.OrdinalIgnoreCase) ||
+                    d.Name.Contains("根集线器", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                // 2. 严禁主控自身在主卡片区被生成为串口卡片！
+                // 排除当前被选定为主控守护进程或正在握手枚举的 espDev
+                if (d == espDev) return false;
+
+                // 排除与已锁定的主控守护进程端口号相同的设备
+                if (!string.IsNullOrEmpty(_confirmedDaemonPort) &&
+                    string.Equals(d.ComPort, _confirmedDaemonPort, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                // 排除与当前主控设备 COM 口相同的设备
+                if (espDev != null && !string.IsNullOrWhiteSpace(espDev.ComPort) &&
+                    string.Equals(d.ComPort, espDev.ComPort, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                // 排除无有效 COM 口的 ESP32 硬件容器/复合母节点 (不具备作为串口调试卡片的物理意义)
+                if ((d.Vid == "303A" || d.Name.Contains("ESP32", StringComparison.OrdinalIgnoreCase)) &&
+                    (string.IsNullOrWhiteSpace(d.ComPort) || d.ComPort == "--"))
+                {
+                    return false;
+                }
+
+                // 排除与主控硬件处于同一物理设备树的复合子节点/父节点
+                if (espDev != null && !string.IsNullOrEmpty(espDev.HardwarePath) && !string.IsNullOrEmpty(d.HardwarePath))
+                {
+                    if (d.HardwarePath.Equals(espDev.HardwarePath, StringComparison.OrdinalIgnoreCase) ||
+                        d.HardwarePath.StartsWith(espDev.HardwarePath, StringComparison.OrdinalIgnoreCase) ||
+                        espDev.HardwarePath.StartsWith(d.HardwarePath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }).ToList();
 
             if (IsEsp32Online)
             {
@@ -1646,6 +1702,47 @@ namespace LinkNexus
             _usbMonitor.TriggerImmediateRefresh();
         }
 
+        private void RejectNonMasterDaemon(string portName)
+        {
+            lock (_enumLock)
+            {
+                if (!_isEnumerating) return;
+                _isEnumerating = false;
+                _enumerationCts?.Cancel();
+                _enumerationCts?.Dispose();
+                _enumerationCts = null;
+                _enumerationTimedOut = true;
+            }
+
+            if (!string.IsNullOrEmpty(portName) && portName != "--")
+            {
+                _nonDaemonPorts.Add(portName);
+            }
+            if (_confirmedDaemonPort == portName)
+            {
+                _confirmedDaemonPort = null;
+            }
+
+            IsDaemonEnumerating = false;
+            IsEsp32Online = false;
+
+            if (Esp32CommService.Instance.IsConnected)
+            {
+                Esp32CommService.Instance.Disconnect();
+            }
+
+            DaemonStatusDotColor = "#EF4444";
+            DaemonStatusText = "主控MAC不匹配";
+
+            if (_esp32DeviceModel != null)
+            {
+                _esp32DeviceModel.State = DeviceState.Warning;
+                _esp32DeviceModel.StatusMessage = $"MAC 标识符鉴权失败，已解除主控占用并释放串口 {portName}";
+            }
+
+            _usbMonitor.TriggerImmediateRefresh();
+        }
+
         private void CancelEnumeration()
         {
             lock (_enumLock)
@@ -1770,12 +1867,22 @@ namespace LinkNexus
                      nameUpper.Contains("ESP32") ||
                      (!string.IsNullOrWhiteSpace(dev.ComPort) && _nonDaemonPorts.Contains(dev.ComPort)))
             {
-                card.FunctionType = DeviceFunctionType.Uart_Serial;
-                card.DeviceName = !string.IsNullOrWhiteSpace(dev.ComPort) && dev.ComPort != "--"
-                    ? $"ESP32 调试串口 ({dev.ComPort})"
-                    : (string.IsNullOrWhiteSpace(dev.Name) ? "ESP32 调试串口" : dev.Name);
-                card.StatusMessage = "外部 ESP32 目标调试串口已就绪 (独立收发/复位/日志)";
-                card.State = dev.HasDriverIssue ? DeviceState.Warning : DeviceState.Ready;
+                // 若该设备属于主控守护端口，或者没有有效串口号，绝对不能作为调试卡片！
+                if (!string.IsNullOrEmpty(_confirmedDaemonPort) && string.Equals(dev.ComPort, _confirmedDaemonPort, StringComparison.OrdinalIgnoreCase))
+                {
+                    card.FunctionType = DeviceFunctionType.GenericUsb;
+                }
+                else if (string.IsNullOrWhiteSpace(dev.ComPort) || dev.ComPort == "--")
+                {
+                    card.FunctionType = DeviceFunctionType.GenericUsb;
+                }
+                else
+                {
+                    card.FunctionType = DeviceFunctionType.Uart_Serial;
+                    card.DeviceName = $"外部 ESP32 调试串口 ({dev.ComPort})";
+                    card.StatusMessage = "外部 ESP32 目标调试串口已就绪 (独立收发/复位/日志)";
+                    card.State = dev.HasDriverIssue ? DeviceState.Warning : DeviceState.Ready;
+                }
             }
             // 5. CH343P / 板载高速串口 / 通用串口 (CH338X 下行及所有串口)
             else if ((vid == "1A86" && (pid == "55D3" || pid == "7523" || pid == "5523")) ||
@@ -3397,7 +3504,7 @@ namespace LinkNexus
 
         public void ExecuteCliTabCompletion()
         {
-            string raw = Esp32CliInput ?? string.Empty;
+            string raw = (Esp32CliInput ?? string.Empty).Replace("\t", "");
             string input = raw.TrimStart();
             if (string.IsNullOrEmpty(input))
             {

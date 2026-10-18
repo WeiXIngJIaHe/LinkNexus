@@ -483,12 +483,14 @@ static int cmd_status(int argc, char **argv)
         "  FreeRTOS     : SMP 抢占式多任务内核 (Tick: 1000Hz)\r\n"
         "  系统剩余堆栈 : %u Bytes (SRAM)\r\n"
         "  固件版本号   : %s\r\n"
+        "  主控唯一 MAC : %s\r\n"
         "  Wi-Fi IP     : %s (模式: %s)\r\n"
         "  无线调试服务 : %s\r\n"
         "  上位机链路   : %s\r\n"
         "  遥测广播流   : %s\r\n",
         static_cast<unsigned int>(esp_get_free_heap_size()),
         LINKNEXUS_FIRMWARE_VERSION,
+        LINKNEXUS_DEFAULT_MAC,
         st.ip_str,
         (st.mode == WifiWorkMode::SoftAP) ? "主动 AP" : (st.mode == WifiWorkMode::Station) ? "从 AP (STA)" : "OFF",
         st.is_wireless_debug_active ? "TCP :8266 监听中" : "未启动",
@@ -570,7 +572,8 @@ static int cmd_whoami(int argc, char **argv)
     (void)argc;
     (void)argv;
     CliEngine::PrintResponse(
-        "LinkNexus-Pro-ESP32S3 | Firmware: %s | Role: Master Daemon | Chip: %s\r\n",
+        "LinkNexus-Pro-ESP32S3 | MAC: %s | Firmware: %s | Role: Master Daemon | Chip: %s\r\n",
+        LINKNEXUS_DEFAULT_MAC,
         LINKNEXUS_FIRMWARE_VERSION,
         LINKNEXUS_CHIP_PART_NUMBER);
     return 0;

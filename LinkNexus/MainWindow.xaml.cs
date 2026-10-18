@@ -169,9 +169,9 @@ namespace LinkNexus
         }
 
         /// <summary>
-        /// ESP32-S3 CLI 输入框键盘交互：Enter执行、Tab补全、↑/↓历史导航
+        /// ESP32-S3 CLI 输入框键盘交互：Enter执行、Tab补全、↑/↓历史导航 (采用 PreviewKeyDown 彻底拦截 Tab 制表符)
         /// </summary>
-        private void Esp32CliInputTextBox_KeyDown(object sender, KeyEventArgs e)
+        private void Esp32CliInputTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Tab)
             {

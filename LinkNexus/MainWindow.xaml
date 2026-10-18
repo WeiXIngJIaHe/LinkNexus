@@ -2349,8 +2349,8 @@
                                        Foreground="#10B981" VerticalAlignment="Center" Margin="0,0,6,0"/>
 
                             <TextBox x:Name="Esp32CliInputTextBox" Grid.Column="1" Text="{Binding Esp32CliInput, UpdateSourceTrigger=PropertyChanged}"
-                                     KeyDown="Esp32CliInputTextBox_KeyDown"
-                                     AcceptsTab="True"
+                                     PreviewKeyDown="Esp32CliInputTextBox_PreviewKeyDown"
+                                     AcceptsTab="False"
                                      CaretBrush="#38BDF8"
                                      Height="24" Background="Transparent" Foreground="#F8FAFC"
                                      BorderThickness="0" FontFamily="Consolas" FontSize="11" Padding="2,2"

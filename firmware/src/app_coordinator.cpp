@@ -74,7 +74,7 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
     switch (static_cast<ProtocolCmd>(cmd)) {
         case ProtocolCmd::Heartbeat: {
             uint8_t seq = (len > 0) ? payload[0] : 0;
-            ESP_LOGI(TAG, "Heartbeat ping received (Seq: 0x%02X), returning ACK.", seq);
+            ESP_LOGI(TAG, "Heartbeat ping received (Seq: 0x%02X), returning ACK with MAC %s.", seq, LINKNEXUS_DEFAULT_MAC);
             tx_len = ProtocolUtils::PackHeartbeatAck(seq, tx_buf);
             CommManager::Instance().SendRawFrame(tx_buf, tx_len);
             break;
@@ -430,7 +430,7 @@ void AppCoordinator::Start()
     ESP_LOGI(TAG, "All dual-core tasks spawned and running smoothly.");
 
     // 5. 双核编排完成：向串口与控制台输出系统就绪通知 (保证文本终端绝对干净整洁)
-    const char *ready_msg = "[LINKNEXUS] SYSTEM_READY: ESP32-S3 Dual-Core Orchestrator Initialized.\r\n";
+    const char *ready_msg = "[LINKNEXUS] SYSTEM_READY: ESP32-S3 Dual-Core Orchestrator Initialized (MAC: " LINKNEXUS_DEFAULT_MAC ").\r\n";
     CommManager::Instance().Print(ready_msg);
 
     // 5.1 若上位机此时已连接，则补发二进制心跳响应与 CLI 激活通知

@@ -188,6 +188,10 @@ namespace LinkNexus
             string upper = devName.ToUpperInvariant();
 
             // 按照用户要求：window识别出来的设备名 + 对应功能，比如 CH340串口-TTL / XDS110 虚拟串口
+            if (upper.Contains("ESP32"))
+            {
+                return $"ESP32 调试串口{suffix}";
+            }
             if (upper.Contains("XDS110"))
             {
                 return $"XDS110 虚拟串口{suffix}";

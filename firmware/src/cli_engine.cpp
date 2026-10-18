@@ -93,7 +93,9 @@ static int cmd_help(int argc, char **argv)
         "  power status                       - 显示 6 通道当前供电状态与 NVS 开机默认 Mask\r\n"
         "  status                             - 查询 ESP32-S3 双核系统资源与运行状态\r\n"
         "  telemetry [true|false] [save]      - 查询遥测数据或控制二进制广播流 (可选 [save])\r\n"
+        "  whoami                             - 查询设备身份标识与主控角色确认\r\n"
         "  reboot                             - 软复位重启 ESP32-S3\r\n"
+        "  clear                              - 清空当前终端屏幕\r\n"
         "=================================================================================\r\n");
     return 0;
 }
@@ -563,6 +565,25 @@ static int cmd_reboot(int argc, char **argv)
     return 0;
 }
 
+static int cmd_whoami(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    CliEngine::PrintResponse(
+        "LinkNexus-Pro-ESP32S3 | Firmware: %s | Role: Master Daemon | Chip: %s\r\n",
+        LINKNEXUS_FIRMWARE_VERSION,
+        LINKNEXUS_CHIP_PART_NUMBER);
+    return 0;
+}
+
+static int cmd_clear(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    CliEngine::PrintResponse("\033[2J\033[H[LinkNexus Shell] 屏幕已清空。\r\n");
+    return 0;
+}
+
 void CliEngine::RegisterCommands()
 {
     const esp_console_cmd_t help_cmd = {
@@ -630,6 +651,28 @@ void CliEngine::RegisterCommands()
         .context = NULL
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&reboot_cmd));
+
+    const esp_console_cmd_t whoami_cmd = {
+        .command = "whoami",
+        .help = "查询设备身份标识与主控角色确认",
+        .hint = NULL,
+        .func = &cmd_whoami,
+        .argtable = NULL,
+        .func_w_context = NULL,
+        .context = NULL
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&whoami_cmd));
+
+    const esp_console_cmd_t clear_cmd = {
+        .command = "clear",
+        .help = "清空控制台屏幕",
+        .hint = NULL,
+        .func = &cmd_clear,
+        .argtable = NULL,
+        .func_w_context = NULL,
+        .context = NULL
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&clear_cmd));
 }
 
 void CliEngine::Init()

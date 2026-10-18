@@ -32,6 +32,7 @@
     <!-- 全局样式与调色板资源 -->
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        <local:CliLineBrushConverter x:Key="CliLineBrushConverter" />
 
         <!-- 标题栏通用控制按钮样式 -->
         <Style x:Key="CaptionBtnStyle" TargetType="Button">
@@ -2218,25 +2219,25 @@
                 </Border.InputBindings>
             </Border>
 
-            <!-- 战术机能风格 CLI 终端面板 (支持鼠标自由拖拽与边框磁吸贴合) -->
+            <!-- 真实 Linux Shell 美学 CLI 终端悬浮窗 (支持鼠标自由拖拽与边框磁吸贴合) -->
             <Border x:Name="Esp32CliWindowBorder"
-                    Width="860" Height="580" MaxWidth="1050" MaxHeight="720"
-                    Background="{DynamicResource AppSurfaceBrush}"
-                    BorderBrush="{DynamicResource AccentCyanBrush}"
-                    BorderThickness="1.5" CornerRadius="8"
+                    Width="900" Height="590" MaxWidth="1100" MaxHeight="750"
+                    Background="#0B0F19"
+                    BorderBrush="#1E293B"
+                    BorderThickness="1" CornerRadius="8"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
                 <Border.RenderTransform>
                     <TranslateTransform x:Name="CliWindowTransform" X="0" Y="0" />
                 </Border.RenderTransform>
                 <Border.Effect>
-                    <DropShadowEffect BlurRadius="28" ShadowDepth="6" Direction="270" Color="#000000" Opacity="0.65" />
+                    <DropShadowEffect BlurRadius="32" ShadowDepth="8" Direction="270" Color="#000000" Opacity="0.75" />
                 </Border.Effect>
 
                 <Grid Margin="16,14,16,14">
                     <Grid.RowDefinitions>
-                        <!-- 行 0: 终端头部 (标题、状态徽章、关闭按钮，支持拖拽移动) -->
+                        <!-- 行 0: 终端头部 (三色控制圆点、主机标识、状态徽章、关闭按钮，支持拖拽移动) -->
                         <RowDefinition Height="Auto" />
-                        <!-- 行 1: 终端显示核心视窗 (彻底移除杂乱快捷指令栏，纯粹极客 CLI 视觉) -->
+                        <!-- 行 1: 终端显示核心视窗 (纯粹极客 Linux 终端视觉) -->
                         <RowDefinition Height="*" />
                         <!-- 行 2: 交互式命令行输入条 -->
                         <RowDefinition Height="Auto" />
@@ -2249,57 +2250,60 @@
                           MouseLeftButtonDown="CliHeader_MouseLeftButtonDown"
                           MouseMove="CliHeader_MouseMove"
                           MouseLeftButtonUp="CliHeader_MouseLeftButtonUp">
+                        
+                        <!-- 左侧：终端视窗圆点与标题 -->
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <!-- 终端芯片图标 -->
-                            <Border Width="28" Height="28" Background="{DynamicResource AppSurfaceSubtleBrush}"
-                                    BorderBrush="{DynamicResource AccentCyanBrush}" BorderThickness="1" CornerRadius="4"
-                                    Margin="0,0,10,0">
-                                <Path Data="M 4 17 L 10 11 L 4 5 M 12 19 L 20 19" 
-                                      Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                      Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <!-- Linux/Mac 风格三色圆点 -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="2,0,12,0">
+                                <Button Style="{StaticResource CaptionBtnStyle}" Width="12" Height="12" Padding="0" Margin="0,0,7,0"
+                                        Command="{Binding CloseEsp32CliCommand}" ToolTip="关闭终端 (Esc)">
+                                    <Ellipse Width="11" Height="11" Fill="#EF4444" />
+                                </Button>
+                                <Ellipse Width="11" Height="11" Fill="#F59E0B" Margin="0,0,7,0" />
+                                <Ellipse Width="11" Height="11" Fill="#10B981" />
+                            </StackPanel>
+
+                            <!-- 主机名徽章 -->
+                            <Border Background="#131B2E" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,10,0">
+                                <TextBlock Text="root@linknexus-esp32:~" FontSize="11" FontFamily="Consolas" FontWeight="SemiBold"
+                                           Foreground="#34D399" VerticalAlignment="Center"/>
                             </Border>
 
-                            <StackPanel VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="ESP32-S3 无线调试与网络控制 CLI" FontSize="13" FontWeight="Bold"
-                                               Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
-                                    <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
-                                            BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding VersionString, StringFormat='{}{0} · Dual-Core'}" FontSize="9" FontFamily="Consolas" Foreground="{DynamicResource AccentCyanBrush}"/>
-                                    </Border>
-                                </StackPanel>
-                                <TextBlock Text="无线 TCP 调试服务 (端口 8266) · AP/STA 双模网络调度与物理总线控制"
-                                           FontSize="10" Foreground="{DynamicResource AppTextSecondaryBrush}" Margin="0,2,0,0"/>
-                            </StackPanel>
+                            <TextBlock Text="LinkNexus 嵌入式控制台" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
+
+                            <Border Background="#131B2E" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding VersionString, StringFormat='{}{0} · Daemon'}" FontSize="9" FontFamily="Consolas" Foreground="#38BDF8"/>
+                            </Border>
                         </StackPanel>
 
                         <!-- 右侧状态徽章与关闭按钮 -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                             <!-- Wi-Fi 模式徽章 -->
-                            <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
+                            <Border Background="#131B2E" BorderBrush="#1E293B"
                                     BorderThickness="1" CornerRadius="4" Padding="8,3" Margin="0,0,8,0">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <Path Data="M 5 12.55 C 8.87 9.17 15.13 9.17 19 12.55 M 1.42 9 C 7.26 3.67 16.74 3.67 22.58 9 M 8.53 16.11 C 10.45 14.43 13.55 14.43 15.47 16.11 M 12 20 A 1 1 0 1 0 12 20.01"
-                                          Stroke="{DynamicResource AccentCyanBrush}" StrokeThickness="1.5" Width="11" Height="11" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                          Stroke="#38BDF8" StrokeThickness="1.5" Width="11" Height="11" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="{Binding Esp32WifiMode}" FontSize="10" FontFamily="Consolas" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AppTextPrimaryBrush}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
 
                             <!-- IP 地址徽章 -->
-                            <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
+                            <Border Background="#131B2E" BorderBrush="#1E293B"
                                     BorderThickness="1" CornerRadius="4" Padding="8,3" Margin="0,0,8,0">
                                 <TextBlock Text="{Binding Esp32WifiIp, StringFormat='IP: {0}'}" FontSize="10" FontFamily="Consolas"
-                                           Foreground="{DynamicResource TerminalTextCyanBrush}" VerticalAlignment="Center"/>
+                                           Foreground="#38BDF8" VerticalAlignment="Center"/>
                             </Border>
 
                             <!-- 无线调试状态徽章 -->
-                            <Border Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
+                            <Border Background="#131B2E" BorderBrush="#1E293B"
                                     BorderThickness="1" CornerRadius="4" Padding="8,3" Margin="0,0,12,0">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <Ellipse Width="6" Height="6" Fill="#10B981" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="{Binding WirelessDebugPort, StringFormat='无线调试: :{0}'}" FontSize="10" FontFamily="Consolas"
-                                               Foreground="{DynamicResource TerminalTextGreenBrush}" VerticalAlignment="Center"/>
+                                               Foreground="#34D399" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
 
@@ -2313,17 +2317,17 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- 行 1: 终端显示核心视窗 (去除快捷指令栏，纯粹整洁 CLI 界面) -->
-                    <Border Grid.Row="1" Background="{DynamicResource AppTerminalBgBrush}"
-                            BorderBrush="{DynamicResource AppTerminalBorderBrush}"
-                            BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,10">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <!-- 行 1: 终端显示核心视窗 (纯粹整洁 Linux 终端视觉) -->
+                    <Border Grid.Row="1" Background="#070A11"
+                            BorderBrush="#1A2333"
+                            BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
+                        <ScrollViewer x:Name="Esp32CliScrollViewer" VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding Esp32CliTerminalLines}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="11"
-                                                   Foreground="{DynamicResource TerminalTextCyanBrush}"
-                                                   Margin="0,1" TextWrapping="Wrap"/>
+                                                   Foreground="{Binding Converter={StaticResource CliLineBrushConverter}}"
+                                                   Margin="0,1.5" TextWrapping="Wrap"/>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -2331,9 +2335,9 @@
                     </Border>
 
                     <!-- 行 2: 交互式命令行输入条 -->
-                    <Border Grid.Row="2" Background="{DynamicResource AppSurfaceBrush}"
-                            BorderBrush="{DynamicResource AppBorderBrush}"
-                            BorderThickness="1" CornerRadius="5" Padding="8,6" Margin="0,0,0,6">
+                    <Border Grid.Row="2" Background="#0D1322"
+                            BorderBrush="#1E293B"
+                            BorderThickness="1" CornerRadius="5" Padding="10,6" Margin="0,0,0,8">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -2341,13 +2345,14 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <TextBlock Grid.Column="0" Text="esp32-s3:~# " FontFamily="Consolas" FontSize="11" FontWeight="Bold"
-                                       Foreground="{DynamicResource AccentCyanBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Grid.Column="0" Text="root@linknexus-esp32:~# " FontFamily="Consolas" FontSize="11" FontWeight="Bold"
+                                       Foreground="#10B981" VerticalAlignment="Center" Margin="0,0,6,0"/>
 
-                            <TextBox Grid.Column="1" Text="{Binding Esp32CliInput, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox x:Name="Esp32CliInputTextBox" Grid.Column="1" Text="{Binding Esp32CliInput, UpdateSourceTrigger=PropertyChanged}"
                                      KeyDown="Esp32CliInputTextBox_KeyDown"
-                                     CaretBrush="{DynamicResource AccentCyanBrush}"
-                                     Height="24" Background="Transparent" Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                     AcceptsTab="True"
+                                     CaretBrush="#38BDF8"
+                                     Height="24" Background="Transparent" Foreground="#F8FAFC"
                                      BorderThickness="0" FontFamily="Consolas" FontSize="11" Padding="2,2"
                                      VerticalAlignment="Center"/>
 
@@ -2365,8 +2370,8 @@
 
                     <!-- 行 3: 底部操作指引微文案 -->
                     <Grid Grid.Row="3">
-                        <TextBlock Text="提示: 启动 CLI 方式为双击卡片或底部状态条[正常就绪] · 支持 wifi ap / wifi connect / wifi status · 端口 8266 无线调试就绪"
-                                   FontSize="9" FontFamily="Consolas" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="快捷提示: Tab 自动补全指令 · ↑/↓ 回溯历史命令 · 输入 'help' 查看完整手册 · 'whoami' 鉴权主控 · 'clear' 清屏"
+                                   FontSize="9.5" FontFamily="Consolas" Foreground="#64748B" VerticalAlignment="Center"/>
                     </Grid>
                 </Grid>
             </Border>

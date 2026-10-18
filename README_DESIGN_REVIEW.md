@@ -296,18 +296,22 @@
 | **44** | **彻底修复串口发送 `wifi scan` 指令触发 Guru Meditation MMU Cache Error 崩溃、AP 列表无法打印与字符重复回显 Bug，全栈升级至 v0.23-preview.2641** | ✅ **已完全落地**：<br/>1. **深度崩溃归因 (ELF 符号地址精确还原)**：通过 `addr2line` 定位 `comm_rx` 任务在执行 `wifi scan` 时，`ExecuteSerialCli` 栈帧与 `cmd_wifi` 栈帧叠加分配了 2 个 1.5KB 局部数组，加上 `esp_console_run` 与 `vsnprintf` 格式化调用栈（超 2KB），整条链路总栈开销达到 5.6KB+，击穿了 4KB 物理任务栈并触发 MMU entry fault 硬件级 Cache 崩溃；<br/>2. **零栈消耗重构与任务栈安全扩容**：在 `WifiManager` 中设计 `GetCachedScanResult()` 与 `HasScanned()`，指令解析彻底废弃局部栈数组，改用单例静态成员只读指针与全局静态缓冲区（`s_cli_response_str[2048]`），实现 0 栈消耗；同时将 `comm_rx` 任务栈扩容至 8192 字节；<br/>3. **USB-Serial-JTAG 256 字节分块防溢出写入**：对 1400+ 字节扫描结果采用 256 字节分块写入 USB FIFO，彻底杜绝单次大写入溢出丢包；<br/>4. **消除重复打印与双重字符回显**：移除 `ExecuteSerialCli` 与 `CommRxTaskEntry` 中冗余的 stdout `printf`/`putchar` 调用，由 `CommManager::Print` 统一发送；延长超时自动提交窗口至 800ms 并在提交后立即清零 `last_char_tick`；<br/>5. **全站版本号统一递增至 `v0.23-preview.2641`**。 |
 | **45** | **定义与修改：1. 明确硬件芯片定义：采用 ESP32-S3FH4R2 (ESP32F2H4) 裸芯片外加自绘制 IPEX 座子与直连 0Ω Π 型天线匹配网络。<br>2. 修复自制板只能扫描、无法连接 (STA 握手超时 / SoftAP 客户端连不上) 的天线发射失配问题。<br>3. 实现降低发射功率与调制速率调谐体系，提供 `wifi txpower`、`wifi protocol`、`wifi channel`、`wifi diag` 射频控制与详细断连原因诊断，测试验证 ANT 天线线缆。** | ✅ **已完全落地**：<br/>1. **射频物理层失配机理深度归因 (RX 能扫 vs TX 无法握手)**：<br>• **接收与发射非对称性**：ESP32-S3 接收机灵敏度高达 -98dBm，即使 0Ω 直连天线阻抗严重偏离 50Ω (高 VSWR 驻波比)，对端路由器的大功率 (100mW+) Beacon 广播包仍能被捕获解码，因此**Wi-Fi 扫描完全正常**；<br>• **发射失真与握手失败**：连接热点或 SoftAP 接客需进行严格的双向 2/4 次帧交互（Auth、Assoc、EAPOL 4-Way Handshake）。在 ESP-IDF 默认顶格 20dBm (100mW) 满功率发射下，未经 LC 调谐的 0Ω 直连导致大量射频功率反射回内部功放 (PA)，引起严重的 EVM 调制误差失真与瞬间峰值电流 (>450mA) 压降，对端设备无法正确校验 ESP32 发出的握手帧，直接触发 `AUTH_EXPIRE` (2) 与 `4WAY_HANDSHAKE_TIMEOUT` (15/204) 断连；<br/>2. **射频前向发射功率与基带调制全套调谐体系落地**：<br>• **开机安全基线调谐**：将开机默认最大发射功率由 20dBm (raw 80) 下调至安全测试基线 **13.00dBm** (raw 52)，大幅压制反射波与功放饱和失真；同时强制锁定信道基带带宽为 **20MHz (HT20)**，成倍提升功率谱密度并减少带外衰落；<br>• **动态功率控制 CLI (`wifi txpower [dbm]`)**：支持 8.00~20.00 dBm 任意功率动态实时调节，用户可输入 `wifi txpower 10` 进一步降低功率以彻底隔离 ANT 天线失配；<br>• **协议调制模式回退 (`wifi protocol [b|bg|bgn]`)**：支持切换至 802.11b（CCK DSSS 1~11Mbps，抗阻抗失配能力最强）或 802.11b/g（剔除 11n 高阶 MCS 64-QAM）；<br>• **信道频率调节 (`wifi channel <1-13>`)**：支持设置工作信道（如 CH1: 2412MHz 低衰减频点）；<br>• **全功能射频天线诊断台 (`wifi diag`)**：清晰输出当前芯片型号、天线电路描述、生效发射功率、当前信道与握手失败诊断建议；<br/>3. **全站版本号统一递增至 `v0.24-preview.2641`**。 |
 | **47** | **修改：1. 固化 NVS 使用方案 B，在原有的 CLI 命令下加入 save 保存，将 0/1 开启关闭改为 true 和 false 等类 CLI 命令。<br>2. 软件仿真层对齐 NVS 与 true/false 控制逻辑，全栈升级至 v0.26-preview.2641。** | ✅ **已完全落地**：<br/>1. **固化 NVS 方案 B 完整实装**：在现有 CLI 体系下原生追加 `save` 参数（如 `power 0 true save`, `wifi txpower 11.5 save`），并支持 `wifi save`, `wifi reset`, `wifi config` 与 `power save`, `power status` 指令；<br/>2. **CLI 语法现代化重构**：将 0/1 开关全面升级为 `true`/`false` 语法，并提供向后兼容；<br/>3. **上位机 CLI 仿真环境深度对齐**：在 `MainViewModel.cs` 中完整实现 `true`/`false` 与 `save` 仿真逻辑解析，更新 CLI 帮助手册；<br/>4. **全站版本号统一递增至 `v0.26-preview.2641`**。 |
+| **48** | **修改：1. 解决多 ESP32 并存冲突：若接入额外 ESP32，软件将其与 LinkNexus 主控守护进程解耦，将外部 ESP32 正确呈现为独立调试串口卡片。<br>2. CLI 界面重构为清晰的 Linux Shell 终端界面，去除杂乱调试信息。<br>3. 加入类似 Linux 的 Tab 键自动补全与 ↑/↓ 历史命令回溯。全栈升级至 v0.27-preview.2641。** | ✅ **已完全落地**：<br/>1. **多 ESP32 解耦与主控精准识别锁**：在 `MainViewModel` 中建立 `_confirmedDaemonPort` 守护锁定和 `_nonDaemonPorts` 备用调试列表，彻底移除 `validDevices` 对 ESP32 的全局硬编码排除，外部接入的被测 ESP32 自动解耦并识别为 `DeviceFunctionType.Uart_Serial`（卡片标题 `ESP32 调试串口 (COMx)`，徽章角标 `ESP32 调试串口`），支持独立打开串口进行收发与流控复位；<br/>2. **真实 Linux Shell 美学重塑**：重构 `Esp32CliWindowBorder`，采用深邃黑 `#0B0F19` 背景、三色视窗圆点（红/黄/绿）、`root@linknexus-esp32:~` 主机名徽章与 `root@linknexus-esp32:~# ` 纯净提示符；新增 `CliLineBrushConverter` 终端语义色彩高亮（提示符青绿、报错珊瑚红、警告琥珀黄、OK翠绿、标签天蓝、分割线微冷灰）；<br/>3. **全功能 Tab 键自动补全与历史回溯**：完整实现类似 Bash/Zsh 的 Tab 自动补全，支持根命令（`help`, `wifi`, `power`, `status`, `telemetry`, `whoami`, `clear`, `reboot`, `connect`）与全套子命令（`wifi <subcmd>`, `power <ch|all> <true|false>`, `telemetry <true|false>`）补全与候选项提示，以及 ↑/↓ 命令历史记录导航；<br/>4. **全站版本号统一递增至 `v0.27-preview.2641`**。 |
 
 ---
 
-### 七、 最新提交记录与演进状态 (v0.26-preview.2641)
+### 七、 最新提交记录与演进状态 (v0.27-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **全站版本号统一推进并锁定为 `v0.26-preview.2641`**：
+> 1. **全站版本号统一推进并锁定为 `v0.27-preview.2641`**：
 >    - 全量同步至 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md`、固件配置与本备忘录；
-> 2. **落地方案 B NVS 配置固化引擎与 true/false 现代化语法**：
->    - 下位机与上位机 CLI 仿真层全面支持 `true`/`false` 布尔控制；
->    - 原生追加 `save` 参数，实现射频功率、信道、调制模式、MOS 通道状态、遥测流开关的即时固化；
-> 3. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 与上位机应用程序均符合发布标准。
+> 2. **多 ESP32 并存解耦与守护主控精准识别**：
+>    - 彻底分离真正的 LinkNexus 核心守护进程与外部被测 ESP32 单片机；
+>    - 外部 ESP32 自动作为独立调试卡片展示，支持常规串口收发、硬件复位与实时日志采样；
+> 3. **极客 Linux Shell 美学终端与 Tab 键命令行自动补全**：
+>    - 视窗三色圆点、整洁 `root@linknexus-esp32:~# ` 命令行交互；
+>    - 深度集成 Tab 键全命令/子命令自动补全与候选提示，以及 ↑/↓ 命令历史导航；
+> 4. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 与上位机应用程序均符合发布标准。
 
 ---
 
@@ -317,7 +321,6 @@
 > 当您对软件或硬件有新的功能诉求、界面调整或体验优化时，**无需编写代码，直接在下方空白处追加您的自然语言想法**。  
 > 随时在此下方直接书写，保存后呼叫我，我将立即严格按照本 DESIGN 备忘录规范为您推进落地并步进版本号！
 *(如需继续修改或增加功能，可直接在此下方追加您的想法与需求)*
-
 
 
 

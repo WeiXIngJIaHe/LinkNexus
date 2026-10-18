@@ -30,6 +30,15 @@ namespace LinkNexus
             // 2. 窗口生命周期事件
             StateChanged += MainWindow_StateChanged;
             Closed += MainWindow_Closed;
+
+            // 3. 监听 CLI 终端行输出自动滚动到底部
+            ((System.Collections.Specialized.INotifyCollectionChanged)_viewModel.Esp32CliTerminalLines).CollectionChanged += (s, e) =>
+            {
+                Dispatcher.InvokeAsync(() =>
+                {
+                    Esp32CliScrollViewer?.ScrollToBottom();
+                });
+            };
         }
 
         /// <summary>
@@ -160,10 +169,40 @@ namespace LinkNexus
         }
 
         /// <summary>
-        /// ESP32-S3 CLI 输入框 Enter 回车发送
+        /// ESP32-S3 CLI 输入框键盘交互：Enter执行、Tab补全、↑/↓历史导航
         /// </summary>
         private void Esp32CliInputTextBox_KeyDown(object sender, KeyEventArgs e)
         {
+            if (e.Key == Key.Tab)
+            {
+                e.Handled = true;
+                _viewModel.ExecuteCliTabCompletion();
+                if (sender is System.Windows.Controls.TextBox tbTab)
+                {
+                    tbTab.CaretIndex = tbTab.Text.Length;
+                }
+                return;
+            }
+            if (e.Key == Key.Up)
+            {
+                e.Handled = true;
+                _viewModel.NavigateCliHistory(up: true);
+                if (sender is System.Windows.Controls.TextBox tbUp)
+                {
+                    tbUp.CaretIndex = tbUp.Text.Length;
+                }
+                return;
+            }
+            if (e.Key == Key.Down)
+            {
+                e.Handled = true;
+                _viewModel.NavigateCliHistory(up: false);
+                if (sender is System.Windows.Controls.TextBox tbDown)
+                {
+                    tbDown.CaretIndex = tbDown.Text.Length;
+                }
+                return;
+            }
             if (e.Key == Key.Enter)
             {
                 if (_viewModel.SendEsp32CliCommand.CanExecute(null))

@@ -162,6 +162,10 @@ namespace LinkNexus
         private bool _enumerationTimedOut = false;
         private readonly object _enumLock = new();
 
+        // 多 ESP32 并存解耦与守护主控识别锁
+        private string? _confirmedDaemonPort = null;
+        private readonly HashSet<string> _nonDaemonPorts = new(StringComparer.OrdinalIgnoreCase);
+
         // 刷新总线与 VSCode 流光加载状态
         private bool _isRefreshingDevices = false;
         private DateTime _scanStartTime = DateTime.UtcNow;
@@ -223,6 +227,11 @@ namespace LinkNexus
         private string _esp32WifiClientCount = "0 台";
 
         public ObservableCollection<string> Esp32CliTerminalLines { get; } = new();
+
+        // 类似 Linux Shell 的指令历史回溯与 Tab 补全缓冲区
+        private readonly List<string> _cliHistory = new();
+        private int _cliHistoryIndex = -1;
+        private string _cliInputDraft = string.Empty;
 
         #endregion
 
@@ -1289,10 +1298,42 @@ namespace LinkNexus
 
         private void ProcessDiscoveredDevices(List<DiscoveredUsbDevice> devices)
         {
-            // 1. 优先检测 ESP32-S3 核心主控 (核心要求 1 & 2)
-            var espDev = devices.FirstOrDefault(d =>
-                (d.Vid == "303A" && (d.Pid == "1001" || d.Pid == "0002")) ||
-                d.Name.Contains("ESP32", StringComparison.OrdinalIgnoreCase));
+            // 1. 优先检测 ESP32-S3 核心主控守护进程 (防多 ESP32 串扰与误判)
+            DiscoveredUsbDevice? espDev = null;
+
+            // A. 如果已锁定主控守护进程端口，并且该硬件依然接入，优先绑定
+            if (!string.IsNullOrEmpty(_confirmedDaemonPort))
+            {
+                espDev = devices.FirstOrDefault(d => string.Equals(d.ComPort, _confirmedDaemonPort, StringComparison.OrdinalIgnoreCase));
+                if (espDev == null)
+                {
+                    // 已确认的主控设备拔出，解除锁定
+                    _confirmedDaemonPort = null;
+                }
+            }
+
+            // B. 若未锁定主控端口，则在候选列表中寻找非调试串口的 ESP32 主控
+            if (espDev == null)
+            {
+                var candidates = devices.Where(d =>
+                    ((d.Vid == "303A" && (d.Pid == "1001" || d.Pid == "0002")) ||
+                     d.Name.Contains("ESP32", StringComparison.OrdinalIgnoreCase)) &&
+                    !string.IsNullOrWhiteSpace(d.ComPort) && d.ComPort != "--" &&
+                    !_nonDaemonPorts.Contains(d.ComPort)
+                ).ToList();
+
+                espDev = candidates.FirstOrDefault();
+
+                // 若无可用 COM 口的候选，再检查驱动异常或无 COM 口的 ESP32 设备
+                if (espDev == null)
+                {
+                    espDev = devices.FirstOrDefault(d =>
+                        ((d.Vid == "303A" && (d.Pid == "1001" || d.Pid == "0002")) ||
+                         d.Name.Contains("ESP32", StringComparison.OrdinalIgnoreCase)) &&
+                        (string.IsNullOrWhiteSpace(d.ComPort) || d.ComPort == "--" || !_nonDaemonPorts.Contains(d.ComPort))
+                    );
+                }
+            }
 
             if (espDev != null)
             {
@@ -1377,14 +1418,13 @@ namespace LinkNexus
 
             // 2. 分离设备：
             // A) 当 ESP32 识别并枚举成功：把 Windows 识别到的其他设备卡片收纳为抽屉形式，
-            //    主卡片区只显示出 CH338X 下行的核心调试/通信设备 (FT2232, CH343P, XDS110, DAP)
+            //    主卡片区只显示出 CH338X 下行的核心调试/通信设备 (FT2232, CH343P, XDS110, DAP，以及外部被测 ESP32 调试串口)
             // B) 当 ESP32 未识别/离线时：无拓扑收敛，所有设备均平铺在主卡片列表
             var ch338xCards = new List<PortDeviceModel>();
             var otherCards = new List<PortDeviceModel>();
 
             var validDevices = devices.Where(d =>
-                !d.Name.Contains("ESP32", StringComparison.OrdinalIgnoreCase) &&
-                !(d.Vid == "303A" && (d.Pid == "1001" || d.Pid == "0002")) &&
+                d != espDev && // 仅过滤掉当前被选定为主控守护进程或正在握手枚举的单一下位机，其余外部接入的 ESP32 均保留！
                 !d.Name.Equals("Generic USB Hub", StringComparison.OrdinalIgnoreCase) &&
                 !d.Name.Equals("USB Root Hub", StringComparison.OrdinalIgnoreCase) &&
                 !d.Name.Contains("根集线器", StringComparison.OrdinalIgnoreCase)
@@ -1539,6 +1579,12 @@ namespace LinkNexus
                 portName = _enumeratingComPort ?? Esp32CommService.Instance.ConnectedPortName;
             }
 
+            _confirmedDaemonPort = portName;
+            if (!string.IsNullOrEmpty(portName))
+            {
+                _nonDaemonPorts.Remove(portName);
+            }
+
             // 当枚举成功，点亮绿灯，停止滑条动画
             IsDaemonEnumerating = false;
             IsEsp32Online = true;
@@ -1551,7 +1597,8 @@ namespace LinkNexus
                 _esp32DeviceModel.StatusMessage = "ESP32-S3 核心主控链路正常，管理协议栈就绪";
             }
 
-            AddLog($"[守护服务] 硬件串口 {portName} 枚举成功！物理链路锁定就绪，已点亮绿灯。", "SUCCESS");
+            AddLog($"[守护服务] 硬件串口 {portName} 枚举握手成功！确认并锁定为 LinkNexus 核心主控守护进程，已点亮绿灯。", "SUCCESS");
+            _usbMonitor.TriggerImmediateRefresh();
         }
 
         private void HandleEnumerationTimeout(string portName, string vid, string pid)
@@ -1563,6 +1610,15 @@ namespace LinkNexus
                 _enumerationCts?.Dispose();
                 _enumerationCts = null;
                 _enumerationTimedOut = true;
+            }
+
+            if (!string.IsNullOrEmpty(portName) && portName != "--")
+            {
+                _nonDaemonPorts.Add(portName);
+            }
+            if (_confirmedDaemonPort == portName)
+            {
+                _confirmedDaemonPort = null;
             }
 
             // 枚举 10 秒钟，超时就释放串口并点亮红灯
@@ -1585,7 +1641,9 @@ namespace LinkNexus
                 _esp32DeviceModel.StatusMessage = $"串口枚举超时 (10秒未响应)，已主动释放串口 {portName}";
             }
 
-            AddLog($"[守护服务] 硬件 [VID:{vid} PID:{pid}] 串口 {portName} 枚举超时 (10秒未响应)，已主动释放串口并点亮红灯。", "WARNING");
+            AddLog($"[守护服务] 硬件 [VID:{vid} PID:{pid}] 串口 {portName} 10秒未响应 LinkNexus 管理协议，判定为外部 ESP32 目标调试串口，已自动解耦独立卡片。", "INFO");
+            // 重新刷新总线，将该外部 ESP32 呈现为独立调试卡片
+            _usbMonitor.TriggerImmediateRefresh();
         }
 
         private void CancelEnumeration()
@@ -1610,6 +1668,7 @@ namespace LinkNexus
             {
                 IsDaemonEnumerating = true;
                 _enumerationTimedOut = false; // 手动刷新允许重新尝试枚举
+                _nonDaemonPorts.Clear(); // 允许用户在点击刷新总线时重新探测主控候选
             }
 
             // 手动点击刷新总线时立即执行后台扫描，无需等待 250ms 防抖
@@ -1706,7 +1765,19 @@ namespace LinkNexus
                     card.FunctionType = DeviceFunctionType.Burner_XDS110;
                 }
             }
-            // 4. CH343P / 板载高速串口 / 通用串口 (CH338X 下行及所有串口)
+            // 4. 外部接入的被测 ESP32 目标单片机串口 (与 LinkNexus 主控解耦，独立作为调试卡片)
+            else if ((vid == "303A" && (pid == "1001" || pid == "0002")) ||
+                     nameUpper.Contains("ESP32") ||
+                     (!string.IsNullOrWhiteSpace(dev.ComPort) && _nonDaemonPorts.Contains(dev.ComPort)))
+            {
+                card.FunctionType = DeviceFunctionType.Uart_Serial;
+                card.DeviceName = !string.IsNullOrWhiteSpace(dev.ComPort) && dev.ComPort != "--"
+                    ? $"ESP32 调试串口 ({dev.ComPort})"
+                    : (string.IsNullOrWhiteSpace(dev.Name) ? "ESP32 调试串口" : dev.Name);
+                card.StatusMessage = "外部 ESP32 目标调试串口已就绪 (独立收发/复位/日志)";
+                card.State = dev.HasDriverIssue ? DeviceState.Warning : DeviceState.Ready;
+            }
+            // 5. CH343P / 板载高速串口 / 通用串口 (CH338X 下行及所有串口)
             else if ((vid == "1A86" && (pid == "55D3" || pid == "7523" || pid == "5523")) ||
                      nameUpper.Contains("CH343") || nameUpper.Contains("CH340") || nameUpper.Contains("CH341") ||
                      nameUpper.Contains("CP210") || nameUpper.Contains("FT232") || nameUpper.Contains("PL2303") ||
@@ -2870,7 +2941,26 @@ namespace LinkNexus
             if (string.IsNullOrWhiteSpace(rawCmd)) return;
             string cmd = rawCmd.Trim();
 
-            Esp32CliTerminalLines.Add($"esp32-s3:~# {cmd}");
+            // 记录指令历史 (防连续重复)
+            if (_cliHistory.Count == 0 || _cliHistory[^1] != cmd)
+            {
+                _cliHistory.Add(cmd);
+                if (_cliHistory.Count > 100) _cliHistory.RemoveAt(0);
+            }
+            _cliHistoryIndex = -1;
+            _cliInputDraft = string.Empty;
+
+            if (cmd.Equals("clear", StringComparison.OrdinalIgnoreCase))
+            {
+                Esp32CliTerminalLines.Clear();
+                if (Esp32CommService.Instance.IsConnected && !Esp32CommService.Instance.IsSimulationMode)
+                {
+                    Esp32CommService.Instance.SendCliCommand(cmd);
+                }
+                return;
+            }
+
+            Esp32CliTerminalLines.Add($"root@linknexus-esp32:~# {cmd}");
             while (Esp32CliTerminalLines.Count > 350) Esp32CliTerminalLines.RemoveAt(0);
 
             bool sent = Esp32CommService.Instance.SendCliCommand(cmd);
@@ -2879,13 +2969,9 @@ namespace LinkNexus
 
         private void PrintCliWelcomeBanner()
         {
-            Esp32CliTerminalLines.Add("==================================================================");
-            Esp32CliTerminalLines.Add("  LINKNEXUS · ESP32-S3 HIGH-PERFORMANCE CLI & WIRELESS DEBUG");
-            Esp32CliTerminalLines.Add($"  Firmware: {VersionInfo.CurrentVersion} | Xtensa Dual-Core LX7 @ 240MHz");
-            Esp32CliTerminalLines.Add($"  Wireless Debug: 8266 (TCP/IP) | Ready for AP / STA Orchestration");
-            Esp32CliTerminalLines.Add("==================================================================");
-            Esp32CliTerminalLines.Add("[INFO] ESP32-S3 Core Coordinator initialized.");
-            Esp32CliTerminalLines.Add("[INFO] 双击[正常就绪]成功唤醒 CLI 终端。输入 'help' 查看指令手册。");
+            Esp32CliTerminalLines.Add("LinkNexus Linux-Compatible Embedded Shell (v0.27)");
+            Esp32CliTerminalLines.Add("Type 'help' for command manual, 'whoami' for daemon identity.");
+            Esp32CliTerminalLines.Add("Tab for auto-completion, ↑ / ↓ for command history.");
             Esp32CliTerminalLines.Add("");
         }
 
@@ -2985,10 +3071,17 @@ namespace LinkNexus
                 Esp32CliTerminalLines.Add("  power status                         - 查看 MOS 通道状态及 NVS 开机 Mask");
                 Esp32CliTerminalLines.Add("  telemetry [true|false] [save]        - 控制遥测广播流 (可选 [save] 固化)");
                 Esp32CliTerminalLines.Add("  connect [ip] [port]                  - 建立上位机与 ESP32-S3 的 Wi-Fi TCP 调试直连");
+                Esp32CliTerminalLines.Add("  whoami                               - 查询主控身份、固件版本与运行角色");
                 Esp32CliTerminalLines.Add("  status                               - 查询 ESP32-S3 双核状态、堆内存与外设");
                 Esp32CliTerminalLines.Add("  reboot                               - 软复位并重启 ESP32-S3 芯片");
                 Esp32CliTerminalLines.Add("  clear                                - 清空当前终端输出行");
                 Esp32CliTerminalLines.Add("==================================================================");
+                return;
+            }
+
+            if (verb == "whoami")
+            {
+                Esp32CliTerminalLines.Add($"LinkNexus-Pro-ESP32S3 | Firmware: {VersionInfo.CurrentVersion} | Role: Master Daemon | Chip: ESP32-S3");
                 return;
             }
 
@@ -3240,6 +3333,268 @@ namespace LinkNexus
 
             Esp32CliTerminalLines.Add($"[ERR] 未知命令: '{cmd}'。输入 'help' 获取命令帮助。");
         }
+
+        #region Linux Shell 终端指令历史回溯与 Tab 键补全引擎
+
+        private static readonly string[] CliRootCommands = new[]
+        {
+            "help", "wifi", "power", "status", "telemetry", "whoami", "clear", "reboot", "connect"
+        };
+
+        private static readonly string[] CliWifiSubcommands = new[]
+        {
+            "ap", "connect", "status", "txpower", "protocol", "channel", "diag", "scan", "disconnect", "save", "reset", "config"
+        };
+
+        private static readonly string[] CliPowerSubcommands = new[]
+        {
+            "0", "1", "2", "3", "4", "5", "all", "status", "save"
+        };
+
+        private static readonly string[] CliTelemetrySubcommands = new[]
+        {
+            "true", "false", "save"
+        };
+
+        public void NavigateCliHistory(bool up)
+        {
+            if (_cliHistory.Count == 0) return;
+
+            if (up)
+            {
+                if (_cliHistoryIndex == -1)
+                {
+                    _cliInputDraft = Esp32CliInput ?? string.Empty;
+                    _cliHistoryIndex = _cliHistory.Count - 1;
+                }
+                else if (_cliHistoryIndex > 0)
+                {
+                    _cliHistoryIndex--;
+                }
+
+                if (_cliHistoryIndex >= 0 && _cliHistoryIndex < _cliHistory.Count)
+                {
+                    Esp32CliInput = _cliHistory[_cliHistoryIndex];
+                }
+            }
+            else
+            {
+                if (_cliHistoryIndex != -1)
+                {
+                    if (_cliHistoryIndex < _cliHistory.Count - 1)
+                    {
+                        _cliHistoryIndex++;
+                        Esp32CliInput = _cliHistory[_cliHistoryIndex];
+                    }
+                    else
+                    {
+                        _cliHistoryIndex = -1;
+                        Esp32CliInput = _cliInputDraft;
+                    }
+                }
+            }
+        }
+
+        public void ExecuteCliTabCompletion()
+        {
+            string raw = Esp32CliInput ?? string.Empty;
+            string input = raw.TrimStart();
+            if (string.IsNullOrEmpty(input))
+            {
+                // 空输入按 Tab：列出所有可用根命令
+                Esp32CliTerminalLines.Add("root@linknexus-esp32:~# ");
+                Esp32CliTerminalLines.Add("  " + string.Join("    ", CliRootCommands));
+                return;
+            }
+
+            int firstSpace = input.IndexOf(' ');
+            if (firstSpace < 0)
+            {
+                // 1. 匹配根命令
+                var matches = CliRootCommands
+                    .Where(c => c.StartsWith(input, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(c => c)
+                    .ToList();
+
+                if (matches.Count == 1)
+                {
+                    string single = matches[0];
+                    bool needsSpace = single == "wifi" || single == "power" || single == "telemetry" || single == "connect";
+                    Esp32CliInput = single + (needsSpace ? " " : "");
+                }
+                else if (matches.Count > 1)
+                {
+                    string lcp = GetLongestCommonPrefix(matches);
+                    if (!string.IsNullOrEmpty(lcp) && lcp.Length > input.Length)
+                    {
+                        Esp32CliInput = lcp;
+                    }
+                    Esp32CliTerminalLines.Add($"root@linknexus-esp32:~# {raw}");
+                    Esp32CliTerminalLines.Add("  " + string.Join("    ", matches));
+                }
+                return;
+            }
+
+            string rootVerb = input.Substring(0, firstSpace).ToLowerInvariant();
+            string afterRoot = input.Substring(firstSpace + 1).TrimStart();
+
+            if (rootVerb == "wifi")
+            {
+                int subSpace = afterRoot.IndexOf(' ');
+                if (subSpace < 0)
+                {
+                    var matches = CliWifiSubcommands
+                        .Where(s => s.StartsWith(afterRoot, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(s => s)
+                        .ToList();
+
+                    if (matches.Count == 1)
+                    {
+                        string single = matches[0];
+                        bool needsSpace = single == "ap" || single == "connect" || single == "txpower" || single == "protocol" || single == "channel";
+                        Esp32CliInput = "wifi " + single + (needsSpace ? " " : "");
+                    }
+                    else if (matches.Count > 1)
+                    {
+                        string lcp = GetLongestCommonPrefix(matches);
+                        if (!string.IsNullOrEmpty(lcp) && lcp.Length > afterRoot.Length)
+                        {
+                            Esp32CliInput = "wifi " + lcp;
+                        }
+                        Esp32CliTerminalLines.Add($"root@linknexus-esp32:~# {raw}");
+                        Esp32CliTerminalLines.Add("  " + string.Join("    ", matches));
+                    }
+                }
+                else
+                {
+                    string subVerb = afterRoot.Substring(0, subSpace).ToLowerInvariant();
+                    string arg = afterRoot.Substring(subSpace + 1).TrimStart();
+
+                    if (subVerb == "protocol")
+                    {
+                        var protos = new[] { "b", "bg", "bgn" }
+                            .Where(p => p.StartsWith(arg, StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+                        if (protos.Count == 1)
+                        {
+                            Esp32CliInput = "wifi protocol " + protos[0] + " ";
+                        }
+                    }
+                    else if (subVerb == "scan" && "force".StartsWith(arg, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Esp32CliInput = "wifi scan force";
+                    }
+                }
+            }
+            else if (rootVerb == "power")
+            {
+                int subSpace = afterRoot.IndexOf(' ');
+                if (subSpace < 0)
+                {
+                    var matches = CliPowerSubcommands
+                        .Where(s => s.StartsWith(afterRoot, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(s => s)
+                        .ToList();
+
+                    if (matches.Count == 1)
+                    {
+                        string single = matches[0];
+                        bool needsSpace = single != "status" && single != "save";
+                        Esp32CliInput = "power " + single + (needsSpace ? " " : "");
+                    }
+                    else if (matches.Count > 1)
+                    {
+                        string lcp = GetLongestCommonPrefix(matches);
+                        if (!string.IsNullOrEmpty(lcp) && lcp.Length > afterRoot.Length)
+                        {
+                            Esp32CliInput = "power " + lcp;
+                        }
+                        Esp32CliTerminalLines.Add($"root@linknexus-esp32:~# {raw}");
+                        Esp32CliTerminalLines.Add("  " + string.Join("    ", matches));
+                    }
+                }
+                else
+                {
+                    string chTarget = afterRoot.Substring(0, subSpace).ToLowerInvariant();
+                    string boolArg = afterRoot.Substring(subSpace + 1).TrimStart();
+
+                    int nextSpace = boolArg.IndexOf(' ');
+                    if (nextSpace < 0)
+                    {
+                        var boolMatches = new[] { "true", "false" }
+                            .Where(b => b.StartsWith(boolArg, StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+                        if (boolMatches.Count == 1)
+                        {
+                            Esp32CliInput = $"power {chTarget} {boolMatches[0]} ";
+                        }
+                        else if (boolMatches.Count > 1)
+                        {
+                            Esp32CliTerminalLines.Add($"root@linknexus-esp32:~# {raw}");
+                            Esp32CliTerminalLines.Add("  true    false");
+                        }
+                    }
+                    else
+                    {
+                        string boolVal = boolArg.Substring(0, nextSpace).ToLowerInvariant();
+                        string saveArg = boolArg.Substring(nextSpace + 1).TrimStart();
+                        if ("save".StartsWith(saveArg, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Esp32CliInput = $"power {chTarget} {boolVal} save";
+                        }
+                    }
+                }
+            }
+            else if (rootVerb == "telemetry")
+            {
+                int subSpace = afterRoot.IndexOf(' ');
+                if (subSpace < 0)
+                {
+                    var matches = CliTelemetrySubcommands
+                        .Where(s => s.StartsWith(afterRoot, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(s => s)
+                        .ToList();
+
+                    if (matches.Count == 1)
+                    {
+                        string single = matches[0];
+                        bool needsSpace = single != "save";
+                        Esp32CliInput = "telemetry " + single + (needsSpace ? " " : "");
+                    }
+                    else if (matches.Count > 1)
+                    {
+                        Esp32CliTerminalLines.Add($"root@linknexus-esp32:~# {raw}");
+                        Esp32CliTerminalLines.Add("  " + string.Join("    ", matches));
+                    }
+                }
+                else
+                {
+                    string val = afterRoot.Substring(0, subSpace).ToLowerInvariant();
+                    string saveArg = afterRoot.Substring(subSpace + 1).TrimStart();
+                    if ("save".StartsWith(saveArg, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Esp32CliInput = $"telemetry {val} save";
+                    }
+                }
+            }
+        }
+
+        private static string GetLongestCommonPrefix(IList<string> list)
+        {
+            if (list == null || list.Count == 0) return string.Empty;
+            string prefix = list[0];
+            for (int i = 1; i < list.Count; i++)
+            {
+                while (!list[i].StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    prefix = prefix.Substring(0, prefix.Length - 1);
+                    if (string.IsNullOrEmpty(prefix)) return string.Empty;
+                }
+            }
+            return prefix;
+        }
+
+        #endregion
 
         #endregion
 

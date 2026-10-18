@@ -21,9 +21,9 @@ namespace LinkNexus
         public const int MajorVersion = 0;
 
         /// <summary>
-        /// 小版本号 xx (当前为 26)
+        /// 小版本号 xx (当前为 27)
         /// </summary>
-        public const int MinorRevision = 26;
+        public const int MinorRevision = 27;
 
         /// <summary>
         /// 修订阶段标识 AAA (当前为 "preview")

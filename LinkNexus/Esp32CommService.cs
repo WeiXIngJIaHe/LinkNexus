@@ -117,7 +117,7 @@ namespace LinkNexus
 
                 _heartbeatTimer.Start();
                 ConnectionStateChanged?.Invoke(true, $"已连接 ESP32-S3 ({portName})");
-                LogMessage?.Invoke($"[下位机通信] 成功打开通信端口 {portName}，波特率 {baudRate}，全双工解包管道已就绪。");
+                LogMessage?.Invoke($"[主控通信] 串口 {portName} 已连接 (波特率: {baudRate})");
 
                 // 发送初次握手包
                 SendHeartbeat(0x01);
@@ -125,7 +125,7 @@ namespace LinkNexus
             }
             catch (Exception ex)
             {
-                LogMessage?.Invoke($"[下位机通信] 打开串口 {portName} 失败: {ex.Message}，切换至仿真模式。");
+                LogMessage?.Invoke($"[主控通信] 打开串口 {portName} 失败: {ex.Message}，切换至仿真模式");
                 SetSimulationMode(true, "打开失败 (仿真模式)");
                 return false;
             }

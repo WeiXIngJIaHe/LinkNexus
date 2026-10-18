@@ -147,6 +147,7 @@ namespace LinkNexus
 
         // ESP32-S3 核心主控状态与枚举动效
         private bool _isEsp32Online = false;
+        private bool _hasLoggedMasterDaemonOnline = false;
         private PortDeviceModel? _esp32DeviceModel;
         private bool _isDaemonEnumerating = true; // 开启软件时默认探测
         private string _daemonStatusDotColor = "#38BDF8"; // 启动枚举中为流光青色
@@ -537,7 +538,18 @@ namespace LinkNexus
         public bool IsEsp32Online
         {
             get => _isEsp32Online;
-            set { if (_isEsp32Online != value) { _isEsp32Online = value; OnPropertyChanged(); } }
+            set
+            {
+                if (_isEsp32Online != value)
+                {
+                    _isEsp32Online = value;
+                    if (!value)
+                    {
+                        _hasLoggedMasterDaemonOnline = false;
+                    }
+                    OnPropertyChanged();
+                }
+            }
         }
 
         public string VersionString => VersionInfo.CurrentVersion;
@@ -1152,6 +1164,7 @@ namespace LinkNexus
                 OnPropertyChanged(nameof(IsDarkMode));
                 OnPropertyChanged(nameof(IsLightMode));
                 OnPropertyChanged(nameof(ThemeButtonToolTip));
+                OnPropertyChanged(nameof(Esp32CliTerminalLines));
             };
             ToggleLogDrawerCommand = new RelayCommand(() => IsLogDrawerOpen = !IsLogDrawerOpen);
             CloseLogDrawerCommand = new RelayCommand(() => IsLogDrawerOpen = false);
@@ -1224,21 +1237,24 @@ namespace LinkNexus
             };
 
             // 当下位机响应心跳包时，触发基于全局唯一不可篡改 MAC 码的严格鉴权：
-            // 必须收到包含 LinkNexus 官方主控 MAC (d0:cf:13:30:90:30) 的 7 字节载荷，才锁定为主控守护进程！
-            // 任何外部 ESP32 (无此 MAC 码) 均判定为被测调试单片机，拒绝绑定守护进程并释放串口
+            // 收到匹配 LinkNexus 官方 MAC (d0:cf:13:30:90:30) 时确认主控在线；仅在初次连接时提示一次，避免每秒重复刷屏
             Esp32CommService.Instance.HeartbeatAckReceivedWithMac += (ack, mac) =>
             {
                 _dispatcher.InvokeAsync(() =>
                 {
                     if (!string.IsNullOrEmpty(mac) && string.Equals(mac, LinkNexusTargetMac, StringComparison.OrdinalIgnoreCase))
                     {
-                        AddLog($"[主控鉴权] 收到心跳响应 ACK (0x{ack:X2})，MAC 码鉴权通过 [{mac}]！确认为 LinkNexus 官方主控守护进程。", "SUCCESS");
+                        if (!_hasLoggedMasterDaemonOnline)
+                        {
+                            AddLog($"[主控通信] LinkNexus 硬件已就绪 (MAC: {mac})", "SUCCESS");
+                            _hasLoggedMasterDaemonOnline = true;
+                        }
                         OnEnumerationSuccess();
                     }
                     else
                     {
                         string port = _enumeratingComPort ?? Esp32CommService.Instance.ConnectedPortName;
-                        AddLog($"[主控鉴权] 警告: 串口硬件 {port} 响应 MAC [{mac ?? "无"}] 与 LinkNexus 官方主控 MAC [{LinkNexusTargetMac}] 不符！判定为外部被测 ESP32，拒绝绑定守护进程。", "WARNING");
+                        AddLog($"[主控鉴权] 串口 {port} 设备 MAC [{mac ?? "无"}] 不匹配，跳过守护绑定", "WARNING");
                         RejectNonMasterDaemon(port);
                     }
                 });
@@ -1280,8 +1296,8 @@ namespace LinkNexus
             _mcpIpcServer = new McpIpcServer(McpBridge);
             _mcpIpcServer.Start();
 
-            AddLog($"LinkNexus 工业控制台已启动，加载规范版本号：{VersionString} (MCP 管道 IPC 监听已就绪)", "SUCCESS");
-            AddLog("等待系统底层 USB PnP 拓扑动态枚举...", "INFO");
+            AddLog($"LinkNexus 控制台已启动 (版本: {VersionString})", "SUCCESS");
+            AddLog("正在扫描 USB 设备...", "INFO");
         }
 
         private void InitDefaultDumpsAndCli()
@@ -1573,7 +1589,7 @@ namespace LinkNexus
             DaemonStatusDotColor = "#38BDF8"; // 青色：枚举握手中
             DaemonStatusText = "LinkNexus进程枚举中...";
 
-            AddLog($"[USB PnP] 捕获主控硬件接入 [VID:{vid} PID:{pid}]，打开端口 {portName}，启动 10 秒受控串口枚举倒计时...", "INFO");
+            AddLog($"[主控检测] 发现硬件 (VID:{vid} PID:{pid})，正在探测端口 {portName}...", "INFO");
 
             // 2. 连接物理串口 (115200 8N1 DTR=false RTS=false)
             if (!Esp32CommService.Instance.IsConnected || Esp32CommService.Instance.ConnectedPortName != portName)
@@ -1653,7 +1669,7 @@ namespace LinkNexus
                 _esp32DeviceModel.StatusMessage = "ESP32-S3 核心主控链路正常，管理协议栈就绪";
             }
 
-            AddLog($"[守护服务] 硬件串口 {portName} 枚举握手成功！确认并锁定为 LinkNexus 核心主控守护进程，已点亮绿灯。", "SUCCESS");
+            AddLog($"[主控服务] 串口 {portName} 握手成功，LinkNexus 守护进程已在线", "SUCCESS");
             _usbMonitor.TriggerImmediateRefresh();
         }
 
@@ -1697,7 +1713,7 @@ namespace LinkNexus
                 _esp32DeviceModel.StatusMessage = $"串口枚举超时 (10秒未响应)，已主动释放串口 {portName}";
             }
 
-            AddLog($"[守护服务] 硬件 [VID:{vid} PID:{pid}] 串口 {portName} 10秒未响应 LinkNexus 管理协议，判定为外部 ESP32 目标调试串口，已自动解耦独立卡片。", "INFO");
+            AddLog($"[主控服务] 串口 {portName} 未在限定时间内响应协议，释放端口作为普通串口使用", "INFO");
             // 重新刷新总线，将该外部 ESP32 呈现为独立调试卡片
             _usbMonitor.TriggerImmediateRefresh();
         }

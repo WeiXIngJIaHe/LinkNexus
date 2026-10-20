@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -153,7 +153,8 @@ namespace LinkNexus.Mcp
                     return devs.Any(d => d.DeviceName.Contains("ESP32", StringComparison.OrdinalIgnoreCase) || d.VidPid.Contains("303A"));
                 },
                 daemonStatusTextProvider: () => "LinkNexus 物理拓扑守护服务正常 (独立无头模式)",
-                logsProvider: () => standaloneLogs);
+                logsProvider: () => standaloneLogs,
+                cliExecutor: async (cmd, timeout) => await Esp32CommService.Instance.ExecuteCliCommandAsync(cmd, timeout));
 
             while (!cancellationToken.IsCancellationRequested)
             {

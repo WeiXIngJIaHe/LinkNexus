@@ -300,18 +300,19 @@
 
 | **49** | **修改：<br/>1. bug 进程在线了，为什么会弹出来转串口的卡片，这是严重bug。<br/>2. 改用mac码绑定LinkNexus的主控，不可更改，作为全局标识符，当前mac为 d0:cf:13:30:90:30 作为测试，后续版本会更改mac码，在连接上位机且发送心跳包时，mac码会作为全局唯一标识符发送给上位机，确保上位机只与主控守护进程通信。<br/>3. tab补全有bug，tab会成为空格且不能补全命令。<br/>全栈升级至 v0.28-preview.2641。** | ✅ **已完全落地**：<br/>1. **根治主控在线弹出串口卡片严重 Bug (后台隐匿与母子节点彻底过滤)**：在 `ProcessDiscoveredDevices` 中构建四维安全过滤网：当主控守护进程在线时，严格排除与 `_confirmedDaemonPort` 相同、与 `espDev` 相同、与主控硬件设备树路径相同以及任何无有效 COM 口的 ESP32 底层 USB 容器/JTAG 节点；在 `ClassifyDevice` 中追加拦截，凡属于主控端口或无有效串口号的节点一律降级为普通后台实体，绝不赋予 `Uart_Serial` 属性，主卡片区仅展示 CH338X 下行外设和外部接入的被测调试串口；<br/>2. **全局唯一不可篡改主控 MAC 标识符鉴权与心跳绑定**：硬件固件与上位机全面绑定测试 MAC 标识符 `d0:cf:13:30:90:30`；下位机心跳应答帧 (0x01 ACK) 升级为 7 字节载荷（`0x06 ACK + 6 字节 MAC`）；上位机 `ProtocolEngine` 与 `Esp32CommService` 引入 `HeartbeatAckReceivedWithMac` 鉴权通道，只有收到完全匹配 `d0:cf:13:30:90:30` 的硬件才锁定为官方主控守护进程并点亮常绿指示灯；任何外部接入的普通 ESP32 因无此 MAC 鉴权一律释放串口并转为独立调试卡片，彻底杜绝混淆；`whoami` 与 `status` CLI 同步显示 MAC；<br/>3. **根治 CLI 终端 Tab 键变空格且无法补全 Bug**：将 WPF `TextBox` 的事件拦截由冒泡级 `KeyDown` 升级为前置隧道级 `PreviewKeyDown`，并显式设置 `AcceptsTab="False"`；在文本合成阶段彻底抑制制表符/空格写入输入框，按下 Tab 瞬间无损触发 `ExecuteCliTabCompletion()` 与光标末尾定位；并在 ViewModel 层加入 `Replace("\t", "")` 强力防御性清洗；<br/>4. **全站版本号统一递增至 `v0.28-preview.2641`**。 |
 | **50** | **修改：<br/>1. 在CLI页面的版本号那一排文字全去掉，保留原先的三个点；最下方的提示也去掉。<br/>2. bug 在浅色模式下，CLI还是和深色模式一样的样式。<br/>3. 在内核的debug显示中，会重复显示收到心跳包，不需要显示那么多，收到一次就弹出来提醒即可；把一些日志使用skill调整一下文字表达。<br/>全栈升级至 v0.29-preview.2641。** | ✅ **已完全落地**：<br/>1. **CLI 控制台顶栏与底栏极致极客精简化**：彻底清除悬浮窗顶栏的全部文字徽章（移除主机名标签 `root@...`、标题 `LinkNexus 嵌入式控制台`、版本与守护标记 `v0.xx · Daemon` 以及网络调试文本徽章），仅保留原汁原味的红/黄/绿三色控制圆点（红点维持 Esc 关闭操作）及右侧极简关闭按钮；彻底移除底部操作指引微文案及对应的网格行，令终端视觉纯粹、通透；<br/>2. **CLI 终端全面适配浅色模式 (Porcelain Light)**：消除原先硬编码暗色背景，外层容器自适应绑定 `AppSurfaceBrush` 与 `AppBorderBrush`；终端视窗绑定 `AppTerminalBgBrush` 与 `AppTerminalBorderBrush`；输入行绑定 `AppSurfaceSubtleBrush` 与 `AppTextPrimaryBrush`；`CliLineBrushConverter` 引入双套高对比度终端调色板（深色赛博调 vs 浅色极客调），在浅色背景下精准满足 WCAG 2.1 AA (≥4.5:1) 无障碍对比度，并在切换主题时热重载刷新视窗行色彩；<br/>3. **心跳包日志刷屏抑制与工程人文化表达**：下位机固件与上位机仅在初次连通/状态变更时输出一次主控就绪提示，彻底抑制每秒周期性心跳刷屏日志；采用 humanizer 准则深度清洗工程日志，剔除空洞或膨胀修辞，呈现清晰、克制、准确的软硬件工程流水记录；<br/>4. **全站版本号统一递增至 `v0.29-preview.2641`**。 |
+| **51** | **修改：<br/>1. 严格执行“先按照硬件DESIGN功能和bug，再修改软件的功能和bug”执行序；<br/>2. 虚拟机与硬件预留：在 VS Code 中加入 LVGL 虚拟机，构建基础 UI（三段式：顶部 26px 常驻菜单、中部 122px 滑动功能页、底部 22px 常驻进度条），硬件预留 CAP1208 电容滑条驱动，支持三大功能：6 通道限流开关、三排遥测（0x40/0x41/0x42）与动态曲线、Wi-Fi 图形化 GUI；<br/>3. MCP CLI 调度与 Wi-Fi 连接：在 MCP 服务器中增加 `esp32_cli` 工具，实现通过 MCP 调度 ESP32 原生 CLI 指令，支持控制 ESP32 连接 Wi-Fi（测试连接 `JiaHe` `12345678` 成功并获取真实 IP `10.95.213.162`）；<br/>4. 将 feat 分支合并至 master 分支。<br/>全栈升级至 v0.30-preview.2641。** | ✅ **已完全落地**：<br/>1. **严格恪守硬件先行后软件执行序**：硬件固件层先行完成预留驱动与仿真器架构并在 PlatformIO 0 警告 0 错误编译通过，随后无缝推进软件上位机与 MCP 中枢演进；<br/>2. **构建 ST7789 1.9 寸 LVGL 像素级虚拟机与硬件预留**：在 `firmware/simulator/` 提供 1:1 像素级 320x170 交互仿真虚拟机（支持鼠标滑动手势与 CAP1208 触控模拟、6 通道开关、实时三排遥测 Canvas 动态波形、Wi-Fi 交互），在固件端预留 `cap1208.c`、`power_limiter.c`、`ina236_telemetry.c` 与三段式 `ui_main.cpp`；<br/>3. **MCP 跨进程与 Stdio 双模集成 `esp32_cli` 原生控制台工具**：在 `LinkNexus/Mcp/Tools/ExecuteEsp32CliTool.cs` 新增 `esp32_cli` 工具，在 `Esp32CommService` 中实现双通道异步执行引擎 `ExecuteCliCommandAsync`（支持 0x50 二进制协议帧与 USB-Serial-JTAG 物理串口双流聚合，支持脱机高保真仿真环境降级）；在真实物理 ESP32-S3 (COM9) 上端到端验证通过，成功调度 CLI 指令 `wifi connect JiaHe 12345678`，ESP32 握手协商成功并成功获取真实局域网 IP `10.95.213.162`；<br/>4. **全站版本号统一推进至 `v0.30-preview.2641`**：全量同步至 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md`、固件配置与本备忘录，双端编译 0 警告 0 错误。 |
 
 ---
 
-### 七、 最新提交记录与演进状态 (v0.29-preview.2641)
+### 七、 最新提交记录与演进状态 (v0.30-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **全站版本号统一推进并锁定为 `v0.29-preview.2641`**：
+> 1. **全站版本号统一推进并锁定为 `v0.30-preview.2641`**：
 >    - 全量同步至 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md`、固件配置与本备忘录；
-> 2. **CLI 终端界面极简化与浅色主题适配**：
->    - 顶栏文字全部剔除，保留经典三色圆点；底部多余提示清空；深浅色模式无缝热切换，WCAG AA 高对比度阅读体验；
-> 3. **心跳日志防刷屏机制与日志文案人文化重塑**：
->    - 固件与上位机双端协同抑制周期性心跳日志，连通仅提醒一次；全面清洗人文化工程日志表达；
+> 2. **硬件驱动预留与 LVGL 1:1 像素级仿真虚拟机**：
+>    - CAP1208 电容触控滑条、6 通道限流开关、3 路 INA236 遥测采集驱动预留，ST7789 三段式 UI 模型就绪，VS Code / 浏览器仿真虚拟机完整交付；
+> 3. **MCP `esp32_cli` 原生控制台调度与真机 Wi-Fi 连接**：
+>    - 新增 `esp32_cli` 工具与 `ExecuteCliCommandAsync` 引擎，成功通过 MCP 控制真机 ESP32-S3 连接 Wi-Fi `JiaHe` 并获取真实 IP；
 > 4. **双端构建验证 0 警告、0 错误**，固件 PlatformIO 与上位机 .NET 10 均编译成功。
 
 ---

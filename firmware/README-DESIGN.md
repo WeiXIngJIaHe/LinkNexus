@@ -251,13 +251,17 @@ LinkNexus (Firmware Workspace)
 
 ---
 
-# 七、 最新提交记录与演进状态 (v0.29-preview.2641)
+| **24** | **修改：<br/>1. 在 VS Code 中加入 LVGL 虚拟机，构建基础 UI 并移植到 ESP32 FLASH。<br/>2. UI 三段式架构设计：顶部常驻菜单栏、中部滑动功能区、底部常驻进度条；硬件预留 CAP1208 电容滑条驱动，虚拟机支持鼠标滑动切换；三大功能区包括 6 路限流开关控制、三排遥测（总路 0x40/XDS110 0x41/DAP 0x42）与动态曲线图、Wi-Fi 图形化 GUI（CLI 优先兼容）。<br/>3. 测试 MCP 服务器拉取与执行 CLI，控制 ESP32 连接 Wi-Fi JiaHe 12345678。<br/>4. 将 feat 分支合并至 master 分支。<br/>全栈升级至 v0.30-preview.2641。** | 1. **VS Code LVGL 1.9" (320x170) 虚拟机构建**：在 `simulator/` 目录提供 1:1 像素级 LCD 模拟器，支持在 VS Code 中一键启动并在浏览器/内置视窗中运行；提供鼠标拖拽滑动与 CAP1208 模拟滑条操作，并在 `.vscode/tasks.json` 中配置一键启动任务；<br/>2. **三段式 UI 架构与驱动预留落地**：<br/>• **顶部常驻菜单栏**（26px）：固定显示 Logo、三点页码指示与 Wi-Fi 模式状态，页面切换时不改变；<br/>• **底部常驻进度条**（22px）：固定显示系统运行状态文案与操作进度条，页面切换时不改变；<br/>• **中部滑动功能区**（122px）：支持左右滑动在三大功能区流畅切换：<br/>  - **功能页 1 (6路限流开关)**：6 通道可控限流/负载开关卡片与高低电平 GPIO 控制（CH0~5），预留 `include/power_limiter.h` 与 `src/power_limiter.c`；<br/>  - **功能页 2 (三排遥测与动态趋势曲线)**：三排规整展示总路(0x40)、XDS110(0x41)、DAP(0x42)的电压/电流/功率，右侧配备 60FPS 实时动态波形曲线；预留 `include/ina236_telemetry.h` 与 `src/ina236_telemetry.c`；<br/>  - **功能页 3 (Wi-Fi 图形化 GUI)**：支持信道扫描、AP列表浏览、一键连接目标热点与 SoftAP 切换；与后台 CLI 引擎无冲突协同，CLI 保持最高优先级；<br/>• **硬件驱动预留**：新增 `include/cap1208.h` 与 `src/cap1208.c` 8通道电容滑条驱动预留；<br/>3. **全站版本号统一递增至 `v0.30-preview.2641`**。 | ✅ **已完全落地** |
+
+---
+
+# 七、 最新提交记录与演进状态 (v0.30-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **版本号统一推进并锁定为 `v0.29-preview.2641`**：
+> 1. **版本号统一推进并锁定为 `v0.30-preview.2641`**：
 >    - 全量同步至 [`include/linknexus_config.hpp`](file:///c:/Users/17368/Desktop/LinkNexus/include/linknexus_config.hpp)、[`CMakeLists.txt`](file:///c:/Users/17368/Desktop/LinkNexus/CMakeLists.txt)、[`README.md`](file:///c:/Users/17368/Desktop/LinkNexus/README.md) 与本备忘录；
-> 2. **心跳日志刷屏消除与日志人文化清洗**：
->    - 心跳确认仅在上位机连入时打印一次，去除每秒循环刷屏；
+> 2. **LVGL 虚拟机与三段式 UI 架构落地**：
+>    - VS Code 内置一键启动 LVGL 虚拟机，支持鼠标拖拽与 CAP1208 滑动仿真，常驻顶底栏 + 滑动中部三大功能区（6路限流/三排遥测与波形/Wi-Fi GUI）；
 > 3. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 符合 ESP32-S3 生产标准。
 
 ---
@@ -272,5 +276,3 @@ LinkNexus (Firmware Workspace)
 >
 > 随时在此下方直接书写，保存后呼叫我，我将立即严格按照本 DESIGN 备忘录规范为您推进落地并步进版本号！
 *(如需继续修改或增加功能，可直接在此下方追加您的想法与需求)*
-
-

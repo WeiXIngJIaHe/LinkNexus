@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -1290,7 +1290,8 @@ namespace LinkNexus
                     });
                 },
                 logsProvider: () => Logs,
-                serialLogsProvider: () => SerialMonitorLines);
+                serialLogsProvider: () => SerialMonitorLines,
+                cliExecutor: async (cmd, timeout) => await Esp32CommService.Instance.ExecuteCliCommandAsync(cmd, timeout));
 
             // 启动本地命名管道 IPC 服务，随时响应外部 AI Agent 或 Stdio 命令行透传请求
             _mcpIpcServer = new McpIpcServer(McpBridge);

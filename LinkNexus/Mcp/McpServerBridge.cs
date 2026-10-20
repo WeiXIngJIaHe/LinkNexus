@@ -12,7 +12,7 @@ namespace LinkNexus.Mcp
 {
     /// <summary>
     /// Model Context Protocol (MCP) 服务器中枢与分发桥接器
-    /// 预留给 LinkNexus v1.00 后续 AI Agent (Claude, Gemini, Cursor 等) 挂接与调度
+    /// 预留给 LinkNexus 后续 AI Agent (Claude, Gemini, Cursor 等) 挂接与调度
     /// </summary>
     public class McpServerBridge
     {
@@ -47,6 +47,7 @@ namespace LinkNexus.Mcp
             RegisterTool(new ListDevicesTool());
             RegisterTool(new ReadTopologyStatusTool());
             RegisterTool(new SendSerialCommandTool());
+            RegisterTool(new ExecuteEsp32CliTool());
             RegisterTool(new FlashKernelTool());
             RegisterTool(new ControlMosPowerTool());
             RegisterTool(new ReadLogsTool());
@@ -61,7 +62,8 @@ namespace LinkNexus.Mcp
             Func<string>? daemonStatusTextProvider,
             Action<int, bool>? mosPowerSwitchHandler = null,
             Func<IEnumerable<LogMessageItem>>? logsProvider = null,
-            Func<IEnumerable<string>>? serialLogsProvider = null)
+            Func<IEnumerable<string>>? serialLogsProvider = null,
+            Func<string, int, Task<string>>? cliExecutor = null)
         {
             if (devicesProvider != null)
             {
@@ -78,6 +80,10 @@ namespace LinkNexus.Mcp
             if (logsProvider != null || serialLogsProvider != null)
             {
                 RegisterTool(new ReadLogsTool(logsProvider, serialLogsProvider));
+            }
+            if (cliExecutor != null)
+            {
+                RegisterTool(new ExecuteEsp32CliTool(cliExecutor));
             }
         }
 
@@ -185,4 +191,3 @@ namespace LinkNexus.Mcp
         }
     }
 }
-

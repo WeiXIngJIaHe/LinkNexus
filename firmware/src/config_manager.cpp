@@ -284,3 +284,4 @@ size_t ConfigManager::FormatConfigSummary(char *out_buf, size_t max_len)
 }
 
 } // namespace LinkNexus
+

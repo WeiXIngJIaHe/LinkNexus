@@ -1,0 +1,30 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "启动 LVGL 虚拟机 (VS Code / 本地浏览器)",
+            "type": "shell",
+            "command": "python -m http.server 8080 --directory simulator",
+            "isBackground": true,
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "在默认浏览器中直接打开 LVGL 虚拟机",
+            "type": "shell",
+            "command": "start simulator/index.html",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "silent"
+            }
+        }
+    ]
+}
+

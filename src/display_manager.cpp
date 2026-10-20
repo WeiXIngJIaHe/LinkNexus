@@ -1,4 +1,5 @@
 #include "display_manager.hpp"
+#include "ui_main.h"
 #include "esp_log.h"
 #include <string.h>
 
@@ -27,8 +28,10 @@ void DisplayManager::Init()
     if (m_initialized) return;
 
     ESP_LOGI(TAG, "Initializing 1.9-inch ST7789 display & LVGL UI framework...");
-    // 预留 ST7789 SPI LCD 与 LVGL 图形缓冲区初始化钩子
-    // 后续引入 lvgl 组件时可无缝在此激活 lv_init() 与 disp_drv 驱动
+    
+    // 初始化 1.9 寸 (320x170) UI 核心模型与三段式页面架构
+    ui_main_init();
+
     m_initialized = true;
     m_dirty = true;
     ESP_LOGI(TAG, "Display & UI Manager initialized successfully.");
@@ -39,6 +42,9 @@ void DisplayManager::UpdateState(const ScreenSyncInfo &info)
     LockGuard lock(m_mutex);
     m_state = info;
     m_dirty = true;
+
+    // 同步更新 UI 状态栏与活动通道
+    ui_update_status_bar(nullptr, info.device_name, info.flash_progress);
 
     ESP_LOGI(TAG, "[UI Sync] Channel: %u, Flash Progress: %u%%, Flags: 0x%02X, Device: '%s'",
              info.active_channel, info.flash_progress, info.status_flags, info.device_name);
@@ -58,11 +64,8 @@ void DisplayManager::ProcessUi()
         m_dirty = false;
     }
 
-    // 预留 LVGL 心跳与定时调度接口
-    // #if CONFIG_LINKNEXUS_ENABLE_LVGL
-    // lv_timer_handler();
-    // #endif
+    // 调度 UI 渲染与定时器循环 (16ms 约 60FPS)
+    ui_main_process(16);
 }
 
 } // namespace LinkNexus
-

@@ -13,6 +13,10 @@ static char s_top_wifi_mode[16] = "SoftAP";
 static char s_bottom_status_text[48] = "系统就绪 | 6路MOS全开";
 static uint8_t s_progress_pct = 100;
 
+// 抽屉式布局与卡片联动状态
+static bool s_drawer_collapsed = false;
+static int8_t s_active_card_index = -1;
+
 // 遥测波形点缓存 (用于曲线图绘制，循环保存最近 32 个点)
 #define TELEMETRY_HISTORY_LEN 32
 static float s_wave_history[TELEMETRY_HISTORY_LEN] = {0};
@@ -42,7 +46,9 @@ static struct {
 
 void ui_main_init(void)
 {
-    ESP_LOGI(TAG, "Initializing LinkNexus 1.9-inch (320x170) UI Model & View Architecture...");
+    ESP_LOGI(TAG, "Initializing LinkNexus 1.9-inch (320x170) Industrial High-Contrast UI...");
+    ESP_LOGI(TAG, "Palette: Softened Dark BG=0x%06X, Card=0x%06X, TextPrimary=0x%06X",
+             (unsigned)UI_COLOR_DARK_BG_MAIN, (unsigned)UI_COLOR_DARK_SURFACE_CARD, (unsigned)UI_COLOR_TEXT_PRIMARY);
 
     // 默认初始化波形曲线基线
     for (int i = 0; i < TELEMETRY_HISTORY_LEN; i++) {
@@ -50,7 +56,9 @@ void ui_main_init(void)
     }
 
     s_current_page = UI_PAGE_POWER_SWITCH;
-    ESP_LOGI(TAG, "UI initialized. Default Page: 0 (Power Limiter Switch). Ready for CAP1208 slider / simulator.");
+    s_drawer_collapsed = false;
+    s_active_card_index = 0;
+    ESP_LOGI(TAG, "UI initialized. Default Page: 0 (Power Limiter Switch), Drawer: Expanded.");
 }
 
 void ui_main_process(uint32_t delta_ms)
@@ -90,6 +98,42 @@ void ui_slide_next(void)
     ui_switch_page((ui_page_t)next_page);
 }
 
+bool ui_is_drawer_collapsed(void)
+{
+    return s_drawer_collapsed;
+}
+
+void ui_set_drawer_collapsed(bool collapsed)
+{
+    s_drawer_collapsed = collapsed;
+    ESP_LOGI(TAG, "[UI Drawer] State -> %s", s_drawer_collapsed ? "COLLAPSED (收纳)" : "EXPANDED (拉出)");
+}
+
+bool ui_toggle_drawer(void)
+{
+    ui_set_drawer_collapsed(!s_drawer_collapsed);
+    return s_drawer_collapsed;
+}
+
+void ui_on_card_click(uint8_t card_index)
+{
+    if (card_index >= 6) return;
+
+    // 若点击已激活卡片，联动切换抽屉收纳/拉出状态；若点击新卡片，选中并自动拉出详情或切换通道
+    if (s_active_card_index == (int8_t)card_index) {
+        ui_toggle_drawer();
+    } else {
+        s_active_card_index = (int8_t)card_index;
+        s_drawer_collapsed = false;
+    }
+
+    bool current_en = power_limiter_get_channel((power_limiter_channel_t)card_index);
+    power_limiter_set_channel((power_limiter_channel_t)card_index, !current_en);
+    ESP_LOGI(TAG, "[UI Card Click] CH#%u -> %s (Drawer: %s)",
+             (unsigned)card_index, !current_en ? "ON" : "OFF",
+             s_drawer_collapsed ? "Collapsed" : "Expanded");
+}
+
 void ui_update_status_bar(const char *wifi_mode, const char *status_text, uint8_t progress_pct)
 {
     if (wifi_mode) {
@@ -125,4 +169,3 @@ void ui_update_wifi_gui_info(const char *ssid, const char *ip_str, const char *s
     if (ip_str) strncpy(s_ui_wifi.ip, ip_str, sizeof(s_ui_wifi.ip) - 1);
     if (scan_summary) strncpy(s_ui_wifi.scan_summary, scan_summary, sizeof(s_ui_wifi.scan_summary) - 1);
 }
-

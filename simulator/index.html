@@ -1,127 +1,219 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LinkNexus - LVGL 1.9" ST7789 嵌入式虚拟机</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LinkNexus 1.9" (320×170) ST7789 硬件 UI 仿真器 — v0.31-preview.2641</title>
   <style>
     :root {
-      --bg-dark: #0A0D14;
-      --card-bg: #121622;
-      --border-color: #242B3D;
+      /* 1. 柔化深色模式 (Softened Industrial Slate-Charcoal) — 调淡背景、强化文字对比度 (WCAG AAA >= 7.8:1) */
+      --bg-page: #1E2430;
+      --bg-module: #232B3A;
+      --bg-module-grad: #1B222E;
+      --lcd-bg: #181E29;
+      --bar-bg: #202838;
+      --card-bg: #273144;
+      --card-hover: #313D54;
+      --card-active-bg: #243B55;
+      --drawer-bg: #1F2736;
+      --drawer-handle-bg: #2A3548;
+      --drawer-handle-hover: #34425A;
+      --border-color: #3E4D68;
+      --border-strong: #526484;
+
+      /* 强化文字色彩层级：纯白主字 + 亮银副字 + 高清浅灰蓝辅助字 */
+      --text-main: #FFFFFF;
+      --text-secondary: #F1F5F9;
+      --text-muted: #CBD5E1;
+
+      /* 工业功能强调色 */
       --accent-cyan: #38BDF8;
       --accent-green: #10B981;
       --accent-amber: #F59E0B;
-      --accent-red: #EF4444;
-      --text-main: #F1F5F9;
-      --text-muted: #64748B;
+      --accent-red: #F43F5E;
+      --accent-purple: #818CF8;
+
+      /* 工业级字体栈与等宽数字规范 */
+      --font-sans: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif;
+      --font-mono: 'JetBrains Mono', 'Consolas', 'SFMono-Regular', monospace;
     }
+
+    body.light-theme {
+      --bg-page: #E2E8F0;
+      --bg-module: #F1F5F9;
+      --bg-module-grad: #E2E8F0;
+      --lcd-bg: #F8FAFC;
+      --bar-bg: #E2E8F0;
+      --card-bg: #FFFFFF;
+      --card-hover: #F1F5F9;
+      --card-active-bg: #E0F2FE;
+      --drawer-bg: #FFFFFF;
+      --drawer-handle-bg: #E2E8F0;
+      --drawer-handle-hover: #CBD5E1;
+      --border-color: #CBD5E1;
+      --border-strong: #94A3B8;
+
+      --text-main: #0F172A;
+      --text-secondary: #1E293B;
+      --text-muted: #334155;
+
+      --accent-cyan: #0284C7;
+      --accent-green: #059669;
+      --accent-amber: #D97706;
+      --accent-red: #E11D48;
+    }
+
     * {
       box-sizing: border-box;
+      user-select: none;
       margin: 0;
       padding: 0;
-      user-select: none;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
+
     body {
-      background: radial-gradient(circle at 50% 20%, #151C2C 0%, #07090E 100%);
+      background-color: var(--bg-page);
       color: var(--text-main);
-      min-height: 100vh;
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      min-height: 100vh;
       padding: 20px;
-    }
-    .header-panel {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-    .header-panel h1 {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      color: var(--text-main);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-    .badge {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 4px;
-      background: rgba(56, 189, 248, 0.15);
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      color: var(--accent-cyan);
-      font-weight: 600;
-    }
-    .sub-desc {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-top: 6px;
+      transition: background-color 0.2s ease, color 0.2s ease;
     }
 
-    /* 物理模块边框仿真 (1.9寸 ST7789 屏幕外壳) */
-    .hardware-module {
-      background: #141824;
-      border: 2px solid #283247;
-      border-radius: 14px;
-      padding: 22px 20px 18px 20px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
-      position: relative;
+    /* 工业级等宽数字排版公共类 */
+    .tabular-mono {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "zero" 1;
+      letter-spacing: 0.02em;
     }
+
+    /* 顶部说明栏 */
+    .header-panel {
+      text-align: center;
+      margin-bottom: 16px;
+      max-width: 560px;
+      width: 100%;
+    }
+    .header-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .header-panel h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: 0.03em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header-panel .badge {
+      background: rgba(56, 189, 248, 0.16);
+      color: var(--accent-cyan);
+      border: 1px solid var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+    }
+    .btn-theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-theme-toggle:hover {
+      background: var(--card-hover);
+      border-color: var(--accent-cyan);
+    }
+    .header-panel .sub-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-align: left;
+      font-weight: 500;
+    }
+
+    /* 硬件外框模拟 (ESP32-S3 + 1.9寸 ST7789 模组底座) */
+    .hardware-module {
+      background: linear-gradient(145deg, var(--bg-module), var(--bg-module-grad));
+      border: 1.5px solid var(--border-strong);
+      border-radius: 12px;
+      padding: 20px 24px 18px 24px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.38);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* 四角螺丝孔模拟 */
     .pcb-hole {
-      position: absolute;
       width: 10px;
       height: 10px;
       border-radius: 50%;
-      background: #0B0E17;
-      border: 1.5px solid #334155;
+      background: var(--bg-page);
+      border: 2px solid var(--border-strong);
+      position: absolute;
     }
-    .hole-tl { top: 10px; left: 10px; }
-    .hole-tr { top: 10px; right: 10px; }
-    .hole-bl { bottom: 10px; left: 10px; }
-    .hole-br { bottom: 10px; right: 10px; }
+    .hole-tl { top: 8px; left: 8px; }
+    .hole-tr { top: 8px; right: 8px; }
+    .hole-bl { bottom: 8px; left: 8px; }
+    .hole-br { bottom: 8px; right: 8px; }
 
-    /* 屏幕视口：精准 320 x 170 像素 */
+    /* 1.9寸 ST7789 屏幕物理视口 (严格 320x170 像素，支持 1.45x 高清整数比缩放便于桌面检视) */
     .lcd-viewport {
       width: 320px;
       height: 170px;
-      background: #000000;
-      border: 1.5px solid #202738;
-      border-radius: 4px;
+      background-color: var(--lcd-bg);
+      border: 2px solid var(--border-strong);
+      border-radius: 6px;
       overflow: hidden;
       position: relative;
-      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.9);
-      cursor: grab;
-    }
-    .lcd-viewport:active {
-      cursor: grabbing;
+      display: flex;
+      flex-direction: column;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.35);
+      transform: scale(1.45);
+      transform-origin: top center;
+      margin-bottom: 84px; /* 补偿 1.45 倍放大后的高度偏移 */
     }
 
-    /* 顶部菜单栏 (26px 常驻) */
+    /* ==================== 1. 顶部常驻状态栏 (固定 26px) ==================== */
     .top-bar {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 320px;
       height: 26px;
-      background: #111420;
-      border-bottom: 1px solid #1E2536;
+      background: var(--bar-bg);
+      border-bottom: 1px solid var(--border-color);
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 8px;
+      font-size: 10px;
       z-index: 10;
     }
     .top-title {
-      font-size: 11px;
       font-weight: 700;
-      color: var(--accent-cyan);
+      color: var(--text-main);
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
+      letter-spacing: 0.04em;
     }
     .top-dots {
       display: flex;
@@ -129,117 +221,91 @@
       align-items: center;
     }
     .dot {
-      width: 5px;
-      height: 5px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
-      background: #334155;
+      background: var(--border-strong);
       transition: all 0.2s ease;
       cursor: pointer;
     }
     .dot.active {
-      background: var(--accent-cyan);
-      width: 14px;
+      width: 16px;
       border-radius: 3px;
+      background: var(--accent-cyan);
     }
     .top-wifi {
       display: flex;
       align-items: center;
-      gap: 5px;
-      font-size: 9px;
-      font-weight: 600;
-      color: #94A3B8;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--text-main);
     }
     .status-bulb {
       width: 6px;
       height: 6px;
       border-radius: 50%;
       background: var(--accent-green);
-      box-shadow: 0 0 6px var(--accent-green);
+      box-shadow: 0 0 5px var(--accent-green);
     }
 
-    /* 底部状态/进度条 (22px 常驻) */
-    .bottom-bar {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 320px;
-      height: 22px;
-      background: #0E111C;
-      border-top: 1px solid #1A2130;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 8px;
-      font-size: 9px;
-      color: #94A3B8;
-      z-index: 10;
-    }
-    .bottom-status {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 220px;
-    }
-    .progress-box {
-      width: 64px;
-      height: 6px;
-      background: #1C2333;
-      border-radius: 3px;
-      overflow: hidden;
-      position: relative;
-    }
-    .progress-fill {
-      height: 100%;
-      width: 100%;
-      background: linear-gradient(90deg, #38BDF8, #10B981);
-      transition: width 0.3s ease;
-    }
-
-    /* 中部功能区 (122px 可滑动切换) */
+    /* ==================== 2. 中部可滑动功能区 (122px) ==================== */
     .middle-zone {
-      position: absolute;
-      top: 26px;
-      left: 0;
-      width: 960px; /* 3 页 x 320px */
       height: 122px;
+      width: 960px; /* 3页 x 320px */
       display: flex;
-      transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      cursor: grab;
+    }
+    .middle-zone:active {
+      cursor: grabbing;
     }
     .page {
       width: 320px;
       height: 122px;
-      padding: 6px 8px;
+      padding: 5px 7px;
       flex-shrink: 0;
-      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
     }
 
-    /* 功能页 1: 6通道限流芯片开关 */
+    /* --- 页面 0: 6通道限流芯片开关 (3列x2行，带点击卡片拉出/收纳抽屉与直接开关) --- */
     .switch-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
+      grid-template-rows: repeat(2, 1fr);
+      gap: 5px;
       height: 100%;
     }
     .switch-card {
-      background: #121622;
-      border: 1px solid #222B3D;
-      border-radius: 5px;
-      padding: 5px 6px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 4px 6px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       cursor: pointer;
       transition: all 0.15s ease;
+      position: relative;
     }
     .switch-card:hover {
-      border-color: #38BDF8;
+      background: var(--card-hover);
+      border-color: var(--border-strong);
+    }
+    .switch-card.selected {
+      background: var(--card-active-bg);
+      border-color: var(--accent-cyan);
+      box-shadow: inset 0 0 0 1px var(--accent-cyan);
     }
     .switch-card.on {
-      background: #102422;
-      border-color: rgba(16, 185, 129, 0.5);
+      border-left: 3px solid var(--accent-green);
+    }
+    .switch-card:not(.on) {
+      border-left: 3px solid var(--border-strong);
     }
     .card-top {
       display: flex;
@@ -250,105 +316,151 @@
       font-size: 10px;
       font-weight: 700;
       color: var(--text-main);
+      letter-spacing: 0.02em;
     }
     .ch-state {
-      font-size: 8px;
-      font-weight: 700;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
       padding: 1px 4px;
-      border-radius: 3px;
-      background: #242C3D;
-      color: #94A3B8;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      font-weight: 700;
+      cursor: pointer;
     }
     .switch-card.on .ch-state {
-      background: rgba(16, 185, 129, 0.2);
-      color: var(--accent-green);
+      background: rgba(16, 185, 129, 0.22);
+      border-color: var(--accent-green);
+      color: #34D399;
+    }
+    body.light-theme .switch-card.on .ch-state {
+      color: #047857;
+    }
+    .card-bottom-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     .card-pin {
-      font-size: 8px;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      font-weight: 600;
       color: var(--text-muted);
-      font-family: monospace;
+    }
+    .card-drawer-hint {
+      font-size: 8px;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      opacity: 0.9;
     }
 
-    /* 功能页 2: 三排遥测与实时波形曲线 */
+    /* --- 页面 1: 三排遥测 (总路、XDS、DAP) + 实时动态曲线图 --- */
     .telem-container {
       display: flex;
-      height: 100%;
       gap: 6px;
+      height: 100%;
     }
     .telem-rows {
-      width: 140px;
+      width: 142px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      gap: 4px;
     }
     .telem-card {
-      background: #111520;
-      border: 1px solid #1E2738;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-left: 2.5px solid var(--accent-cyan);
       border-radius: 4px;
-      padding: 3px 5px;
+      padding: 2px 5px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
     }
+    .telem-card:hover {
+      background: var(--card-hover);
+    }
+    .telem-card:nth-child(2) { border-left-color: var(--accent-green); }
+    .telem-card:nth-child(3) { border-left-color: var(--accent-amber); }
     .telem-title {
-      font-size: 8px;
-      color: var(--accent-cyan);
+      font-size: 8.5px;
+      color: var(--text-secondary);
       font-weight: 700;
       display: flex;
       justify-content: space-between;
+      letter-spacing: 0.02em;
     }
     .telem-vals {
-      font-size: 9px;
-      font-family: Consolas, monospace;
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 9.5px;
+      font-weight: 700;
       color: var(--text-main);
       margin-top: 1px;
     }
     .telem-chart-box {
       flex: 1;
-      background: #0C0F17;
-      border: 1px solid #1C2434;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
       border-radius: 4px;
       padding: 4px;
       display: flex;
       flex-direction: column;
+      justify-content: space-between;
     }
     .chart-header {
-      font-size: 8px;
-      color: #64748B;
       display: flex;
       justify-content: space-between;
-      margin-bottom: 2px;
+      font-size: 8.5px;
+      font-weight: 700;
+      color: var(--text-secondary);
     }
-    #waveCanvas {
+    .chart-header span:last-child {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      color: var(--accent-cyan);
+      font-weight: 700;
+    }
+    canvas#waveCanvas {
       width: 100%;
-      height: 85px;
-      background: #090B12;
-      border-radius: 2px;
+      height: 86px;
+      display: block;
     }
 
-    /* 功能页 3: Wi-Fi 图形化 GUI */
+    /* --- 页面 2: Wi-Fi 图形化 GUI 视窗 --- */
     .wifi-container {
       display: flex;
       flex-direction: column;
+      gap: 4px;
       height: 100%;
-      gap: 5px;
     }
     .wifi-status-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #121622;
-      padding: 3px 6px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
       border-radius: 4px;
-      font-size: 8.5px;
+      padding: 3px 6px;
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-secondary);
     }
     .wifi-actions {
       display: flex;
-      gap: 5px;
+      gap: 4px;
     }
     .btn-wifi {
       flex: 1;
-      background: #1A2234;
-      border: 1px solid #2B3852;
-      color: #E2E8F0;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
       font-size: 8.5px;
+      font-weight: 700;
       padding: 3px 0;
       border-radius: 3px;
       cursor: pointer;
@@ -356,119 +468,317 @@
       transition: all 0.15s ease;
     }
     .btn-wifi:hover {
-      background: #25334E;
-      border-color: #38BDF8;
-      color: #38BDF8;
-    }
-    .btn-wifi.active {
-      background: rgba(16, 185, 129, 0.2);
-      border-color: var(--accent-green);
-      color: var(--accent-green);
+      background: var(--card-hover);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
     }
     .wifi-list {
       flex: 1;
-      background: #0B0E16;
-      border: 1px solid #1A2232;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
       border-radius: 4px;
       overflow-y: auto;
-      padding: 2px;
+      padding: 2px 4px;
     }
     .wifi-item {
       display: flex;
       justify-content: space-between;
       padding: 2px 4px;
-      font-size: 8px;
+      font-size: 8.5px;
+      font-weight: 600;
+      color: var(--text-main);
       border-radius: 2px;
       cursor: pointer;
     }
     .wifi-item:hover {
-      background: #162032;
+      background: var(--card-hover);
       color: var(--accent-cyan);
     }
 
-    /* 硬件 CAP1208 模拟电容滑条控制器 (位于屏幕下方) */
-    .slider-simulator-bar {
-      margin-top: 14px;
-      width: 320px;
-      background: #0F131E;
-      border: 1.5px solid #263148;
+    /* ==================== 3. 底部常驻状态栏 (固定 22px) ==================== */
+    .bottom-bar {
+      height: 22px;
+      background: var(--bar-bg);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px;
+      font-size: 9px;
+      z-index: 10;
+    }
+    .bottom-status {
+      color: var(--text-main);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .progress-box {
+      width: 56px;
+      height: 6px;
+      background: var(--lcd-bg);
+      border-radius: 3px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+    .progress-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+      transition: width 0.3s ease;
+    }
+
+    /* ==================== 4. 工业抽屉式布局 (带上下拉按钮 + 点击卡片联动收纳/拉出) ==================== */
+    .drawer-section {
+      width: 464px;
+      margin-top: 4px;
+      background: var(--drawer-bg);
+      border: 1.5px solid var(--border-strong);
       border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.22s ease;
+    }
+
+    /* 上下拉抽屉按钮条 (Drawer Pull Handle Button) */
+    .drawer-pull-bar {
+      width: 100%;
+      background: var(--drawer-handle-bg);
+      border: none;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 7px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      transition: background 0.15s ease;
+    }
+    .drawer-pull-bar:hover {
+      background: var(--drawer-handle-hover);
+    }
+    .drawer-section.collapsed .drawer-pull-bar {
+      border-bottom: none;
+    }
+    .drawer-handle-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .drawer-pill-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: rgba(56, 189, 248, 0.18);
+      color: var(--accent-cyan);
+      border: 1px solid var(--accent-cyan);
+    }
+    .drawer-handle-Action {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--accent-cyan);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .drawer-chevron {
+      width: 14px;
+      height: 14px;
+      transition: transform 0.22s ease;
+    }
+    .drawer-section.collapsed .drawer-chevron {
+      transform: rotate(180deg);
+    }
+
+    /* 抽屉内容主体 */
+    .drawer-body {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 260px;
+      opacity: 1;
+      transition: max-height 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.18s ease, padding 0.2s ease;
+    }
+    .drawer-section.collapsed .drawer-body {
+      max-height: 0;
+      opacity: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      overflow: hidden;
+    }
+
+    /* 选中卡片通道详情矩阵 (工业级排版与等宽参数对齐) */
+    .inspector-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .inspector-cell {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .inspector-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .inspector-value {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .inspector-actions-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-color);
+    }
+    .inspector-hint {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .btn-Quick-action {
+      background: var(--card-bg);
+      border: 1px solid var(--border-strong);
+      color: var(--text-main);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-Quick-action:hover {
+      background: var(--card-hover);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    /* 硬件 CAP1208 模拟电容滑条控制器 */
+    .slider-simulator-bar {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
       padding: 8px 12px;
       text-align: center;
     }
     .slider-title {
-      font-size: 10px;
-      color: #94A3B8;
-      font-weight: 600;
+      font-size: 10.5px;
+      color: var(--text-secondary);
+      font-weight: 700;
       margin-bottom: 6px;
       display: flex;
       justify-content: space-between;
+      letter-spacing: 0.02em;
     }
     .touch-track {
       width: 100%;
-      height: 16px;
-      background: #182030;
-      border-radius: 8px;
+      height: 14px;
+      background: var(--lcd-bg);
+      border-radius: 7px;
       position: relative;
       cursor: ew-resize;
-      border: 1px solid #2A364F;
+      border: 1px solid var(--border-strong);
     }
     .touch-thumb {
-      width: 32px;
-      height: 16px;
-      background: linear-gradient(90deg, #38BDF8, #818CF8);
-      border-radius: 8px;
+      width: 44px;
+      height: 14px;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+      border-radius: 7px;
       position: absolute;
       top: -1px;
-      left: calc(0% - 0px);
-      box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+      left: 0px;
       transition: left 0.15s ease-out;
     }
     .nav-buttons {
       display: flex;
       justify-content: space-between;
       margin-top: 8px;
+      gap: 8px;
     }
     .btn-nav {
-      background: #1A2234;
-      border: 1px solid #2C3850;
-      color: #CBD5E1;
-      padding: 4px 12px;
+      flex: 1;
+      background: var(--drawer-handle-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 5px 12px;
       border-radius: 4px;
-      font-size: 10px;
+      font-size: 11px;
+      font-weight: 700;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
     }
     .btn-nav:hover {
-      background: #25334E;
-      border-color: #38BDF8;
-      color: #38BDF8;
+      background: var(--card-hover);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
     }
+
     .instructions {
-      margin-top: 16px;
-      max-width: 500px;
-      font-size: 11px;
-      color: #64748B;
-      line-height: 1.6;
+      margin-top: 14px;
+      max-width: 560px;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      line-height: 1.65;
       text-align: center;
     }
     .instructions kbd {
-      background: #1E293B;
-      border: 1px solid #334155;
-      padding: 1px 5px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-strong);
+      padding: 1px 6px;
       border-radius: 3px;
-      color: #CBD5E1;
-      font-family: monospace;
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-weight: 700;
     }
   </style>
 </head>
 <body>
 
   <div class="header-panel">
-    <h1>
-      LinkNexus LVGL 虚拟机 (1.9" ST7789)
-      <span class="badge">ESP32-S3 原生移植基准</span>
-    </h1>
-    <div class="sub-desc">320 × 170 像素 LCD 物理显示仿真 · CAP1208 电容滑条与鼠标滑动双驱动</div>
+    <div class="header-top-row">
+      <h1>
+        <span>LinkNexus 1.9" ST7789 硬件 UI 仿真台</span>
+        <span class="badge">v0.31-preview.2641</span>
+      </h1>
+      <button class="btn-theme-toggle" id="themeToggleBtn" onclick="toggleThemeMode()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="12" cy="12" r="5"></circle>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+        </svg>
+        <span id="themeToggleText">切换工业浅色</span>
+      </button>
+    </div>
+    <div class="sub-desc">320 × 170 物理分辨率 · 柔化高对比度深色基线 · 卡片点击与上下拉抽屉联动控制</div>
   </div>
 
   <!-- 硬件模块封装 (PCB 边框) -->
@@ -483,12 +793,12 @@
       <!-- 1. 顶部常驻菜单/状态栏 (26px) -->
       <div class="top-bar">
         <div class="top-title">
-          <span>LinkNexus</span>
+          <span>LINKNEXUS</span>
         </div>
         <div class="top-dots">
-          <div class="dot active" onclick="switchPage(0)"></div>
-          <div class="dot" onclick="switchPage(1)"></div>
-          <div class="dot" onclick="switchPage(2)"></div>
+          <div class="dot active" onclick="switchPage(0)" title="限流开关页"></div>
+          <div class="dot" onclick="switchPage(1)" title="INA236 遥测页"></div>
+          <div class="dot" onclick="switchPage(2)" title="Wi-Fi GUI 页"></div>
         </div>
         <div class="top-wifi">
           <span id="topWifiText">AP:ON</span>
@@ -498,50 +808,68 @@
 
       <!-- 2. 中部功能区 (122px 可滑动切换) -->
       <div class="middle-zone" id="middleZone">
-        <!-- 功能页 0: 6通道限流开关 -->
+        <!-- 功能页 0: 6通道限流开关 (点击卡片收纳/拉出详情抽屉，点击右侧胶囊直接切换开关) -->
         <div class="page" id="pagePower">
           <div class="switch-grid">
-            <div class="switch-card on" id="cardCh0" onclick="toggleChannel(0)">
+            <div class="switch-card on selected" id="cardCh0" onclick="handleCardClick(0, event)">
               <div class="card-top">
                 <span class="ch-title">XDS110</span>
-                <span class="ch-state" id="stCh0">ON</span>
+                <span class="ch-state" id="stCh0" onclick="toggleChannelDirect(0, event)">ON</span>
               </div>
-              <span class="card-pin">GPIO 4</span>
+              <div class="card-bottom-row">
+                <span class="card-pin">GPIO 04</span>
+                <span class="card-drawer-hint" id="hintCh0">抽屉已拉出</span>
+              </div>
             </div>
-            <div class="switch-card on" id="cardCh1" onclick="toggleChannel(1)">
+            <div class="switch-card on" id="cardCh1" onclick="handleCardClick(1, event)">
               <div class="card-top">
                 <span class="ch-title">DAPLink</span>
-                <span class="ch-state" id="stCh1">ON</span>
+                <span class="ch-state" id="stCh1" onclick="toggleChannelDirect(1, event)">ON</span>
               </div>
-              <span class="card-pin">GPIO 5</span>
+              <div class="card-bottom-row">
+                <span class="card-pin">GPIO 05</span>
+                <span class="card-drawer-hint" id="hintCh1">详情</span>
+              </div>
             </div>
-            <div class="switch-card on" id="cardCh2" onclick="toggleChannel(2)">
+            <div class="switch-card on" id="cardCh2" onclick="handleCardClick(2, event)">
               <div class="card-top">
                 <span class="ch-title">FT2232</span>
-                <span class="ch-state" id="stCh2">ON</span>
+                <span class="ch-state" id="stCh2" onclick="toggleChannelDirect(2, event)">ON</span>
               </div>
-              <span class="card-pin">GPIO 6</span>
+              <div class="card-bottom-row">
+                <span class="card-pin">GPIO 06</span>
+                <span class="card-drawer-hint" id="hintCh2">详情</span>
+              </div>
             </div>
-            <div class="switch-card on" id="cardCh3" onclick="toggleChannel(3)">
+            <div class="switch-card on" id="cardCh3" onclick="handleCardClick(3, event)">
               <div class="card-top">
                 <span class="ch-title">UART</span>
-                <span class="ch-state" id="stCh3">ON</span>
+                <span class="ch-state" id="stCh3" onclick="toggleChannelDirect(3, event)">ON</span>
               </div>
-              <span class="card-pin">GPIO 7</span>
+              <div class="card-bottom-row">
+                <span class="card-pin">GPIO 07</span>
+                <span class="card-drawer-hint" id="hintCh3">详情</span>
+              </div>
             </div>
-            <div class="switch-card on" id="cardCh4" onclick="toggleChannel(4)">
+            <div class="switch-card on" id="cardCh4" onclick="handleCardClick(4, event)">
               <div class="card-top">
                 <span class="ch-title">EXT 1</span>
-                <span class="ch-state" id="stCh4">ON</span>
+                <span class="ch-state" id="stCh4" onclick="toggleChannelDirect(4, event)">ON</span>
               </div>
-              <span class="card-pin">GPIO 15</span>
+              <div class="card-bottom-row">
+                <span class="card-pin">GPIO 15</span>
+                <span class="card-drawer-hint" id="hintCh4">详情</span>
+              </div>
             </div>
-            <div class="switch-card on" id="cardCh5" onclick="toggleChannel(5)">
+            <div class="switch-card on" id="cardCh5" onclick="handleCardClick(5, event)">
               <div class="card-top">
                 <span class="ch-title">EXT 2</span>
-                <span class="ch-state" id="stCh5">ON</span>
+                <span class="ch-state" id="stCh5" onclick="toggleChannelDirect(5, event)">ON</span>
               </div>
-              <span class="card-pin">GPIO 16</span>
+              <div class="card-bottom-row">
+                <span class="card-pin">GPIO 16</span>
+                <span class="card-drawer-hint" id="hintCh5">详情</span>
+              </div>
             </div>
           </div>
         </div>
@@ -550,15 +878,15 @@
         <div class="page" id="pageTelem">
           <div class="telem-container">
             <div class="telem-rows">
-              <div class="telem-card">
+              <div class="telem-card" onclick="handleCardClick(0, event)">
                 <div class="telem-title"><span>总路 (0x40)</span><span>BUS</span></div>
                 <div class="telem-vals" id="telemBus">5.08V | 420mA</div>
               </div>
-              <div class="telem-card">
+              <div class="telem-card" onclick="handleCardClick(0, event)">
                 <div class="telem-title"><span>XDS110 (0x41)</span><span>CH0</span></div>
                 <div class="telem-vals" id="telemXds">3.31V |  85mA</div>
               </div>
-              <div class="telem-card">
+              <div class="telem-card" onclick="handleCardClick(1, event)">
                 <div class="telem-title"><span>DAPLink (0x42)</span><span>CH1</span></div>
                 <div class="telem-vals" id="telemDap">3.29V |  42mA</div>
               </div>
@@ -566,7 +894,7 @@
             <div class="telem-chart-box">
               <div class="chart-header">
                 <span>实时母线电流波形 (mA)</span>
-                <span id="chartVal">420 mA</span>
+                <span id="chartVal">420.0 mA</span>
               </div>
               <canvas id="waveCanvas" width="160" height="85"></canvas>
             </div>
@@ -577,30 +905,30 @@
         <div class="page" id="pageWifi">
           <div class="wifi-container">
             <div class="wifi-status-row">
-              <span>模式: <b style="color:var(--accent-cyan);" id="wifiModeLabel">SoftAP (192.168.4.1)</b></span>
-              <span style="color:var(--accent-green);">CLI优先</span>
+              <span>模式: <b style="color:var(--accent-cyan);" class="tabular-mono" id="wifiModeLabel">SoftAP (192.168.4.1)</b></span>
+              <span style="color:var(--accent-green);">CLI 优先</span>
             </div>
             <div class="wifi-actions">
               <div class="btn-wifi" onclick="scanWifiNetworks()">扫描热点</div>
               <div class="btn-wifi" onclick="connectTargetAp('JiaHe', '12345678')">连接 JiaHe</div>
-              <div class="btn-wifi" onclick="switchSoftAp()">切至SoftAP</div>
+              <div class="btn-wifi" onclick="switchSoftAp()">切至 SoftAP</div>
             </div>
             <div class="wifi-list" id="wifiList">
               <div class="wifi-item" onclick="connectTargetAp('JiaHe', '12345678')">
-                <span>JiaHe (已匹配推荐)</span>
-                <span style="color:var(--accent-green);">-42 dBm</span>
+                <span>JiaHe (实机验证热点)</span>
+                <span class="tabular-mono" style="color:var(--accent-green);">-42 dBm</span>
               </div>
               <div class="wifi-item" onclick="connectTargetAp('LinkNexus-5G', '')">
                 <span>LinkNexus-5G</span>
-                <span>-58 dBm</span>
+                <span class="tabular-mono">-58 dBm</span>
               </div>
               <div class="wifi-item" onclick="connectTargetAp('Lab-Router-01', '')">
                 <span>Lab-Router-01</span>
-                <span>-71 dBm</span>
+                <span class="tabular-mono">-71 dBm</span>
               </div>
               <div class="wifi-item" onclick="connectTargetAp('Office-Guest', '')">
                 <span>Office-Guest</span>
-                <span>-84 dBm</span>
+                <span class="tabular-mono">-84 dBm</span>
               </div>
             </div>
           </div>
@@ -610,7 +938,7 @@
       <!-- 3. 底部常驻进度/状态栏 (22px) -->
       <div class="bottom-bar">
         <div class="bottom-status">
-          <span id="bottomText">系统就绪 · 6/6 通电 · CAP1208 待命</span>
+          <span id="bottomText">系统就绪 · 6/6 通电 · 点击卡片可收纳/拉出抽屉</span>
         </div>
         <div class="progress-box">
           <div class="progress-fill" id="bottomProgress"></div>
@@ -618,42 +946,201 @@
       </div>
     </div>
 
-    <!-- 硬件 CAP1208 模拟电容滑条 (触控手势条) -->
-    <div class="slider-simulator-bar">
-      <div class="slider-title">
-        <span>CAP1208 物理滑条触控仿真</span>
-        <span id="sliderPageLabel">功能区 1/3: 限流开关</span>
-      </div>
-      <div class="touch-track" id="touchTrack">
-        <div class="touch-thumb" id="touchThumb"></div>
-      </div>
-      <div class="nav-buttons">
-        <button class="btn-nav" onclick="prevPage()">◀ 上一功能</button>
-        <button class="btn-nav" onclick="nextPage()">下一功能 ▶</button>
+    <!-- 4. 抽屉式通道巡检与触控滑条工作台 (带上下拉按钮 + 卡片点击联动) -->
+    <div class="drawer-section" id="hardwareDrawer">
+      <button class="drawer-pull-bar" id="drawerToggleBtn" onclick="toggleDrawer()">
+        <div class="drawer-handle-left">
+          <span>硬件通道详情与 CAP1208 触控抽屉</span>
+          <span class="drawer-pill-tag" id="drawerSelectedBadge">CH#0 · XDS110</span>
+        </div>
+        <div class="drawer-handle-Action">
+          <span id="drawerActionLabel">收起抽屉</span>
+          <svg class="drawer-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="18 15 12 9 6 15"></polyline>
+          </svg>
+        </div>
+      </button>
+
+      <div class="drawer-body" id="drawerBody">
+        <!-- 工业级参数矩阵 -->
+        <div class="inspector-grid">
+          <div class="inspector-cell">
+            <span class="inspector-label">选中通道</span>
+            <span class="inspector-value" id="inspName">CH0 · XDS110</span>
+          </div>
+          <div class="inspector-cell">
+            <span class="inspector-label">控制引脚</span>
+            <span class="inspector-value" id="inspPin">GPIO 04 (高有效)</span>
+          </div>
+          <div class="inspector-cell">
+            <span class="inspector-label">限流状态</span>
+            <span class="inspector-value" id="inspState" style="color:var(--accent-green);">ON · 导通供电</span>
+          </div>
+          <div class="inspector-cell">
+            <span class="inspector-label">实时电参</span>
+            <span class="inspector-value" id="inspPower">3.31V / 85mA</span>
+          </div>
+        </div>
+
+        <div class="inspector-actions-row">
+          <span class="inspector-hint">操作逻辑：点击任意卡片选中并拉出抽屉；再次点击当前激活卡片自动收纳抽屉。</span>
+          <button class="btn-Quick-action" id="btnToggleSelectedCh" onclick="toggleSelectedChannel()">切换当前通道通断</button>
+        </div>
+
+        <!-- 硬件 CAP1208 模拟电容滑条 (触控手势条) -->
+        <div class="slider-simulator-bar">
+          <div class="slider-title">
+            <span>CAP1208 物理电容滑条触控仿真 (0x28)</span>
+            <span class="tabular-mono" id="sliderPageLabel">PAGE 1/3 · 限流开关阵列</span>
+          </div>
+          <div class="touch-track" id="touchTrack">
+            <div class="touch-thumb" id="touchThumb"></div>
+          </div>
+          <div class="nav-buttons">
+            <button class="btn-nav" onclick="prevPage()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              <span>上一功能区</span>
+            </button>
+            <button class="btn-nav" onclick="nextPage()">
+              <span>下一功能区</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <div class="instructions">
-    提示：在屏幕中央或下方 <b>CAP1208 滑条</b> 上按住鼠标 <b>左/右拖拽</b> 即可流畅滑动切换功能区；<br>
-    键盘 <kbd>←</kbd> / <kbd>→</kbd> 也可快速切页。所有数据与 <b>ESP32 FLASH</b> 固件接口 100% 对齐。
+    提示：点击屏幕内 <b>通道卡片</b> 可联动 <b>拉出/收纳下方详情抽屉</b>（点击卡片右上角 <kbd>ON/OFF</kbd> 胶囊可直接切换通断）；<br>
+    也可点击抽屉顶部的 <b>上下拉按钮条</b> 或使用键盘 <kbd>←</kbd> <kbd>→</kbd> 切页。
   </div>
 
   <script>
     let currentPage = 0;
     const pageCount = 3;
+    let isDrawerCollapsed = false;
+    let selectedCh = 0;
+
     const middleZone = document.getElementById('middleZone');
     const dots = document.querySelectorAll('.dot');
     const sliderPageLabel = document.getElementById('sliderPageLabel');
     const touchThumb = document.getElementById('touchThumb');
     const touchTrack = document.getElementById('touchTrack');
     const bottomText = document.getElementById('bottomText');
+    const hardwareDrawer = document.getElementById('hardwareDrawer');
+    const drawerActionLabel = document.getElementById('drawerActionLabel');
+
+    const channelMeta = [
+      { name: 'XDS110',  pin: 'GPIO 04 (高有效)', power: '3.31V / 85mA' },
+      { name: 'DAPLink', pin: 'GPIO 05 (高有效)', power: '3.29V / 42mA' },
+      { name: 'FT2232',  pin: 'GPIO 06 (高有效)', power: '3.30V / 118mA' },
+      { name: 'UART',    pin: 'GPIO 07 (高有效)', power: '3.31V / 24mA' },
+      { name: 'EXT 1',   pin: 'GPIO 15 (高有效)', power: '5.08V / 76mA' },
+      { name: 'EXT 2',   pin: 'GPIO 16 (高有效)', power: '5.08V / 75mA' }
+    ];
+
+    const channelStates = [true, true, true, true, true, true];
 
     const pageTitles = [
-      "功能区 1/3: 6通道限流芯片开关",
-      "功能区 2/3: 遥测数据与动态波形",
-      "功能区 3/3: Wi-Fi网络图形化GUI"
+      "PAGE 1/3 · 限流开关阵列",
+      "PAGE 2/3 · INA236 遥测与波形",
+      "PAGE 3/3 · Wi-Fi 射频管理"
     ];
+
+    function toggleThemeMode() {
+      document.body.classList.toggle('light-theme');
+      const isLight = document.body.classList.contains('light-theme');
+      document.getElementById('themeToggleText').innerText = isLight ? '切换柔化深色' : '切换工业浅色';
+    }
+
+    function setDrawerCollapsed(collapsed) {
+      isDrawerCollapsed = collapsed;
+      if (isDrawerCollapsed) {
+        hardwareDrawer.classList.add('collapsed');
+        drawerActionLabel.innerText = '拉出抽屉';
+      } else {
+        hardwareDrawer.classList.remove('collapsed');
+        drawerActionLabel.innerText = '收起抽屉';
+      }
+      updateCardSelectionUI();
+    }
+
+    function toggleDrawer() {
+      setDrawerCollapsed(!isDrawerCollapsed);
+      bottomText.innerText = isDrawerCollapsed
+        ? `抽屉已收起 · 点击任意卡片或上下拉按钮可拉出`
+        : `抽屉已拉出 · 当前巡检 CH#${selectedCh} (${channelMeta[selectedCh].name})`;
+    }
+
+    function updateCardSelectionUI() {
+      for (let i = 0; i < 6; i++) {
+        const card = document.getElementById(`cardCh${i}`);
+        const hint = document.getElementById(`hintCh${i}`);
+        if (i === selectedCh) {
+          card.classList.add('selected');
+          hint.innerText = isDrawerCollapsed ? '点击拉出' : '点击收纳';
+        } else {
+          card.classList.remove('selected');
+          hint.innerText = '详情';
+        }
+      }
+
+      const meta = channelMeta[selectedCh];
+      const isOn = channelStates[selectedCh];
+      document.getElementById('drawerSelectedBadge').innerText = `CH#${selectedCh} · ${meta.name}`;
+      document.getElementById('inspName').innerText = `CH${selectedCh} · ${meta.name}`;
+      document.getElementById('inspPin').innerText = meta.pin;
+      const stEl = document.getElementById('inspState');
+      stEl.innerText = isOn ? 'ON · 导通供电' : 'OFF · 硬件隔离';
+      stEl.style.color = isOn ? 'var(--accent-green)' : 'var(--accent-red)';
+      document.getElementById('inspPower').innerText = isOn ? meta.power : '0.00V / 0mA';
+    }
+
+    // 点击卡片主体：选中卡片并联动拉出/收纳抽屉
+    function handleCardClick(ch, event) {
+      if (event) event.stopPropagation();
+      if (selectedCh === ch) {
+        // 再次点击当前已选中的卡片 -> 切换抽屉收纳/拉出
+        setDrawerCollapsed(!isDrawerCollapsed);
+        bottomText.innerText = isDrawerCollapsed
+          ? `已收纳 CH#${ch} (${channelMeta[ch].name}) 详情抽屉`
+          : `已拉出 CH#${ch} (${channelMeta[ch].name}) 详情抽屉`;
+      } else {
+        // 点击其他卡片 -> 选中该卡片并确保抽屉拉出
+        selectedCh = ch;
+        setDrawerCollapsed(false);
+        bottomText.innerText = `已选中 CH#${ch} (${channelMeta[ch].name}) · 详情抽屉已展开`;
+      }
+      updateCardSelectionUI();
+    }
+
+    // 点击卡片右上角 ON/OFF 状态胶囊：直接切换通道通断
+    function toggleChannelDirect(ch, event) {
+      if (event) event.stopPropagation();
+      selectedCh = ch;
+      toggleChannel(ch);
+    }
+
+    function toggleSelectedChannel() {
+      toggleChannel(selectedCh);
+    }
+
+    function toggleChannel(ch) {
+      channelStates[ch] = !channelStates[ch];
+      const card = document.getElementById(`cardCh${ch}`);
+      const st = document.getElementById(`stCh${ch}`);
+      if (channelStates[ch]) {
+        card.classList.add('on');
+        st.innerText = 'ON';
+      } else {
+        card.classList.remove('on');
+        st.innerText = 'OFF';
+      }
+      const onCount = channelStates.filter(s => s).length;
+      bottomText.innerText = `限流开关更新: CH#${ch} ${channelStates[ch] ? '导通' : '关断'} (${onCount}/6 ON)`;
+      updateCardSelectionUI();
+    }
 
     function switchPage(page) {
       if (page < 0) page = 0;
@@ -668,14 +1155,15 @@
       });
 
       sliderPageLabel.innerText = pageTitles[page];
-      touchThumb.style.left = `${(page / (pageCount - 1)) * (320 - 24 - 32)}px`;
+      const trackWidth = touchTrack.clientWidth || 390;
+      touchThumb.style.left = `${(page / (pageCount - 1)) * Math.max(0, trackWidth - 44)}px`;
 
       if (page === 0) {
-        bottomText.innerText = "限流开关控制 · 点击卡片切换通断";
+        bottomText.innerText = "限流开关控制 · 点击卡片收纳/拉出抽屉，点击 ON/OFF 切换通断";
       } else if (page === 1) {
-        bottomText.innerText = "遥测监视 · 3路 INA236 动态采样中";
+        bottomText.innerText = "遥测监视 · 3 路 INA236 实时采样中 (等宽数字对齐)";
       } else {
-        bottomText.innerText = "Wi-Fi GUI · 支持信道扫描与直连";
+        bottomText.innerText = "Wi-Fi GUI · 支持信道扫描与热点直连";
       }
     }
 
@@ -703,13 +1191,11 @@
       }
     });
 
-    // 键盘左右方向键
     window.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowRight') nextPage();
       if (e.key === 'ArrowLeft') prevPage();
     });
 
-    // CAP1208 滑条模拟拖拽
     touchTrack.addEventListener('click', (e) => {
       const rect = touchTrack.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
@@ -717,23 +1203,6 @@
       const targetPage = Math.round(ratio * (pageCount - 1));
       switchPage(targetPage);
     });
-
-    // 6 路限流芯片开关切换逻辑
-    const channelStates = [true, true, true, true, true, true];
-    function toggleChannel(ch) {
-      channelStates[ch] = !channelStates[ch];
-      const card = document.getElementById(`cardCh${ch}`);
-      const st = document.getElementById(`stCh${ch}`);
-      if (channelStates[ch]) {
-        card.classList.add('on');
-        st.innerText = 'ON';
-      } else {
-        card.classList.remove('on');
-        st.innerText = 'OFF';
-      }
-      const onCount = channelStates.filter(s => s).length;
-      bottomText.innerText = `限流开关更新: CH#${ch} ${channelStates[ch] ? '导通' : '关断'} (${onCount}/6 ON)`;
-    }
 
     // 实时动态曲线图绘制 (Canvas 60FPS)
     const canvas = document.getElementById('waveCanvas');
@@ -744,7 +1213,6 @@
     }
 
     function renderWave() {
-      // 产生微小电流抖动
       const last = wavePoints[wavePoints.length - 1];
       const target = 420 + (Math.random() - 0.5) * 45;
       const next = last + (target - last) * 0.2;
@@ -754,11 +1222,10 @@
       document.getElementById('chartVal').innerText = `${next.toFixed(1)} mA`;
       document.getElementById('telemBus').innerText = `5.08V | ${next.toFixed(0)}mA`;
 
-      // 绘图
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // 网格线
-      ctx.strokeStyle = '#182030';
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.18)';
       ctx.lineWidth = 1;
       for (let y = 15; y < canvas.height; y += 20) {
         ctx.beginPath();
@@ -780,15 +1247,14 @@
         else ctx.lineTo(x, y);
       }
       ctx.strokeStyle = '#38BDF8';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1.6;
       ctx.stroke();
 
-      // 渐变填充
       ctx.lineTo(canvas.width, canvas.height);
       ctx.lineTo(0, canvas.height);
       ctx.closePath();
       const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      grad.addColorStop(0, 'rgba(56, 189, 248, 0.25)');
+      grad.addColorStop(0, 'rgba(56, 189, 248, 0.28)');
       grad.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
       ctx.fillStyle = grad;
       ctx.fill();
@@ -796,6 +1262,7 @@
       requestAnimationFrame(renderWave);
     }
     renderWave();
+    updateCardSelectionUI();
 
     // Wi-Fi 交互操作
     function scanWifiNetworks() {
@@ -809,18 +1276,17 @@
       document.getElementById('wifiModeLabel').innerText = `STA连接中: ${ssid}...`;
       bottomText.innerText = `Wi-Fi: 正在向热点 '${ssid}' 发起握手...`;
       setTimeout(() => {
-        document.getElementById('wifiModeLabel').innerText = `STA在线: ${ssid} (192.168.1.188)`;
+        document.getElementById('wifiModeLabel').innerText = `STA在线: ${ssid} (10.95.213.162)`;
         document.getElementById('topWifiText').innerText = `STA:OK`;
-        bottomText.innerText = `Wi-Fi 已连接至 '${ssid}' (IP: 192.168.1.188)`;
+        bottomText.innerText = `Wi-Fi 已连接至 '${ssid}' (IP: 10.95.213.162)`;
       }, 900);
     }
 
     function switchSoftAp() {
-      document.getElementById('wifiModeLabel').innerText = `SoftAP: LinkNexus-ESP32-AP`;
+      document.getElementById('wifiModeLabel').innerText = `SoftAP (192.168.4.1)`;
       document.getElementById('topWifiText').innerText = `AP:ON`;
       bottomText.innerText = "Wi-Fi 模式已切回默认 SoftAP (192.168.4.1:8266)";
     }
   </script>
 </body>
 </html>
-

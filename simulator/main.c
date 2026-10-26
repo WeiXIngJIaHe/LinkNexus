@@ -19,9 +19,13 @@ int main(int argc, char **argv)
     ui_main_init();
 
     printf("UI Simulator initialized.\n");
-    printf("Page 0: 6-Channel Limiter Switch\n");
+    printf("Page 0: 6-Channel Limiter Switch (Drawer & Card Click Linked)\n");
     printf("Page 1: Telemetry (Bus, XDS, DAP) & Live Chart\n");
     printf("Page 2: Wi-Fi Graphical GUI (AP/STA)\n");
+
+    // 模拟测试卡片点击收纳/拉出与上下拉按钮
+    ui_on_card_click(0);
+    ui_toggle_drawer();
 
     // 模拟测试切页
     ui_slide_next();
@@ -31,4 +35,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-

@@ -23,7 +23,7 @@ namespace LinkNexus
         /// <summary>
         /// 小版本号 xx (当前为 30)
         /// </summary>
-        public const int MinorRevision = 30;
+        public const int MinorRevision = 31;
 
         /// <summary>
         /// 修订阶段标识 AAA (当前为 "preview")

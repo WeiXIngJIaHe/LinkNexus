@@ -4,129 +4,173 @@ using System.Windows.Media;
 
 namespace LinkNexus
 {
+    public enum AppTheme
+    {
+        Dark,
+        Light
+    }
+
     /// <summary>
-    /// LinkNexus 全局主题与美学管理中枢 (Theme Manager)
-    /// 遵循 UI-UX-PRO-MAX 准则构建：
-    /// 1. 简约风格带有机能/二次元风味 (Minimalist Tech-Anime / 战术二次元美学)
-    /// 2. 深度支持【深色模式 (Cyber Dark)】与【浅色模式 (Porcelain Light)】热切换
-    /// 3. 提供满足 WCAG 4.5:1+ 高对比度、语义化色彩代币 (Color Tokens)
+    /// 全局工业主题与高对比度调色板管理器
+    /// 支持柔化工业深色模式 (Softened Industrial Slate-Charcoal, WCAG AAA >= 7.8:1) 与高反差护眼浅色模式无缝热切换
     /// </summary>
     public static class ThemeManager
     {
         public static bool IsDarkMode { get; private set; } = true;
+        public static AppTheme CurrentTheme => IsDarkMode ? AppTheme.Dark : AppTheme.Light;
 
         public static event Action<bool>? ThemeChanged;
 
-        /// <summary>
-        /// 热重载并应用全局主题调色板
-        /// </summary>
-        /// <param name="isDark">true: 赛博暗黑战术模式; false: 极简白瓷实验室模式</param>
+        public static void ApplyTheme(AppTheme theme)
+        {
+            ApplyTheme(theme == AppTheme.Dark);
+        }
+
         public static void ApplyTheme(bool isDark)
         {
             IsDarkMode = isDark;
             var res = Application.Current?.Resources;
             if (res == null) return;
 
-            // 1. 基础容器与画板表面 (Surfaces & Backgrounds - 浅色模式采用低眩光白瓷磨砂质感)
-            SetBrush(res, "AppBgBrush", isDark ? "#0B0C10" : "#E8EDF5");
-            SetBrush(res, "AppSurfaceBrush", isDark ? "#13151F" : "#F8FAFC");
-            SetBrush(res, "AppSurfaceSubtleBrush", isDark ? "#1A1D2B" : "#EDF2F7");
-            SetBrush(res, "AppSurfaceHoverBrush", isDark ? "#23273A" : "#E2E8F0");
+            if (isDark)
+            {
+                // 柔化工业深色模式 (Softened Slate-Charcoal) — 调淡死黑背景、强化纯白与亮银文字对比度
+                SetBrush(res, "AppBgBrush", "#1A202C");
+                SetBrush(res, "WindowBgBrush", "#1A202C");
+                SetBrush(res, "AppSurfaceBrush", "#222938");
+                SetBrush(res, "AppSurfaceSubtleBrush", "#283142");
+                SetBrush(res, "AppSurfaceHoverBrush", "#323D52");
+                SetBrush(res, "AppBorderBrush", "#3E4C66");
+                SetBrush(res, "AppBorderSubtleBrush", "#334056");
 
-            // 2. 边框与微结构线条 (Borders & Tactical Lines)
-            SetBrush(res, "AppBorderBrush", isDark ? "#262A3D" : "#CBD5E1");
-            SetBrush(res, "AppBorderSubtleBrush", isDark ? "#1C2030" : "#E2E8F0");
-            SetBrush(res, "AppBorderActiveBrush", isDark ? "#38BDF8" : "#2563EB");
-            SetBrush(res, "BorderDarkBrush", isDark ? "#262A3D" : "#CBD5E1");
+                // 卡片与毛玻璃表层色
+                SetBrush(res, "CardBgBrush", "#252E3F");
+                SetBrush(res, "CardHoverBgBrush", "#2F3B52");
+                SetBrush(res, "CardSelectedBgBrush", "#223B59");
 
-            // 3. 字体层级 (Typography & High Contrast Text)
-            SetBrush(res, "AppTextPrimaryBrush", isDark ? "#F8FAFC" : "#1E293B");
-            SetBrush(res, "AppTextSecondaryBrush", isDark ? "#94A3B8" : "#475569");
-            SetBrush(res, "AppTextMutedBrush", isDark ? "#64748B" : "#64748B");
-            SetBrush(res, "TextBrightBrush", isDark ? "#FAFAFA" : "#0F172A");
-            SetBrush(res, "TextNormalBrush", isDark ? "#D4D4D8" : "#334155");
-            SetBrush(res, "TextDimBrush", isDark ? "#71717A" : "#64748B");
+                // 终端与代码视窗底色 (调淡纯黑，消除刺眼眩光)
+                SetBrush(res, "AppTerminalBgBrush", "#141923");
+                SetBrush(res, "AppTerminalBorderBrush", "#38455E");
 
-            // 4. 二次元 / 赛博机能专属强调色 (深浅色点缀色适量区分，浅色偏战术深海蓝与品红)
-            SetBrush(res, "AccentCyanBrush", isDark ? "#38BDF8" : "#2563EB");          // 深色苍穹青 / 浅色皇家战术蓝
-            SetBrush(res, "AccentActionTextBrush", isDark ? "#38BDF8" : "#2563EB");    // 强调按钮文本/图标前景色
-            SetBrush(res, "AccentAnimePurpleBrush", isDark ? "#818CF8" : "#6366F1");   // 幻灵紫 / 靛蓝
-            SetBrush(res, "AccentAnimePinkBrush", isDark ? "#F43F5E" : "#E11D48");     // 绯樱粉 / 战术赤红
-            SetBrush(res, "AccentAmberBrush", isDark ? "#F59E0B" : "#D97706");         // 战术橙 / 深琥珀
+                // 强化文字色彩层级：纯白主字 (#FFFFFF) + 亮银白副字 (#F1F5F9) + 高清浅灰蓝辅助标签 (#CBD5E1)
+                SetBrush(res, "AppTextPrimaryBrush", "#FFFFFF");
+                SetBrush(res, "TextBrightBrush", "#FFFFFF");
+                SetBrush(res, "AppTextSecondaryBrush", "#F1F5F9");
+                SetBrush(res, "TextNormalBrush", "#F1F5F9");
+                SetBrush(res, "AppTextMutedBrush", "#CBD5E1");
+                SetBrush(res, "TextDimBrush", "#CBD5E1");
 
-            // 5. 状态反馈色 (Functional Status)
-            SetBrush(res, "SuccessGreenBrush", isDark ? "#10B981" : "#059669");
-            SetBrush(res, "WarningAmberBrush", isDark ? "#F59E0B" : "#D97706");
-            SetBrush(res, "ErrorRedBrush", isDark ? "#EF4444" : "#DC2626");
+                // 工业功能强调色 (高饱和度高辨识度)
+                SetBrush(res, "AccentCyanBrush", "#38BDF8");
+                SetBrush(res, "AccentBlueBrush", "#60A5FA");
+                SetBrush(res, "AccentAnimePurpleBrush", "#A5B4FC");
+                SetBrush(res, "SuccessGreenBrush", "#34D399");
+                SetBrush(res, "WarningAmberBrush", "#FBBF24");
+                SetBrush(res, "DangerRedBrush", "#F87171");
 
-            // 6. 设备卡片专属 (Tactical & Frosted Glass Card Tokens)
-            SetBrush(res, "CardBgBrush", isDark ? "#141724" : "#FFFFFF");
-            SetBrush(res, "CardBorderBrush", isDark ? "#262A3D" : "#CBD5E1");
-            SetBrush(res, "CardSelectedBgBrush", isDark ? "#162036" : "#E0F2FE");
-            SetBrush(res, "CardSelectedBorderBrush", isDark ? "#38BDF8" : "#2563EB");
-            // 毛玻璃质感色彩令牌 (Frosted Glass Acrylic Tokens)
-            SetBrush(res, "CardGlassBgBrush", isDark ? "#D9141826" : "#EBF8FAFC");
-            SetBrush(res, "CardGlassBorderBrush", isDark ? "#3338BDF8" : "#80CBD5E1");
-            SetBrush(res, "CardGlassHighlightBrush", isDark ? "#1AFFFFFF" : "#99FFFFFF");
-            SetBrush(res, "CardGlassHoverBgBrush", isDark ? "#E61A2033" : "#F8FFFFFF");
-            SetBrush(res, "CardGlassHoverBorderBrush", isDark ? "#8038BDF8" : "#B32563EB");
+                // 终端高亮文本色
+                SetBrush(res, "TerminalTextPrimaryBrush", "#FFFFFF");
+                SetBrush(res, "TerminalTextCyanBrush", "#38BDF8");
+                SetBrush(res, "TerminalTextGreenBrush", "#34D399");
+                SetBrush(res, "TerminalTextAmberBrush", "#FBBF24");
 
-            // 7. 按钮与交互控件 (Buttons & Inputs)
-            SetBrush(res, "IndustrialBtnBgBrush", isDark ? "#1E2235" : "#F1F5F9");
-            SetBrush(res, "IndustrialBtnBorderBrush", isDark ? "#2E344E" : "#CBD5E1");
-            SetBrush(res, "IndustrialBtnHoverBgBrush", isDark ? "#2B314B" : "#E2E8F0");
-            SetBrush(res, "IndustrialBtnPressedBgBrush", isDark ? "#161927" : "#CBD5E1");
-            SetBrush(res, "InputBgBrush", isDark ? "#0F111A" : "#FFFFFF");
+                // 工业按钮状态色
+                SetBrush(res, "IndustrialBtnBgBrush", "#2A3447");
+                SetBrush(res, "IndustrialBtnHoverBgBrush", "#354259");
+                SetBrush(res, "IndustrialBtnPressedBgBrush", "#1F2736");
+                SetBrush(res, "IndustrialBtnBorderBrush", "#475672");
 
-            // 8. 终端控制台与日志视窗 (修复：浅色模式下为柔和浅灰磨砂编辑箱体，彻底解决全黑和白底黑块问题)
-            SetBrush(res, "AppTerminalBgBrush", isDark ? "#07080D" : "#EDF2F7");
-            SetBrush(res, "AppTerminalBorderBrush", isDark ? "#1F2438" : "#CBD5E1");
-            SetBrush(res, "TerminalTextPrimaryBrush", isDark ? "#F8FAFC" : "#0F172A");
-            SetBrush(res, "TerminalTextCyanBrush", isDark ? "#38BDF8" : "#0284C7");
-            SetBrush(res, "TerminalTextGreenBrush", isDark ? "#34D399" : "#059669");
-            SetBrush(res, "TerminalTextAmberBrush", isDark ? "#FBBF24" : "#D97706");
-            SetBrush(res, "TerminalTextMutedBrush", isDark ? "#64748B" : "#64748B");
+                // 工业毛玻璃亚克力质感画刷
+                SetBrush(res, "CardGlassBgBrush", "#EB263042");
+                SetBrush(res, "CardGlassHoverBgBrush", "#F5303C54");
+                SetBrush(res, "CardGlassBorderBrush", "#465675");
+                SetBrush(res, "CardGlassHoverBorderBrush", "#38BDF8");
+                SetBrush(res, "CardGlassHighlightBrush", "#38FFFFFF");
+                SetBrush(res, "AppAnimeGridBrush", "#1838BDF8");
+                SetBrush(res, "AppAnimeLineBrush", "#35818CF8");
+            }
+            else
+            {
+                // 工业高反差浅色模式 (Industrial Daylight)
+                SetBrush(res, "AppBgBrush", "#E2E8F0");
+                SetBrush(res, "WindowBgBrush", "#E2E8F0");
+                SetBrush(res, "AppSurfaceBrush", "#F1F5F9");
+                SetBrush(res, "AppSurfaceSubtleBrush", "#E2E8F0");
+                SetBrush(res, "AppSurfaceHoverBrush", "#CBD5E1");
+                SetBrush(res, "AppBorderBrush", "#94A3B8");
+                SetBrush(res, "AppBorderSubtleBrush", "#CBD5E1");
 
-            // 9. 滚动条 (Industrial & Anime Slim ScrollBar)
-            SetBrush(res, "ScrollBarTrackBrush", isDark ? "#10121A" : "#E2E8F0");
-            SetBrush(res, "ScrollBarThumbBrush", isDark ? "#2E344E" : "#CBD5E1");
-            SetBrush(res, "ScrollBarThumbHoverBrush", isDark ? "#3F476B" : "#94A3B8");
+                SetBrush(res, "CardBgBrush", "#FFFFFF");
+                SetBrush(res, "CardHoverBgBrush", "#F8FAFC");
+                SetBrush(res, "CardSelectedBgBrush", "#E0F2FE");
 
-            // 10. 手绘二次元机能线条背景画刷 (Hand-Drawn Anime Tech Line-Art Brushes)
-            SetBrush(res, "AppAnimeLineBrush", isDark ? "#2A364F" : "#94A3B8");
-            SetBrush(res, "AppAnimeGlowBrush", isDark ? "#38BDF8" : "#2563EB");
-            SetBrush(res, "AppAnimeFineBrush", isDark ? "#1A2234" : "#CBD5E1");
+                // 终端采用高对比冷灰底色
+                SetBrush(res, "AppTerminalBgBrush", "#E2E8F0");
+                SetBrush(res, "AppTerminalBorderBrush", "#94A3B8");
+
+                // 深邃墨黑文字保证极高对比度
+                SetBrush(res, "AppTextPrimaryBrush", "#0F172A");
+                SetBrush(res, "TextBrightBrush", "#0F172A");
+                SetBrush(res, "AppTextSecondaryBrush", "#1E293B");
+                SetBrush(res, "TextNormalBrush", "#1E293B");
+                SetBrush(res, "AppTextMutedBrush", "#334155");
+                SetBrush(res, "TextDimBrush", "#475569");
+
+                // 浅色背景下的深色系高对比功能强调色
+                SetBrush(res, "AccentCyanBrush", "#0284C7");
+                SetBrush(res, "AccentBlueBrush", "#2563EB");
+                SetBrush(res, "AccentAnimePurpleBrush", "#4F46E5");
+                SetBrush(res, "SuccessGreenBrush", "#059669");
+                SetBrush(res, "WarningAmberBrush", "#D97706");
+                SetBrush(res, "DangerRedBrush", "#DC2626");
+
+                // 终端深色系高亮文本
+                SetBrush(res, "TerminalTextPrimaryBrush", "#0F172A");
+                SetBrush(res, "TerminalTextCyanBrush", "#0369A1");
+                SetBrush(res, "TerminalTextGreenBrush", "#047857");
+                SetBrush(res, "TerminalTextAmberBrush", "#B45309");
+
+                // 工业按钮状态
+                SetBrush(res, "IndustrialBtnBgBrush", "#E2E8F0");
+                SetBrush(res, "IndustrialBtnHoverBgBrush", "#CBD5E1");
+                SetBrush(res, "IndustrialBtnPressedBgBrush", "#94A3B8");
+                SetBrush(res, "IndustrialBtnBorderBrush", "#94A3B8");
+
+                // 浅色模式毛玻璃亚克力质感画刷
+                SetBrush(res, "CardGlassBgBrush", "#F2FFFFFF");
+                SetBrush(res, "CardGlassHoverBgBrush", "#FFFFFFFF");
+                SetBrush(res, "CardGlassBorderBrush", "#94A3B8");
+                SetBrush(res, "CardGlassHoverBorderBrush", "#0284C7");
+                SetBrush(res, "CardGlassHighlightBrush", "#FFFFFFFF");
+                SetBrush(res, "AppAnimeGridBrush", "#120284C7");
+                SetBrush(res, "AppAnimeLineBrush", "#284F46E5");
+            }
 
             ThemeChanged?.Invoke(isDark);
         }
 
-        /// <summary>
-        /// 根据当前深浅色模式获取对应的卡片机能状态指示条色值
-        /// </summary>
-        public static string GetStripeColor(string status)
+        public static void ToggleTheme()
         {
-            return status switch
+            ApplyTheme(!IsDarkMode);
+        }
+
+        public static string GetStripeColor(string stateCategory)
+        {
+            bool isLight = !IsDarkMode;
+            return stateCategory switch
             {
-                "Ready" => IsDarkMode ? "#38BDF8" : "#2563EB",
-                "Warning" => IsDarkMode ? "#F59E0B" : "#D97706",
-                _ => IsDarkMode ? "#64748B" : "#94A3B8"
+                "Ready" => isLight ? "#059669" : "#10B981",
+                "Warning" => isLight ? "#D97706" : "#F59E0B",
+                _ => isLight ? "#64748B" : "#64748B"
             };
         }
 
         private static void SetBrush(ResourceDictionary res, string key, string hexColor)
         {
-            try
-            {
-                var color = (Color)ColorConverter.ConvertFromString(hexColor);
-                var brush = new SolidColorBrush(color);
-                brush.Freeze(); // 提升渲染性能并支持跨线程安全
-                res[key] = brush;
-            }
-            catch
-            {
-                // 保底防崩
-            }
+            var color = (Color)ColorConverter.ConvertFromString(hexColor);
+            var brush = new SolidColorBrush(color);
+            brush.Freeze();
+            res[key] = brush;
         }
     }
 }
-

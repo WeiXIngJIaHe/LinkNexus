@@ -1437,19 +1437,19 @@
                                                             <Button Content="+ 3D 相空间轨迹节点" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
                                                                     Command="{Binding BlueprintVm.AddPhaseSpaceNodeCommand}" />
                                                             <Button Content="+ VOFA+ 实时示波卡片" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
-                                                                    Command="{Binding BlueprintVm.AddVofaScopeNodeCommand}" />
+                                                                    Command="{Binding BlueprintVm.AddVofaPlotNodeCommand}" />
                                                             <Button Content="+ IMU 三维姿态视窗" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
-                                                                    Command="{Binding BlueprintVm.AddImu3DNodeCommand}" />
+                                                                    Command="{Binding BlueprintVm.AddImu3DPlotNodeCommand}" />
                                                             <Button Content="+ Python 算法算子" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
-                                                                    Command="{Binding BlueprintVm.AddPythonNodeCommand}" />
+                                                                    Command="{Binding BlueprintVm.AddPythonAlgoNodeCommand}" />
                                                             <Button Content="+ CSV 数据流落盘" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
-                                                                    Command="{Binding BlueprintVm.AddCsvLoggerNodeCommand}" />
+                                                                    Command="{Binding BlueprintVm.AddCsvSaveNodeCommand}" />
                                                             <Button Content="+ 数学算子计算" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
-                                                                    Command="{Binding BlueprintVm.AddMathOpNodeCommand}" />
+                                                                    Command="{Binding BlueprintVm.AddDspFilterNodeCommand}" />
                                                             <Button Content="+ ESP32 串口输入" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
-                                                                    Command="{Binding BlueprintVm.AddEsp32SerialNodeCommand}" />
+                                                                    Command="{Binding BlueprintVm.AddComInputNodeCommand}" />
                                                             <Button Content="+ MCP 智能体协议桥接" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
-                                                                    Command="{Binding BlueprintVm.AddMcpBridgeNodeCommand}" />
+                                                                    Command="{Binding BlueprintVm.AddMcpInputNodeCommand}" />
                                                         </StackPanel>
                                                     </ScrollViewer>
                                                 </Grid>

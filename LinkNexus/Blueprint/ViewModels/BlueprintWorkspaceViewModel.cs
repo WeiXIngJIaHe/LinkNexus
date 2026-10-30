@@ -75,6 +75,15 @@ namespace LinkNexus.Blueprint.ViewModels
         public ICommand AddDspFilterNodeCommand { get; }
         public ICommand AddPhaseSpaceNodeCommand { get; }
 
+        // 兼容别名与快速添加绑定
+        public ICommand AddVofaScopeNodeCommand => AddVofaPlotNodeCommand;
+        public ICommand AddImu3DNodeCommand => AddImu3DPlotNodeCommand;
+        public ICommand AddPythonNodeCommand => AddPythonAlgoNodeCommand;
+        public ICommand AddCsvLoggerNodeCommand => AddCsvSaveNodeCommand;
+        public ICommand AddMathOpNodeCommand => AddDspFilterNodeCommand;
+        public ICommand AddEsp32SerialNodeCommand => AddComInputNodeCommand;
+        public ICommand AddMcpBridgeNodeCommand => AddMcpInputNodeCommand;
+
         // 自动排版、预设蓝图与全局流控命令
         public ICommand AutoLayoutCommand { get; }
         public ICommand LoadDualShowcasePresetCommand { get; }

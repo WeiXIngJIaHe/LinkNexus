@@ -835,12 +835,15 @@ namespace LinkNexus
                 {
                     _isVirtualDevicesEnabled = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsVirtualDevicesDisabled));
                     OnPropertyChanged(nameof(VirtualDevicesButtonText));
                     OnPropertyChanged(nameof(VirtualDevicesStatusText));
                     OnPropertyChanged(nameof(HasVirtualDevices));
                 }
             }
         }
+
+        public bool IsVirtualDevicesDisabled => !_isVirtualDevicesEnabled;
 
         public ObservableCollection<PortDeviceModel> VirtualDevices { get; } = new();
         public bool HasVirtualDevices => VirtualDevices.Count > 0;

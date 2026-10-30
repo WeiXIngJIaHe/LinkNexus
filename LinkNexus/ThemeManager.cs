@@ -29,6 +29,12 @@ namespace LinkNexus
         public static void ApplyTheme(bool isDark)
         {
             IsDarkMode = isDark;
+            try
+            {
+                Wpf.Ui.Appearance.ApplicationThemeManager.Apply(isDark ? Wpf.Ui.Appearance.ApplicationTheme.Dark : Wpf.Ui.Appearance.ApplicationTheme.Light);
+            }
+            catch { }
+
             var res = Application.Current?.Resources;
             if (res == null) return;
 

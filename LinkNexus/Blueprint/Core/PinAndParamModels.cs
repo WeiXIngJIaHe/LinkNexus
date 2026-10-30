@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -140,6 +141,7 @@ namespace LinkNexus.Blueprint.Core
         private string _value = string.Empty;
         private bool _boolValue;
         private string _buttonText = string.Empty;
+        private bool _isUpdatingOptions;
 
         public string Key { get; }
         public string Label { get; }
@@ -162,9 +164,14 @@ namespace LinkNexus.Blueprint.Core
             get => _value;
             set
             {
-                if (_value != value)
+                // WPF ComboBox 在 ItemsSource (Options) 刷新或清空瞬间会通过 TwoWay 绑定回写 null，直接拦截防止覆盖有效值或触发空引用回调
+                if (_isUpdatingOptions) return;
+                if (Kind == NodeParamKind.Combo && value == null) return;
+
+                string safeValue = value ?? string.Empty;
+                if (_value != safeValue)
                 {
-                    _value = value;
+                    _value = safeValue;
                     OnPropertyChanged();
                     ValueChangedCallback?.Invoke(_value);
                 }
@@ -206,17 +213,77 @@ namespace LinkNexus.Blueprint.Core
             Key = key;
             Label = label;
             Kind = kind;
-            _value = initialValue;
-            _buttonText = initialValue;
+            _value = initialValue ?? string.Empty;
+            _buttonText = initialValue ?? string.Empty;
         }
 
-        public void SetValueSilently(string newValue)
+        public void SetValueSilently(string? newValue)
         {
-            if (_value != newValue)
+            string safeValue = newValue ?? string.Empty;
+            _value = safeValue;
+            OnPropertyChanged(nameof(Value));
+        }
+
+        /// <summary>
+        /// 原子刷新下拉列表选项，抑制 WPF ComboBox 在集合清空瞬间回写 SelectedItem = null
+        /// </summary>
+        public void ReplaceOptions(IEnumerable<string>? newOptions, string? preferredValue = null)
+        {
+            var targetList = new List<string>();
+            if (newOptions != null)
             {
-                _value = newValue;
-                OnPropertyChanged(nameof(Value));
+                foreach (var item in newOptions)
+                {
+                    if (!string.IsNullOrWhiteSpace(item))
+                    {
+                        targetList.Add(item);
+                    }
+                }
             }
+
+            string candidate = !string.IsNullOrWhiteSpace(preferredValue)
+                ? preferredValue!
+                : (!string.IsNullOrWhiteSpace(_value) ? _value : (targetList.Count > 0 ? targetList[0] : string.Empty));
+
+            string resolved = targetList.Contains(candidate)
+                ? candidate
+                : (targetList.Count > 0 ? targetList[0] : string.Empty);
+
+            bool identical = Options.Count == targetList.Count;
+            if (identical)
+            {
+                for (int i = 0; i < targetList.Count; i++)
+                {
+                    if (!string.Equals(Options[i], targetList[i], StringComparison.Ordinal))
+                    {
+                        identical = false;
+                        break;
+                    }
+                }
+            }
+
+            if (identical)
+            {
+                SetValueSilently(resolved);
+                return;
+            }
+
+            _isUpdatingOptions = true;
+            try
+            {
+                Options.Clear();
+                foreach (var opt in targetList)
+                {
+                    Options.Add(opt);
+                }
+                _value = resolved;
+            }
+            finally
+            {
+                _isUpdatingOptions = false;
+            }
+
+            OnPropertyChanged(nameof(Value));
         }
 
         public void SetBoolSilently(bool newValue)
@@ -234,3 +301,4 @@ namespace LinkNexus.Blueprint.Core
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
     }
 }
+

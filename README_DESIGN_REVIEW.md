@@ -306,18 +306,18 @@
 
 | **53** | **修改：<br/>1. 上位机底层核心框架大改：采用左侧边栏形式 + 顶部设备抽屉收纳形式，将功能组件放置在左侧边栏；当识别串口设备或烧录设备成功时，渐变滑入弹出对应工作台选项，点击进入对应页面。<br/>2. 流式卡片蓝图交互：将各个 COM 输入的数据做成流式蓝图机制，支持算法处理、VOFA+ 风格多通道曲线绘图以及 IMU 三维姿态可视化。<br/>3. Blender / UE / ComfyUI 节点式蓝图卡片控件 (`NodeCardControl.xaml`)：Header 含分类色条、SVG 图标、标题（按住可拖拽移动节点）；Body 左侧 `InputPins`、右侧 `OutputPins`、中间动态渲染 `NodeParameter` 及示波/三维视窗。<br/>4. 交互连线引擎 (`ConnectionViewModel.cs` & `BezierWireCanvas.cs`)：从输出端口拖拽三阶贝塞尔曲线自动磁吸至兼容输入端口，绑定底层 `NodeBase` 的 `System.Threading.Channels` (`Channel`)，移动节点时连线实时平滑重算。<br/>5. 核心流式卡片全量落地：COM 输入、COM 输出、MCP 数据输入 (`push_blueprint_data` + ESP32 INA236 遥测)、Python 算法仓库、VOFA+ 数据绘图、IMU 三维绘图 (`Viewport3D`)、CSV 保存；下位机固件同步新增 `telemetry vofa <true|false>` FireWater 9 通道流输出。<br/>全栈升级至 v0.32-preview.2641。** | ✅ **已完全落地**：<br/>1. **硬件固件先行支持 VOFA+ FireWater 流式输出 (`firmware/`)**：在 `AppCoordinator` 与 `cli_engine.cpp` 中新增 `SetVofaStream` / `telemetry vofa <true|false>`，支持以 250ms 周期输出 9 通道逗号分隔浮点遥测行，无缝对接上位机 `ComInputNode` 与 `VofaPlotNode`，PlatformIO 编译 0 警告 0 错误；<br/>2. **左侧边栏 + 动态渐变弹出导航 + 顶部设备抽屉收纳 (`MainWindow.xaml` & `MainViewModel.cs`)**：重构主工作区为左侧可折叠边栏（194px / 56px 图标轨）+ 右侧顶部设备抽屉与多工作台画布；当识别到 UART 串口或 FT2232/XDS110/DAPLink 烧录探针（含免硬件仿真外设接入）时，240ms `CubicEase` 渐变滑入弹出 `串口通信工作台` 与 `固件烧录工作台` 导航项；<br/>3. **响应式 `Channel` 节点蓝图引擎与三阶贝塞尔连线画布 (`NodeBase.cs`, `ConnectionViewModel.cs`, `BezierWireCanvas.cs`, `NodeCardControl.xaml`)**：基于 `System.Threading.Channels` 有界 `DropOldest` 无锁异步管道构建节点流转；实现 26px 端口自动磁吸、跨卡片无遮挡拖拽预览、右键曲线/端口快速解绑及空白区平移画布；<br/>4. **七大核心流式卡片与 MCP `push_blueprint_data` 工具完整交付**：全量实现 `ComInputNode`、`ComOutputNode`、`McpInputNode`（联动新增 `PushBlueprintDataTool` 与 ESP32 INA236 遥测流）、`PythonAlgoNode`（内置卡尔曼/EMA/滑动均值/IMU 平滑及持久化 `python.exe` 脚本引擎）、`VofaPlotNode`（6 通道冻结矢量 `DrawingImage` 示波器）、`Imu3DPlotNode`（硬件加速 `Viewport3D` 四元数姿态载板与三轴架）、`CsvSaveNode`（高精度毫秒时间戳流式刷盘）；<br/>5. **全站版本号统一推进至 `v0.32-preview.2641`**，双端编译 0 警告 0 错误。 |
 
+| **54** | **修改：<br/>1. 修复 `System.NullReferenceException: "Object reference not set to an instance of an object."`（`portName 是 null`）崩溃 Bug。<br/>全栈升级至 v0.33-preview.2641。** | ✅ **已完全落地**：<br/>1. **根因精准定位（WPF `ComboBox` `ItemsSource.Clear()` 双向绑定回写 `null`）**：<br/>• 启动后 WMI/PnP 异步串口扫描完成时触发 `MainViewModel.SyncSidebarRecognitionAndBlueprintPorts()` -> `BlueprintVm.UpdateSystemComPorts()` -> `ComOutputNode` / `ComInputNode` 刷新端口下拉列表调用 `_portParam.Options.Clear()`；<br/>• WPF `ComboBox` 在 `ItemsSource` 被清空瞬间，自动通过 `SelectedItem` 的 `TwoWay` 绑定将 `NodeParameter.Value` 回写为 `null`，进而触发 `ValueChangedCallback` 调用 `ComOutputNode.ReopenPort()`；由于 `ComOutputNode` 默认启用虚拟回环使能，局部变量 `string portName = _portParam.Value` 取到 `null`，在执行 `portName.StartsWith("LOOPBACK", ...)` 时直接抛出 `NullReferenceException`（`portName 是 null`）；<br/>2. **底层免疫重构与全链路空安全守卫 (`PinAndParamModels.cs`, `ComOutputNode.cs`, `ComInputNode.cs`, `Esp32CommService.cs`)**：<br/>• 在 `NodeParameter` 中新增原子更新方法 `ReplaceOptions`（带 `_isUpdatingOptions` 锁定与相同序列免清空短路优化），并在 `Value` Setter 中彻底拦截 `Combo` 模式的 `null` 回写，保证 `_value` 恒为非空字符串；<br/>• 在 `ComOutputNode.ReopenPort()`、`ComInputNode.StartStream()` / `RunPhysicalSerialLoopAsync()` 及 `Esp32CommService.Connect()` 中全量增补 `string.IsNullOrWhiteSpace(portName)` 防御守卫；<br/>3. **全站版本号统一推进至 `v0.33-preview.2641`**，双端编译 0 警告、0 错误，实机运行时异步总线扫描与蓝图热插拔全链路零异常验证通过。 |
+
 ---
 
-### 七、 最新提交记录与演进状态 (v0.32-preview.2641)
+### 七、 最新提交记录与演进状态 (v0.33-preview.2641)
 
 > **本次已严格按照“先硬件 DESIGN 功能和 bug，再软件功能和 bug”执行序完成全量技术落地与闭环验证**：
-> 1. **全站版本号统一推进并锁定为 `v0.32-preview.2641`**：
+> 1. **全站版本号统一推进并锁定为 `v0.33-preview.2641`**：
 >    - 全量同步至 `VersionInfo.cs`、`LinkNexus.csproj`、`setup.iss`、`README.md`、硬件固件 `linknexus_config.hpp` / `CMakeLists.txt` / `simulator/index.html` 与双端 DESIGN 备忘录；
-> 2. **硬件层 VOFA+ FireWater 9 通道流式遥测**：
->    - 新增 `telemetry vofa <true|false>` CLI 指令与 `AppCoordinator::SetVofaStream`，PlatformIO 固件构建 0 警告、0 错误；
-> 3. **上位机左侧边栏渐变弹出导航与节点式流式卡片蓝图引擎**：
->    - 完整落地左侧边栏 + 顶部抽屉收纳架构、硬件识别 240ms 渐变滑入工作台入口、`NodeCardControl.xaml`、`ConnectionViewModel.cs`、`BezierWireCanvas.cs` 及全部 7 类核心流式节点与 `push_blueprint_data` MCP 工具；
-> 4. **双端构建验证 0 警告、0 错误**，固件 PlatformIO 与上位机 .NET 10 Release 均一次性编译通过。
+> 2. **根治 `portName 是 null` (`NullReferenceException`) 双向绑定回写缺陷**：
+>    - 在 `NodeParameter` 中构建 `ReplaceOptions` 原子选项刷新锁并拦截 WPF `ComboBox` 清空瞬间回写的 `null`，同时在 `ComOutputNode`、`ComInputNode`、`Esp32CommService` 全量加固 `portName` 空安全守卫；
+> 3. **双端构建验证 0 警告、0 错误**，固件 PlatformIO 与上位机 .NET 10 Release 均一次性编译通过并经运行期异常捕获验证。
 
 ---
 

@@ -92,6 +92,11 @@ namespace LinkNexus
         public bool Connect(string portName, int baudRate = 115200)
         {
             Disconnect();
+            if (string.IsNullOrWhiteSpace(portName) || portName == "--")
+            {
+                SetSimulationMode(true, "未指定有效端口 (仿真模式)");
+                return false;
+            }
 
             try
             {

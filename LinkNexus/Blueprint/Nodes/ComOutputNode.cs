@@ -82,21 +82,19 @@ namespace LinkNexus.Blueprint.Nodes
             });
         }
 
-        private void PopulatePortOptions(IEnumerable<string> systemPorts, string preferred)
+        private void PopulatePortOptions(IEnumerable<string>? systemPorts, string? preferred)
         {
             var merged = new List<string> { LoopbackOption };
-            foreach (var p in systemPorts.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase))
+            if (systemPorts != null)
             {
-                merged.Add(p.Trim());
+                foreach (var p in systemPorts.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    merged.Add(p.Trim());
+                }
             }
 
-            _portParam.Options.Clear();
-            foreach (var opt in merged)
-            {
-                _portParam.Options.Add(opt);
-            }
-
-            _portParam.SetValueSilently(merged.Contains(preferred) ? preferred : LoopbackOption);
+            string fallback = string.IsNullOrWhiteSpace(preferred) ? LoopbackOption : preferred!;
+            _portParam.ReplaceOptions(merged, fallback);
         }
 
         private void ReopenPort()
@@ -104,8 +102,8 @@ namespace LinkNexus.Blueprint.Nodes
             lock (_portLock)
             {
                 ClosePortCore();
-                string portName = _portParam.Value;
-                if (portName.StartsWith("LOOPBACK", StringComparison.OrdinalIgnoreCase))
+                string portName = _portParam?.Value ?? LoopbackOption;
+                if (string.IsNullOrWhiteSpace(portName) || portName.StartsWith("LOOPBACK", StringComparison.OrdinalIgnoreCase))
                 {
                     UpdateStatusOnUi("回环监听", true);
                     UpdateTxBadge("虚拟回环已激活");
@@ -157,7 +155,7 @@ namespace LinkNexus.Blueprint.Nodes
         {
             if (!_enableParam.BoolValue) return Task.CompletedTask;
 
-            string fmt = _formatParam.Value;
+            string fmt = _formatParam?.Value ?? string.Empty;
             string payloadLine;
             if (fmt.StartsWith("VOFA+", StringComparison.OrdinalIgnoreCase))
             {
@@ -210,3 +208,4 @@ namespace LinkNexus.Blueprint.Nodes
         }
     }
 }
+

@@ -95,30 +95,21 @@ namespace LinkNexus.Blueprint.Nodes
             });
         }
 
-        private void PopulatePortOptions(IEnumerable<string> systemPorts, string preferred)
+        private void PopulatePortOptions(IEnumerable<string>? systemPorts, string? preferred)
         {
             var merged = new List<string>();
-            foreach (var p in systemPorts.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase))
+            if (systemPorts != null)
             {
-                merged.Add(p.Trim());
+                foreach (var p in systemPorts.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    merged.Add(p.Trim());
+                }
             }
             merged.Add(SimVofaOption);
             merged.Add(SimImuOption);
 
-            _portParam.Options.Clear();
-            foreach (var opt in merged)
-            {
-                _portParam.Options.Add(opt);
-            }
-
-            if (merged.Contains(preferred))
-            {
-                _portParam.SetValueSilently(preferred);
-            }
-            else if (merged.Count > 0)
-            {
-                _portParam.SetValueSilently(merged[0]);
-            }
+            string fallback = string.IsNullOrWhiteSpace(preferred) ? SimVofaOption : preferred!;
+            _portParam.ReplaceOptions(merged, fallback);
         }
 
         private void RestartStream()
@@ -134,10 +125,10 @@ namespace LinkNexus.Blueprint.Nodes
                 StopStreamCore();
                 _streamCts = new CancellationTokenSource();
                 var token = _streamCts.Token;
-                string selectedPort = _portParam.Value;
-                int baud = int.TryParse(_baudParam.Value, out int parsedBaud) ? parsedBaud : 115200;
+                string selectedPort = _portParam?.Value ?? SimVofaOption;
+                int baud = int.TryParse(_baudParam?.Value, out int parsedBaud) ? parsedBaud : 115200;
 
-                if (selectedPort.StartsWith("SIM-VOFA", StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrWhiteSpace(selectedPort) || selectedPort.StartsWith("SIM-VOFA", StringComparison.OrdinalIgnoreCase))
                 {
                     UpdateStatusOnUi("仿真采集中", true);
                     _ = Task.Run(() => RunSimVofaLoopAsync(token));
@@ -280,6 +271,13 @@ namespace LinkNexus.Blueprint.Nodes
 
         private async Task RunPhysicalSerialLoopAsync(string portName, int baudRate, CancellationToken ct)
         {
+            if (string.IsNullOrWhiteSpace(portName))
+            {
+                UpdateStatusOnUi("端口为空", false);
+                UpdateRateBadge("未选择有效物理串口");
+                return;
+            }
+
             SerialPort? port = null;
             try
             {
@@ -373,3 +371,4 @@ namespace LinkNexus.Blueprint.Nodes
         }
     }
 }
+

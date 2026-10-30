@@ -12,12 +12,10 @@ namespace LinkNexus.Blueprint.Nodes
 {
     /// <summary>
     /// COM 串口流输出卡片 (ComOutputNode)
-    /// 将上游解算后的通道向量或协议帧按 VOFA+ FireWater、ASCII 行或 HEX 帧实时下发至目标物理串口或虚拟回环监视器
+    /// 严格仅列出真实 USB 枚举出来的物理 COM 端口，零虚拟回环占位符端口；必须指定已枚举端口后方可启用输出
     /// </summary>
     public sealed class ComOutputNode : NodeBase
     {
-        public const string LoopbackOption = "LOOPBACK (虚拟回环监视)";
-
         private const string IconSvg = "M3,12 H15 M11,8 L15,12 L11,16 M18,6 V18";
 
         private readonly NodeParameter _portParam;
@@ -27,15 +25,18 @@ namespace LinkNexus.Blueprint.Nodes
         private readonly NodeParameter _lastTxBadge;
 
         private readonly object _portLock = new();
+        private readonly List<string> _enumeratedPorts = new();
         private SerialPort? _serialPort;
 
-        public ComOutputNode(double x = 760, double y = 320)
+        public override string NodeTypeKey => "com_output";
+
+        public ComOutputNode(string initialPort = "", double x = 760, double y = 320)
             : base("COM 串口输出", "外设下发端", "#10B981", IconSvg, x, y)
         {
             AddInputPin("下发数据流", PinDataType.Any);
 
-            _portParam = new NodeParameter("port", "目标端口", NodeParamKind.Combo, LoopbackOption);
-            PopulatePortOptions(SerialPort.GetPortNames(), LoopbackOption);
+            _portParam = new NodeParameter("port", "指定端口", NodeParamKind.Combo, initialPort, "未枚举到 USB 串口");
+            PopulatePortOptions(SerialPort.GetPortNames(), initialPort);
             _portParam.ValueChangedCallback = _ =>
             {
                 if (_enableParam != null && _enableParam.BoolValue) ReopenPort();
@@ -61,17 +62,17 @@ namespace LinkNexus.Blueprint.Nodes
                 }
             };
 
-            _lastTxBadge = new NodeParameter("tx", "最近下发", NodeParamKind.ReadOnlyBadge, "待命 · 尚未发送");
+            _lastTxBadge = new NodeParameter(
+                "tx",
+                "最近下发",
+                NodeParamKind.ReadOnlyBadge,
+                _enumeratedPorts.Count > 0 ? "待命 · 选择端口后开启使能" : "等待 USB 枚举物理串口");
 
             Parameters.Add(_portParam);
             Parameters.Add(_baudParam);
             Parameters.Add(_formatParam);
             Parameters.Add(_enableParam);
             Parameters.Add(_lastTxBadge);
-
-            // 默认开启虚拟回环输出使能，连线即见实时下发载荷
-            _enableParam.SetBoolSilently(true);
-            UpdateStatusOnUi("回环就绪", true);
         }
 
         public override void RefreshAvailableComPorts(IReadOnlyList<string> comPorts)
@@ -82,19 +83,26 @@ namespace LinkNexus.Blueprint.Nodes
             });
         }
 
-        private void PopulatePortOptions(IEnumerable<string>? systemPorts, string? preferred)
+        private void PopulatePortOptions(IEnumerable<string>? usbPorts, string? preferred)
         {
-            var merged = new List<string> { LoopbackOption };
-            if (systemPorts != null)
+            _enumeratedPorts.Clear();
+            if (usbPorts != null)
             {
-                foreach (var p in systemPorts.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase))
+                foreach (var p in usbPorts.Where(s => !string.IsNullOrWhiteSpace(s) && s != "--").Distinct(StringComparer.OrdinalIgnoreCase))
                 {
-                    merged.Add(p.Trim());
+                    _enumeratedPorts.Add(p.Trim());
                 }
             }
 
-            string fallback = string.IsNullOrWhiteSpace(preferred) ? LoopbackOption : preferred!;
-            _portParam.ReplaceOptions(merged, fallback);
+            _portParam.ReplaceOptions(_enumeratedPorts, preferred);
+
+            if (_enumeratedPorts.Count == 0 && _enableParam != null && _enableParam.BoolValue)
+            {
+                _enableParam.SetBoolSilently(false);
+                ClosePort();
+                UpdateStatusOnUi("无USB端口", false);
+                UpdateTxBadge("USB 串口已拔出 · 输出已关闭");
+            }
         }
 
         private void ReopenPort()
@@ -102,11 +110,13 @@ namespace LinkNexus.Blueprint.Nodes
             lock (_portLock)
             {
                 ClosePortCore();
-                string portName = _portParam?.Value ?? LoopbackOption;
-                if (string.IsNullOrWhiteSpace(portName) || portName.StartsWith("LOOPBACK", StringComparison.OrdinalIgnoreCase))
+                string portName = _portParam?.Value?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(portName) ||
+                    !_enumeratedPorts.Any(p => string.Equals(p, portName, StringComparison.OrdinalIgnoreCase)))
                 {
-                    UpdateStatusOnUi("回环监听", true);
-                    UpdateTxBadge("虚拟回环已激活");
+                    UpdateStatusOnUi("未指定端口", false);
+                    UpdateTxBadge("请先指定一个 USB 枚举物理串口");
+                    Application.Current?.Dispatcher.BeginInvoke(() => _enableParam?.SetBoolSilently(false));
                     return;
                 }
 
@@ -116,7 +126,9 @@ namespace LinkNexus.Blueprint.Nodes
                     _serialPort = new SerialPort(portName, baud, Parity.None, 8, StopBits.One)
                     {
                         Encoding = Encoding.UTF8,
-                        WriteTimeout = 300
+                        WriteTimeout = 300,
+                        DtrEnable = false,
+                        RtsEnable = false
                     };
                     _serialPort.Open();
                     UpdateStatusOnUi($"{portName} 发送中", true);
@@ -173,17 +185,19 @@ namespace LinkNexus.Blueprint.Nodes
 
             lock (_portLock)
             {
-                if (_serialPort != null && _serialPort.IsOpen)
+                if (_serialPort == null || !_serialPort.IsOpen)
                 {
-                    try
-                    {
-                        _serialPort.WriteLine(payloadLine);
-                    }
-                    catch (Exception ex)
-                    {
-                        UpdateTxBadge($"写入错误: {ex.Message}");
-                        return Task.CompletedTask;
-                    }
+                    return Task.CompletedTask;
+                }
+
+                try
+                {
+                    _serialPort.WriteLine(payloadLine);
+                }
+                catch (Exception ex)
+                {
+                    UpdateTxBadge($"写入错误: {ex.Message}");
+                    return Task.CompletedTask;
                 }
             }
 
@@ -194,6 +208,17 @@ namespace LinkNexus.Blueprint.Nodes
             }
 
             return Task.CompletedTask;
+        }
+
+        public override Dictionary<string, object?> ExportMcpMetadata()
+        {
+            return new Dictionary<string, object?>
+            {
+                ["designatedPort"] = _portParam.Value,
+                ["baudRate"] = _baudParam.Value,
+                ["format"] = _formatParam.Value,
+                ["isEnabled"] = _enableParam.BoolValue
+            };
         }
 
         private void UpdateTxBadge(string text)
@@ -208,4 +233,3 @@ namespace LinkNexus.Blueprint.Nodes
         }
     }
 }
-

@@ -95,6 +95,14 @@
                                               Margin="8,3,26,3"
                                               VerticalAlignment="Center"
                                               HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding EmptyWatermark, FallbackValue='未枚举到 USB 端口'}"
+                                       Visibility="{Binding HasNoComboOptions, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"
+                                       IsHitTestVisible="False"
+                                       Margin="8,3,26,3"
+                                       FontSize="10.5"
+                                       Foreground="{DynamicResource AppTextMutedBrush}"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Left" />
                             <Popup x:Name="Popup"
                                    Placement="Bottom"
                                    IsOpen="{TemplateBinding IsDropDownOpen}"
@@ -143,7 +151,8 @@
                 BorderBrush="{DynamicResource CardGlassBorderBrush}"
                 BorderThickness="1.2"
                 CornerRadius="9"
-                MouseLeftButtonDown="CardRoot_MouseLeftButtonDown">
+                MouseLeftButtonDown="CardRoot_MouseLeftButtonDown"
+                MouseRightButtonUp="CardRoot_MouseRightButtonUp">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270" Color="#000000" Opacity="0.32" />
             </Border.Effect>

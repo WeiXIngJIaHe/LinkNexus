@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using LinkNexus.Blueprint.Core;
@@ -9,7 +10,7 @@ namespace LinkNexus.Blueprint.Controls
 {
     /// <summary>
     /// Blender / UE / ComfyUI 风格节点式流式蓝图卡片控件 (NodeCardControl)
-    /// 支持按住 Header 拖拽移动节点、左右 InputPins / OutputPins 端口坐标实时映射与交互连线触发
+    /// 支持按住 Header 拖拽移动节点（兼容 Run 等 FrameworkContentElement 安全回溯）、左右端口坐标实时映射与右键动态拆分菜单
     /// </summary>
     public partial class NodeCardControl : UserControl
     {
@@ -28,27 +29,45 @@ namespace LinkNexus.Blueprint.Controls
             InitializeComponent();
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
+            DataContextChanged += OnDataContextChanged;
             SizeChanged += (_, _) => RequestAnchorSync();
+        }
+
+        private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (e.OldValue is NodeBase oldNode)
+            {
+                oldNode.PinsChanged -= OnNodePinsChanged;
+            }
+            if (e.NewValue is NodeBase newNode)
+            {
+                newNode.PinsChanged += OnNodePinsChanged;
+            }
+        }
+
+        private void OnNodePinsChanged(NodeBase _)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                UpdateLayout();
+                RequestAnchorSync();
+            }, System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         private BlueprintWorkspaceControl? ResolveWorkspace()
         {
             if (_parentWorkspace != null) return _parentWorkspace;
-            DependencyObject? curr = VisualTreeHelper.GetParent(this);
-            while (curr != null)
-            {
-                if (curr is BlueprintWorkspaceControl ws)
-                {
-                    _parentWorkspace = ws;
-                    return ws;
-                }
-                curr = VisualTreeHelper.GetParent(curr);
-            }
-            return null;
+            _parentWorkspace = VisualTreeSafeHelper.FindAncestor<BlueprintWorkspaceControl>(this, includeSelf: false);
+            return _parentWorkspace;
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
+            if (Node != null)
+            {
+                Node.PinsChanged -= OnNodePinsChanged;
+                Node.PinsChanged += OnNodePinsChanged;
+            }
             var ws = ResolveWorkspace();
             ws?.RegisterNodeCard(this);
             Dispatcher.BeginInvoke(RequestAnchorSync, System.Windows.Threading.DispatcherPriority.Loaded);
@@ -56,6 +75,10 @@ namespace LinkNexus.Blueprint.Controls
 
         private void OnUnloaded(object sender, RoutedEventArgs e)
         {
+            if (Node != null)
+            {
+                Node.PinsChanged -= OnNodePinsChanged;
+            }
             _parentWorkspace?.UnregisterNodeCard(this);
             _parentWorkspace = null;
         }
@@ -91,9 +114,94 @@ namespace LinkNexus.Blueprint.Controls
             ResolveWorkspace()?.BringCardToFront(this);
         }
 
+        private void CardRoot_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (e.OriginalSource is DependencyObject src && VisualTreeSafeHelper.FindAncestor<TextBox>(src) != null)
+            {
+                return;
+            }
+
+            var node = Node;
+            if (node == null) return;
+
+            var actions = node.GetContextMenuActions();
+            if (actions == null || actions.Count == 0) return;
+
+            var menu = BuildStyledContextMenu(actions);
+            menu.PlacementTarget = CardRootBorder;
+            menu.Placement = PlacementMode.MousePoint;
+            menu.IsOpen = true;
+            e.Handled = true;
+        }
+
+        private ContextMenu BuildStyledContextMenu(IReadOnlyList<NodeContextAction> actions)
+        {
+            var menu = new ContextMenu
+            {
+                Background = TryFindResource("AppSurfaceBrush") as Brush ?? new SolidColorBrush(Color.FromRgb(34, 41, 56)),
+                Foreground = TryFindResource("AppTextPrimaryBrush") as Brush ?? Brushes.White,
+                BorderBrush = TryFindResource("AccentCyanBrush") as Brush ?? new SolidColorBrush(Color.FromRgb(56, 189, 248)),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(3)
+            };
+
+            foreach (var act in actions)
+            {
+                menu.Items.Add(CreateMenuObject(act));
+            }
+
+            return menu;
+        }
+
+        private Control CreateMenuObject(NodeContextAction action)
+        {
+            if (action.IsSeparator)
+            {
+                return new Separator
+                {
+                    Background = TryFindResource("AppBorderBrush") as Brush ?? new SolidColorBrush(Color.FromRgb(62, 77, 104)),
+                    Margin = new Thickness(4, 3, 4, 3)
+                };
+            }
+
+            var item = new MenuItem
+            {
+                Header = action.Header,
+                IsEnabled = action.IsEnabled,
+                IsChecked = action.IsChecked,
+                IsCheckable = false,
+                Foreground = TryFindResource("AppTextPrimaryBrush") as Brush ?? Brushes.White,
+                Background = TryFindResource("AppSurfaceBrush") as Brush ?? new SolidColorBrush(Color.FromRgb(34, 41, 56)),
+                FontSize = 11.5,
+                Padding = new Thickness(8, 5, 10, 5),
+                Cursor = Cursors.Hand
+            };
+
+            if (action.Execute != null)
+            {
+                var callback = action.Execute;
+                item.Click += (_, _) =>
+                {
+                    callback();
+                    Dispatcher.BeginInvoke(RequestAnchorSync, System.Windows.Threading.DispatcherPriority.Loaded);
+                };
+            }
+
+            if (action.Children != null && action.Children.Count > 0)
+            {
+                foreach (var child in action.Children)
+                {
+                    item.Items.Add(CreateMenuObject(child));
+                }
+            }
+
+            return item;
+        }
+
         private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.OriginalSource is DependencyObject src && IsInsideButton(src))
+            if (e.OriginalSource is DependencyObject src &&
+                VisualTreeSafeHelper.FindAncestor<ButtonBase>(src, includeSelf: true) != null)
             {
                 return;
             }
@@ -201,16 +309,6 @@ namespace LinkNexus.Blueprint.Controls
                 ResolveWorkspace()?.RequestDisconnectPin(pin);
                 e.Handled = true;
             }
-        }
-
-        private static bool IsInsideButton(DependencyObject? d)
-        {
-            while (d != null)
-            {
-                if (d is Button) return true;
-                d = VisualTreeHelper.GetParent(d);
-            }
-            return false;
         }
     }
 }

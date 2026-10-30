@@ -1063,32 +1063,6 @@
                                 </Grid>
                             </Button>
 
-                            <Button Command="{Binding ToggleVirtualDevicesCommand}"
-                                    Style="{StaticResource SidebarNavBtnStyle}"
-                                    MinHeight="34"
-                                    ToolTip="免硬件接入或收起仿真 UART 串口与 FT2232/XDS110/DAPLink 烧录探针，实时体验侧栏渐变弹出与抽屉联动">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="22" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Path Grid.Column="0"
-                                          Data="M12,3 L20,7.5 V16.5 L12,21 L4,16.5 V7.5 Z M12,12 L20,7.5 M12,12 V21 M12,12 L4,7.5"
-                                          Stroke="{DynamicResource AccentCyanBrush}"
-                                          StrokeThickness="1.6"
-                                          Width="14" Height="14"
-                                          Stretch="Uniform"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding SidebarVirtualToggleLabel}"
-                                               FontSize="11.5"
-                                               Margin="9,0,0,0"
-                                               VerticalAlignment="Center"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
-
                             <Button Command="{Binding ToggleLogDrawerCommand}"
                                     Style="{StaticResource SidebarNavBtnStyle}"
                                     MinHeight="34"
@@ -1485,39 +1459,80 @@
                                 </StackPanel>
                             </Grid>
 
-                        <!-- 行 1: 固件文件拖拽放入区 (Dropzone) -->
-                        <Border Grid.Row="1" Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AccentCyanBrush}" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,0,0,10"
+                        <!-- 行 1: 指定 USB 烧录端口 + HEX/BIN 固件存放仓与拖拽区 -->
+                        <Border Grid.Row="1" Background="{DynamicResource AppSurfaceSubtleBrush}" BorderBrush="{DynamicResource AccentCyanBrush}" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,10"
                                 AllowDrop="True" Drop="FileDropZone_Drop" DragOver="FileDropZone_DragOver">
                             <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="8" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
 
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="固件镜像:" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" Margin="0,0,6,0"/>
-                                        <TextBlock Text="{Binding CurrentLoadedFile.FileName}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                <!-- 顶排: 必须指定的真实 USB 烧录端口 + HEX/BIN 存放库下拉选择 + 存放按钮 -->
+                                <Grid Grid.Row="0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="210" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0" Text="指定烧录端口:" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <Grid Grid.Column="1" VerticalAlignment="Center">
+                                        <ComboBox Style="{StaticResource IndustrialComboBoxStyle}"
+                                                  ItemContainerStyle="{StaticResource IndustrialComboBoxItemStyle}"
+                                                  ItemsSource="{Binding EnumeratedBurnerPorts}"
+                                                  SelectedItem="{Binding SelectedBurnerTargetPort, Mode=TwoWay}"
+                                                  Height="28" FontSize="10.5" FontFamily="Consolas, Microsoft YaHei UI"
+                                                  ToolTip="严格仅列出真实 USB 枚举出的烧录探针与下载端口，必须指定一个端口后方可烧录"/>
+                                        <TextBlock Text="未枚举到 USB 烧录端口"
+                                                   Visibility="{Binding HasNoEnumeratedBurnerPorts, Converter={StaticResource BoolToVisConverter}}"
+                                                   IsHitTestVisible="False"
+                                                   FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}"
+                                                   VerticalAlignment="Center" Margin="9,0,24,0"/>
+                                    </Grid>
+
+                                    <TextBlock Grid.Column="3" Text="HEX/BIN 存放仓:" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <Grid Grid.Column="4" VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <ComboBox Style="{StaticResource IndustrialComboBoxStyle}"
+                                                  ItemContainerStyle="{StaticResource IndustrialComboBoxItemStyle}"
+                                                  ItemsSource="{Binding StoredHexBinOptions}"
+                                                  SelectedItem="{Binding SelectedStoredHexBinOption, Mode=TwoWay}"
+                                                  Height="28" FontSize="10.5" FontFamily="Consolas, Microsoft YaHei UI"
+                                                  ToolTip="选择已存放的 .hex / .bin 固件文件，或点击右侧按钮浏览存放新固件"/>
+                                        <TextBlock Text="暂无已存放 .hex / .bin (点击右侧存放或拖入文件)"
+                                                   Visibility="{Binding HasNoStoredHexBinOptions, Converter={StaticResource BoolToVisConverter}}"
+                                                   IsHitTestVisible="False"
+                                                   FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}"
+                                                   VerticalAlignment="Center" Margin="9,0,24,0" TextTrimming="CharacterEllipsis"/>
+                                    </Grid>
+
+                                    <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <TextBlock Text="烧录基址:" FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBox Text="{Binding LoadBaseAddress, UpdateSourceTrigger=PropertyChanged}" Width="88" Height="28"
+                                                 Background="{DynamicResource AppSurfaceBrush}" Foreground="{DynamicResource AccentCyanBrush}" BorderBrush="{DynamicResource AppBorderBrush}" FontFamily="Consolas" FontSize="10.5" Padding="6,4" VerticalAlignment="Center"/>
                                     </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                                        <TextBlock Text="大小: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}"/>
-                                        <TextBlock Text="{Binding CurrentLoadedFile.FileSizeText}" FontSize="10" Foreground="{DynamicResource AppTextSecondaryBrush}" Margin="0,0,12,0"/>
-                                        <TextBlock Text="CRC32: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}"/>
-                                        <TextBlock Text="{Binding CurrentLoadedFile.Crc32Text}" FontFamily="Consolas" FontSize="10" Foreground="{DynamicResource AccentCyanBrush}" Margin="0,0,12,0"/>
-                                        <TextBlock Text="匹配架构: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}"/>
-                                        <TextBlock Text="{Binding CurrentLoadedFile.TargetChipFamily}" FontSize="10" Foreground="#10B981"/>
-                                    </StackPanel>
-                                </StackPanel>
 
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0">
-                                    <TextBlock Text="烧录基地址: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding LoadBaseAddress, UpdateSourceTrigger=PropertyChanged}" Width="90" Height="24"
-                                             Background="{DynamicResource AppSurfaceBrush}" Foreground="{DynamicResource AccentCyanBrush}" BorderBrush="{DynamicResource AppBorderBrush}" FontFamily="Consolas" FontSize="10" Padding="4,2" VerticalAlignment="Center"/>
-                                </StackPanel>
+                                    <Button Grid.Column="6" Style="{StaticResource IndustrialBtnStyle}" Content="存放 .hex / .bin..." Height="28" Padding="12,2"
+                                            Command="{Binding BrowseFileCommand}"
+                                            ToolTip="浏览本地 .hex 或 .bin 固件并存入 LinkNexus 固件存放仓"/>
+                                </Grid>
 
-                                <Button Grid.Column="2" Style="{StaticResource IndustrialBtnStyle}" Content="浏览放入固件..." Height="26" Padding="10,2"
-                                        Command="{Binding BrowseFileCommand}"/>
+                                <!-- 底排: 当前激活固件摘要信息 -->
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="当前固件:" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" Margin="0,0,6,0"/>
+                                    <TextBlock Text="{Binding CurrentLoadedFile.FileName}" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource AppTextPrimaryBrush}" Margin="0,0,14,0" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="载荷容量: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}"/>
+                                    <TextBlock Text="{Binding CurrentLoadedFile.FileSizeText}" FontSize="10" Foreground="{DynamicResource AppTextSecondaryBrush}" Margin="0,0,14,0"/>
+                                    <TextBlock Text="CRC32: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}"/>
+                                    <TextBlock Text="{Binding CurrentLoadedFile.Crc32Text}" FontFamily="Consolas" FontSize="10" Foreground="{DynamicResource AccentCyanBrush}" Margin="0,0,14,0"/>
+                                    <TextBlock Text="目标架构: " FontSize="10" Foreground="{DynamicResource AppTextMutedBrush}"/>
+                                    <TextBlock Text="{Binding CurrentLoadedFile.TargetChipFamily}" FontSize="10" Foreground="#10B981"/>
+                                </StackPanel>
                             </Grid>
                         </Border>
 

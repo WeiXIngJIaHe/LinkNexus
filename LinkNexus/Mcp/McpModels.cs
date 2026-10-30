@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -173,6 +172,44 @@ namespace LinkNexus.Mcp
         public string Text { get; set; } = string.Empty;
     }
 
+    public class McpResourceDefinition
+    {
+        [JsonPropertyName("uri")]
+        public string Uri { get; set; } = string.Empty;
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; } = string.Empty;
+
+        [JsonPropertyName("mimeType")]
+        public string MimeType { get; set; } = "application/json";
+    }
+
+    public class McpResourceListResult
+    {
+        [JsonPropertyName("resources")]
+        public List<McpResourceDefinition> Resources { get; set; } = new();
+    }
+
+    public class McpResourceContentItem
+    {
+        [JsonPropertyName("uri")]
+        public string Uri { get; set; } = string.Empty;
+
+        [JsonPropertyName("mimeType")]
+        public string MimeType { get; set; } = "application/json";
+
+        [JsonPropertyName("text")]
+        public string Text { get; set; } = string.Empty;
+    }
+
+    public class McpResourceReadResult
+    {
+        [JsonPropertyName("contents")]
+        public List<McpResourceContentItem> Contents { get; set; } = new();
+    }
+
     #endregion
 }
-

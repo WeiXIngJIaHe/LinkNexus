@@ -361,12 +361,27 @@ uint32_t AppCoordinator::GetLastHostActivityTick() const
 void AppCoordinator::SetVofaStream(bool enable)
 {
     m_vofa_stream.store(enable);
-    ESP_LOGI(TAG, "VOFA+ FireWater stream set to: %s", enable ? "ON" : "OFF");
+    m_vofa_multistream.store(false);
+    ESP_LOGI(TAG, "VOFA+ FireWater stream set to: %s (Single 9CH)", enable ? "ON" : "OFF");
 }
 
 bool AppCoordinator::IsVofaStream() const
 {
     return m_vofa_stream.load();
+}
+
+void AppCoordinator::SetVofaMultiStream(bool enable)
+{
+    m_vofa_multistream.store(enable);
+    if (enable) {
+        m_vofa_stream.store(true);
+    }
+    ESP_LOGI(TAG, "VOFA+ FireWater multi-stream mode set to: %s (BUS/XDS/DAP)", enable ? "ON" : "OFF");
+}
+
+bool AppCoordinator::IsVofaMultiStream() const
+{
+    return m_vofa_multistream.load();
 }
 
 void AppCoordinator::TelemetryTaskEntry(void *pvParameters)
@@ -396,12 +411,24 @@ void AppCoordinator::TelemetryTaskEntry(void *pvParameters)
 
         if (send_vofa) {
             const float bus_v = telemetry.bus_voltage_mv / 1000.0f;
+            const float bus_w = bus_v * telemetry.bus_current_ma / 1000.0f;
             const float xds_v = telemetry.xds_voltage_mv / 1000.0f;
+            const float xds_w = xds_v * telemetry.xds_current_ma / 1000.0f;
             const float dap_v = telemetry.dap_voltage_mv / 1000.0f;
-            CommManager::Instance().Printf("%.3f,%d,%.3f,%.3f,%d,%.3f,%.3f,%d,%.3f\n",
-                bus_v, (int)telemetry.bus_current_ma, bus_v * telemetry.bus_current_ma / 1000.0f,
-                xds_v, (int)telemetry.xds_current_ma, xds_v * telemetry.xds_current_ma / 1000.0f,
-                dap_v, (int)telemetry.dap_current_ma, dap_v * telemetry.dap_current_ma / 1000.0f);
+            const float dap_w = dap_v * telemetry.dap_current_ma / 1000.0f;
+            if (self->IsVofaMultiStream()) {
+                CommManager::Instance().Printf("BUS:%.3f,%d,%.3f\n",
+                    bus_v, (int)telemetry.bus_current_ma, bus_w);
+                CommManager::Instance().Printf("XDS:%.3f,%d,%.3f\n",
+                    xds_v, (int)telemetry.xds_current_ma, xds_w);
+                CommManager::Instance().Printf("DAP:%.3f,%d,%.3f\n",
+                    dap_v, (int)telemetry.dap_current_ma, dap_w);
+            } else {
+                CommManager::Instance().Printf("%.3f,%d,%.3f,%.3f,%d,%.3f,%.3f,%d,%.3f\n",
+                    bus_v, (int)telemetry.bus_current_ma, bus_w,
+                    xds_v, (int)telemetry.xds_current_ma, xds_w,
+                    dap_v, (int)telemetry.dap_current_ma, dap_w);
+            }
         }
     }
 }

@@ -58,6 +58,7 @@ namespace LinkNexus.Blueprint.Nodes
         private readonly NodeParameter _pauseParam;
         private readonly NodeParameter _clearBtnParam;
 
+        public override string NodeTypeKey => "vofa_plot";
         public override double CardWidth => 362.0;
         public override bool HasVofaPlotPreview => true;
 

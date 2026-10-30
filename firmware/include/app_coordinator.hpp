@@ -53,10 +53,12 @@ public:
 
     /**
      * @brief 设置/查询 VOFA+ FireWater 文本遥测流
-     * 开启后每 250ms 输出一行逗号分隔浮点帧，直接对接上位机流式蓝图 COM 输入卡片与 VOFA+ 波形绘制。
+     * 开启后每 250ms 输出逗号分隔浮点帧（支持单行 9 通道或 BUS/XDS/DAP 多数据流分帧打印），直接对接上位机流式蓝图 COM 输入卡片右键 CH 拆分与 VOFA+ 波形绘制。
      */
     void SetVofaStream(bool enable);
     bool IsVofaStream() const;
+    void SetVofaMultiStream(bool enable);
+    bool IsVofaMultiStream() const;
 
 private:
     AppCoordinator();
@@ -77,6 +79,7 @@ private:
     bool m_started{false};
     std::atomic<bool> m_manual_telemetry_stream{false};
     std::atomic<bool> m_vofa_stream{false};
+    std::atomic<bool> m_vofa_multistream{false};
     std::atomic<uint32_t> m_last_host_activity_tick{0};
 };
 

@@ -207,6 +207,12 @@ namespace LinkNexus
                 foreach (ManagementObject obj in collection)
                 {
                     string pnpId = obj["PNPDeviceID"]?.ToString() ?? obj["DeviceID"]?.ToString() ?? string.Empty;
+                    // 严格仅保留真实 USB 枚举出的硬件与串口，排除主板传统 ACPI/ROOT 非 USB 占位端口
+                    if (pnpId.StartsWith("ACPI\\", StringComparison.OrdinalIgnoreCase) ||
+                        pnpId.StartsWith("ROOT\\", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
                     string name = obj["Name"]?.ToString() ?? string.Empty;
                     string desc = obj["Description"]?.ToString() ?? string.Empty;
                     string status = obj["Status"]?.ToString() ?? "OK";

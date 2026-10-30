@@ -335,10 +335,7 @@ namespace LinkNexus
 
         private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject
         {
-            DependencyObject? parentObject = VisualTreeHelper.GetParent(child);
-            if (parentObject == null) return null;
-            if (parentObject is T parent) return parent;
-            return FindVisualParent<T>(parentObject);
+            return LinkNexus.Blueprint.Core.VisualTreeSafeHelper.FindAncestor<T>(child, includeSelf: false);
         }
 
         #endregion

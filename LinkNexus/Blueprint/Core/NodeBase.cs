@@ -12,8 +12,23 @@ using System.Windows.Media;
 namespace LinkNexus.Blueprint.Core
 {
     /// <summary>
+    /// 节点卡片右键快捷上下文菜单项模型 (例如 COM 输入节点的按需拆分/合并 CH 通道)
+    /// </summary>
+    public sealed class NodeContextAction
+    {
+        public string Header { get; init; } = string.Empty;
+        public Action? Execute { get; init; }
+        public bool IsSeparator { get; init; }
+        public bool IsEnabled { get; init; } = true;
+        public bool IsChecked { get; init; }
+        public List<NodeContextAction> Children { get; init; } = new();
+
+        public static NodeContextAction Separator() => new() { IsSeparator = true };
+    }
+
+    /// <summary>
     /// 流式蓝图节点底层抽象基类 (NodeBase)
-    /// 基于 System.Threading.Channels 构建异步无阻塞响应式数据管道，支持多路扇出绑定与实时性能遥测
+    /// 基于 System.Threading.Channels 构建异步无阻塞响应式数据管道，支持动态端口拆分、右键动作与 MCP 全量图序列化
     /// </summary>
     public abstract class NodeBase : INotifyPropertyChanged, IDisposable
     {
@@ -48,6 +63,7 @@ namespace LinkNexus.Blueprint.Core
         private long _packetCounter;
 
         public string NodeId { get; } = Guid.NewGuid().ToString("N");
+        public virtual string NodeTypeKey => GetType().Name;
         public string Title { get; }
         public string CategoryName { get; }
         public string HeaderAccentHex { get; }
@@ -63,6 +79,8 @@ namespace LinkNexus.Blueprint.Core
         public ObservableCollection<NodeParameter> Parameters { get; } = new();
 
         public event Action<NodeBase>? PositionChanged;
+        public event Action<PinViewModel>? PinRemoving;
+        public event Action<NodeBase>? PinsChanged;
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public double X
@@ -166,6 +184,7 @@ namespace LinkNexus.Blueprint.Core
         {
             var pin = new PinViewModel(this, InputPins.Count, name, PinDirection.Input, type);
             InputPins.Add(pin);
+            PinsChanged?.Invoke(this);
             return pin;
         }
 
@@ -173,7 +192,43 @@ namespace LinkNexus.Blueprint.Core
         {
             var pin = new PinViewModel(this, OutputPins.Count, name, PinDirection.Output, type);
             OutputPins.Add(pin);
+            PinsChanged?.Invoke(this);
             return pin;
+        }
+
+        /// <summary>
+        /// 动态移除指定输出端口 (先通知外部断开关联连线，再同步平移后续端口索引与底层路由表)
+        /// </summary>
+        protected void RemoveOutputPin(PinViewModel pin)
+        {
+            int removedIdx = OutputPins.IndexOf(pin);
+            if (removedIdx < 0) return;
+
+            PinRemoving?.Invoke(pin);
+            OutputPins.RemoveAt(removedIdx);
+
+            lock (_routeLock)
+            {
+                _routes.Remove(removedIdx);
+                var shifted = new Dictionary<int, List<DownstreamSubscription>>();
+                foreach (var kv in _routes)
+                {
+                    int newKey = kv.Key > removedIdx ? kv.Key - 1 : kv.Key;
+                    shifted[newKey] = kv.Value;
+                }
+                _routes.Clear();
+                foreach (var kv in shifted)
+                {
+                    _routes[kv.Key] = kv.Value;
+                }
+            }
+
+            for (int i = 0; i < OutputPins.Count; i++)
+            {
+                OutputPins[i].PinIndex = i;
+            }
+
+            PinsChanged?.Invoke(this);
         }
 
         /// <summary>
@@ -288,9 +343,16 @@ namespace LinkNexus.Blueprint.Core
         }
 
         /// <summary>
-        /// 当系统 COM 端口列表热插拔变更时通知节点刷新下拉选项
+        /// 当 USB 枚举出的真实 COM 端口列表变更时通知节点刷新下拉选项
         /// </summary>
         public virtual void RefreshAvailableComPorts(IReadOnlyList<string> comPorts)
+        {
+        }
+
+        /// <summary>
+        /// 当 USB 枚举出的真实烧录探针/端口列表变更时通知节点刷新下拉选项
+        /// </summary>
+        public virtual void RefreshAvailableBurnerPorts(IReadOnlyList<string> burnerPorts)
         {
         }
 
@@ -300,6 +362,16 @@ namespace LinkNexus.Blueprint.Core
         public virtual void SetStreamingEnabled(bool enabled)
         {
         }
+
+        /// <summary>
+        /// 提供当前节点的右键上下文快捷菜单 (如 COM 输入节点按需拆分 CH 通道)
+        /// </summary>
+        public virtual IReadOnlyList<NodeContextAction> GetContextMenuActions() => Array.Empty<NodeContextAction>();
+
+        /// <summary>
+        /// 导出该节点的专有 MCP 扩展元数据，用于将整个蓝图全量共享给 AI Agent
+        /// </summary>
+        public virtual Dictionary<string, object?> ExportMcpMetadata() => new();
 
         protected abstract Task OnPacketReceivedAsync(int inputPinIndex, BlueprintPacket packet, CancellationToken ct);
 

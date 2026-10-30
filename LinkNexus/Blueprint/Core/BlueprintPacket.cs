@@ -6,20 +6,27 @@ namespace LinkNexus.Blueprint.Core
 {
     /// <summary>
     /// 流式蓝图底层数据包 (在各 NodeBase 的 Channel 管道间零锁高速传递)
-    /// 兼容 VOFA+ FireWater 多通道浮点数组、IMU 欧拉角/四元数向量以及原始串口文本帧
+    /// 兼容 VOFA+ FireWater 单流/多数据流前缀帧 (如 BUS:v,ma,w / XDS:v,ma,w)、IMU 姿态向量以及原始串口文本帧
     /// </summary>
     public sealed class BlueprintPacket
     {
         public double[] Channels { get; }
         public string RawText { get; }
         public string SourceTag { get; }
+        public string StreamPrefix { get; }
         public DateTime Timestamp { get; }
 
-        public BlueprintPacket(double[] channels, string rawText = "", string sourceTag = "STREAM", DateTime? timestamp = null)
+        public BlueprintPacket(
+            double[] channels,
+            string rawText = "",
+            string sourceTag = "STREAM",
+            DateTime? timestamp = null,
+            string streamPrefix = "")
         {
             Channels = channels ?? Array.Empty<double>();
             RawText = rawText ?? string.Empty;
             SourceTag = sourceTag ?? "STREAM";
+            StreamPrefix = streamPrefix ?? string.Empty;
             Timestamp = timestamp ?? DateTime.Now;
         }
 
@@ -34,11 +41,13 @@ namespace LinkNexus.Blueprint.Core
             {
                 parts[i] = Channels[i].ToString("F3", CultureInfo.InvariantCulture);
             }
-            return string.Join(",", parts);
+            return string.IsNullOrEmpty(StreamPrefix)
+                ? string.Join(",", parts)
+                : $"{StreamPrefix}:{string.Join(",", parts)}";
         }
 
         /// <summary>
-        /// 解析 VOFA+ FireWater 协议行 ("v0,v1,v2" 或 "tag: v0, v1, v2") 及键值遥测行 ("roll=12.3,pitch=-4.1,yaw=85.0")
+        /// 解析 VOFA+ FireWater 协议行 ("v0,v1,v2" 或多数据流标签行 "BUS: v0, v1, v2") 及键值遥测行 ("roll=12.3,pitch=-4.1,yaw=85.0")
         /// </summary>
         public static bool TryParseLine(string? line, string sourceTag, out BlueprintPacket packet)
         {
@@ -46,10 +55,32 @@ namespace LinkNexus.Blueprint.Core
             if (string.IsNullOrWhiteSpace(line)) return false;
 
             string trimmed = line.Trim();
+            string detectedPrefix = string.Empty;
+            string body = trimmed;
 
-            // 若包含前导标签如 "imu: 1.0, 2.0, 3.0" 或 "[CH] 1.0, 2.0"，剥离冒号前非数字前缀
             int colonIdx = trimmed.IndexOf(':');
-            string body = (colonIdx >= 0 && colonIdx < 24) ? trimmed[(colonIdx + 1)..].Trim() : trimmed;
+            if (colonIdx > 0 && colonIdx < 24)
+            {
+                string candidatePrefix = trimmed[..colonIdx].Trim().Trim('[', ']', '<', '>', '#');
+                if (IsValidStreamPrefix(candidatePrefix))
+                {
+                    detectedPrefix = candidatePrefix.ToUpperInvariant();
+                    body = trimmed[(colonIdx + 1)..].Trim();
+                }
+            }
+            else if (trimmed.StartsWith("[", StringComparison.Ordinal))
+            {
+                int closeBracket = trimmed.IndexOf(']');
+                if (closeBracket > 1 && closeBracket < 20)
+                {
+                    string candidatePrefix = trimmed[1..closeBracket].Trim();
+                    if (IsValidStreamPrefix(candidatePrefix))
+                    {
+                        detectedPrefix = candidatePrefix.ToUpperInvariant();
+                        body = trimmed[(closeBracket + 1)..].Trim();
+                    }
+                }
+            }
 
             var values = new List<double>(12);
             var tokens = body.Split(new[] { ',', ';', '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
@@ -77,8 +108,26 @@ namespace LinkNexus.Blueprint.Core
                 return false;
             }
 
-            packet = new BlueprintPacket(values.ToArray(), trimmed, sourceTag);
+            packet = new BlueprintPacket(values.ToArray(), trimmed, sourceTag, DateTime.Now, detectedPrefix);
             return true;
+        }
+
+        private static bool IsValidStreamPrefix(string prefix)
+        {
+            if (string.IsNullOrWhiteSpace(prefix) || prefix.Length > 18) return false;
+            bool hasLetter = false;
+            foreach (char c in prefix)
+            {
+                if (char.IsLetter(c))
+                {
+                    hasLetter = true;
+                }
+                else if (!char.IsDigit(c) && c != '_' && c != '-')
+                {
+                    return false;
+                }
+            }
+            return hasLetter;
         }
     }
 }

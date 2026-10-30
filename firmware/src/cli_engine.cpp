@@ -93,7 +93,7 @@ static int cmd_help(int argc, char **argv)
         "  power status                       - 显示 6 通道当前供电状态与 NVS 开机默认 Mask\r\n"
         "  status                             - 查询 ESP32-S3 双核系统资源与运行状态\r\n"
         "  telemetry [true|false] [save]      - 查询遥测数据或控制二进制广播流 (可选 [save])\r\n"
-        "  telemetry vofa <true|false>        - 启闭 VOFA+ FireWater 9通道文本流 (对接蓝图节点)\r\n"
+        "  telemetry vofa <true|false|multi>  - 启闭 VOFA+ 9通道单流或 BUS/XDS/DAP 多数据流 (供蓝图右键拆分CH)\r\n"
         "  whoami                             - 查询设备身份标识与主控角色确认\r\n"
         "  reboot                             - 软复位重启 ESP32-S3\r\n"
         "  clear                              - 清空当前终端屏幕\r\n"
@@ -504,16 +504,28 @@ static int cmd_telemetry(int argc, char **argv)
 {
     if (argc > 1 && strcasecmp(argv[1], "vofa") == 0) {
         if (argc < 3) {
+            const char *mode_desc = !AppCoordinator::Instance().IsVofaStream()
+                ? "关闭"
+                : (AppCoordinator::Instance().IsVofaMultiStream()
+                    ? "开启 (多数据流 BUS/XDS/DAP 分帧打印, 250ms)"
+                    : "开启 (单流 9通道 CH0~CH8, 250ms)");
             CliEngine::PrintResponse(
                 "VOFA+ FireWater 文本流状态: %s\r\n"
-                "  通道映射: CH0=bus_v, CH1=bus_ma, CH2=bus_w, CH3=xds_v, CH4=xds_ma, CH5=xds_w, CH6=dap_v, CH7=dap_ma, CH8=dap_w\r\n"
-                "  用法: telemetry vofa <true|false>\r\n",
-                AppCoordinator::Instance().IsVofaStream() ? "开启 (250ms)" : "关闭");
+                "  单流映射 (true) : CH0=bus_v, CH1=bus_ma, CH2=bus_w, CH3=xds_v, CH4=xds_ma, CH5=xds_w, CH6=dap_v, CH7=dap_ma, CH8=dap_w\r\n"
+                "  多流打印 (multi): BUS:v,ma,w / XDS:v,ma,w / DAP:v,ma,w (供上位机蓝图右键按需拆分 CH 通道)\r\n"
+                "  用法: telemetry vofa <true|false|multi>\r\n",
+                mode_desc);
+            return 0;
+        }
+        if (strcasecmp(argv[2], "multi") == 0 || strcasecmp(argv[2], "split") == 0) {
+            AppCoordinator::Instance().SetVofaMultiStream(true);
+            CliEngine::PrintResponse(
+                "[遥测控制] 已开启 VOFA+ 多数据流分帧打印 (BUS / XDS / DAP 三路独立流，250ms 周期，可在上位机 COM 输入节点右键拆分 CH 通道)。\r\n");
             return 0;
         }
         bool vofa_en = false;
         if (!ParseBoolCli(argv[2], vofa_en)) {
-            CliEngine::PrintResponse("错误: 参数应为 true 或 false。\r\n");
+            CliEngine::PrintResponse("错误: 参数应为 true、false 或 multi。\r\n");
             return 1;
         }
         AppCoordinator::Instance().SetVofaStream(vofa_en);
@@ -657,8 +669,8 @@ void CliEngine::RegisterCommands()
 
     const esp_console_cmd_t telemetry_cmd = {
         .command = "telemetry",
-        .help = "查询 INA236 遥测、控制二进制广播流 (true/false) 或 VOFA+ 文本流 (vofa true/false)",
-        .hint = "[true|false|vofa] [save]",
+        .help = "查询 INA236 遥测、控制二进制广播流 (true/false) 或 VOFA+ 单流/多流打印 (vofa true/false/multi)",
+        .hint = "[true|false|vofa] [save|multi]",
         .func = &cmd_telemetry,
         .argtable = NULL,
         .func_w_context = NULL,

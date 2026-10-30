@@ -8,3 +8,8 @@
 .vscode/settings.json
 dummy.elf
 compile_commands.json
+PythonAlgoRepo/
+py_algo_repo/
+python_algos/
+test_py_algos/
+

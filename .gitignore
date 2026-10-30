@@ -368,3 +368,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# External / test Python algorithm repositories (strictly decoupled from software & git)
+PythonAlgoRepo/
+py_algo_repo/
+python_algos/
+test_py_algos/

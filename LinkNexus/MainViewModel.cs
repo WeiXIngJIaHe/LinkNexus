@@ -12,6 +12,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using LinkNexus.Blueprint.Core;
 using LinkNexus.Blueprint.ViewModels;
 using LinkNexus.Mcp;
 
@@ -46,7 +47,7 @@ namespace LinkNexus
     public class LoadedFileItem : INotifyPropertyChanged
     {
         private string _filePath = string.Empty;
-        private string _fileName = "未放入任何文件 (支持拖入 .bin / .hex / .elf)";
+        private string _fileName = "未选择固件 (支持存放 .hex / .bin)";
         private string _fileSizeText = "--";
         private string _crc32Text = "--";
         private string _targetChipFamily = "--";
@@ -199,6 +200,10 @@ namespace LinkNexus
         private string _loadBaseAddress = "0x08000000";
         private string _kernelStateText = "CoreID: 0x2BA01477 (Cortex-M4F) | 状态: HALTED";
         private string _coreIdText = "0x2BA01477";
+        private string _selectedBurnerTargetPort = string.Empty;
+        private string _selectedStoredHexBinOption = string.Empty;
+        private bool _isUpdatingBurnerVaultSelection = false;
+        private readonly List<string> _lastEnumeratedUsbComPorts = new();
 
         #endregion
 
@@ -486,24 +491,22 @@ namespace LinkNexus
         public bool IsBurnerNavSelected => !IsBlueprintWorkspaceVisible && (SelectedDevice?.IsBurnerDevice ?? false);
 
         /// <summary>
-        /// 当识别到串口设备 (UART/COM) 成功时为 true，驱动左侧边栏渐变滑入弹出 [串口通信终端] 选项
+        /// 严格依据真实 USB 枚举出的串口设备驱动左侧边栏渐变滑入弹出（绝不使用任何占位或虚拟端口）
         /// </summary>
         public bool HasRecognizedUartDevice =>
-            AllUsbDevices.Any(d => d.IsUartDevice) || VirtualDevices.Any(d => d.IsUartDevice);
+            AllUsbDevices.Any(d => !d.IsVirtual && d.IsUartDevice);
 
         public int RecognizedUartCount =>
-            AllUsbDevices.Where(d => d.IsUartDevice).Union(VirtualDevices.Where(d => d.IsUartDevice)).Count();
+            AllUsbDevices.Count(d => !d.IsVirtual && d.IsUartDevice);
 
         /// <summary>
-        /// 当识别到烧录探针设备 (FT2232 / XDS110 / DAPLink) 成功时为 true，驱动左侧边栏渐变滑入弹出 [固件烧录探针] 选项
+        /// 严格依据真实 USB 枚举出的烧录探针设备驱动左侧边栏渐变滑入弹出（绝不使用任何占位或虚拟端口）
         /// </summary>
         public bool HasRecognizedBurnerDevice =>
-            AllUsbDevices.Any(d => d.IsBurnerDevice) || VirtualDevices.Any(d => d.IsBurnerDevice);
+            AllUsbDevices.Any(d => !d.IsVirtual && d.IsBurnerDevice);
 
         public int RecognizedBurnerCount =>
-            AllUsbDevices.Where(d => d.IsBurnerDevice).Union(VirtualDevices.Where(d => d.IsBurnerDevice)).Count();
-
-        public string SidebarVirtualToggleLabel => IsVirtualDevicesEnabled ? "收起仿真外设" : "接入仿真外设";
+            AllUsbDevices.Count(d => !d.IsVirtual && d.IsBurnerDevice);
 
         private void NotifyNavigationStateChanged()
         {
@@ -522,23 +525,79 @@ namespace LinkNexus
             OnPropertyChanged(nameof(CardAreaMaxHeight));
         }
 
+        private static string FormatBurnerPortIdentifier(PortDeviceModel d)
+        {
+            bool hasCom = !string.IsNullOrWhiteSpace(d.ComPort) && d.ComPort != "--";
+            return hasCom
+                ? $"{d.ComPort} ({d.DeviceName})"
+                : $"{d.DeviceName} [{d.VidPid}]";
+        }
+
         private void SyncSidebarRecognitionAndBlueprintPorts()
         {
             OnPropertyChanged(nameof(HasRecognizedUartDevice));
             OnPropertyChanged(nameof(RecognizedUartCount));
             OnPropertyChanged(nameof(HasRecognizedBurnerDevice));
             OnPropertyChanged(nameof(RecognizedBurnerCount));
-            OnPropertyChanged(nameof(SidebarVirtualToggleLabel));
 
-            var ports = AllUsbDevices
-                .Concat(VirtualDevices)
+            var realComPorts = AllUsbDevices
+                .Where(d => !d.IsVirtual)
                 .Select(d => d.ComPort)
+                .Concat(_lastEnumeratedUsbComPorts)
                 .Where(p => !string.IsNullOrWhiteSpace(p) && p != "--")
-                .Concat(SerialPort.GetPortNames())
+                .SelectMany(p => p.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Where(p => p.StartsWith("COM", StringComparison.OrdinalIgnoreCase))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            BlueprintVm.UpdateSystemComPorts(ports);
+            var realBurnerTargets = AllUsbDevices
+                .Where(d => !d.IsVirtual && (d.IsBurnerDevice || d.IsUartDevice))
+                .Select(FormatBurnerPortIdentifier)
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            bool sameBurners = EnumeratedBurnerPorts.Count == realBurnerTargets.Count;
+            if (sameBurners)
+            {
+                for (int i = 0; i < realBurnerTargets.Count; i++)
+                {
+                    if (!string.Equals(EnumeratedBurnerPorts[i], realBurnerTargets[i], StringComparison.Ordinal))
+                    {
+                        sameBurners = false;
+                        break;
+                    }
+                }
+            }
+
+            if (!sameBurners)
+            {
+                string previousTarget = _selectedBurnerTargetPort;
+                EnumeratedBurnerPorts.Clear();
+                foreach (var target in realBurnerTargets)
+                {
+                    EnumeratedBurnerPorts.Add(target);
+                }
+
+                if (!string.IsNullOrWhiteSpace(previousTarget) && EnumeratedBurnerPorts.Contains(previousTarget))
+                {
+                    SelectedBurnerTargetPort = previousTarget;
+                }
+                else if (SelectedDevice != null && !SelectedDevice.IsVirtual && (SelectedDevice.IsBurnerDevice || SelectedDevice.IsUartDevice))
+                {
+                    string candidate = FormatBurnerPortIdentifier(SelectedDevice);
+                    SelectedBurnerTargetPort = EnumeratedBurnerPorts.Contains(candidate) ? candidate : string.Empty;
+                }
+                else
+                {
+                    SelectedBurnerTargetPort = string.Empty;
+                }
+
+                OnPropertyChanged(nameof(HasNoEnumeratedBurnerPorts));
+                OnPropertyChanged(nameof(HasSelectedBurnerTargetPort));
+            }
+
+            BlueprintVm.UpdateEnumeratedUsbPorts(realComPorts, realBurnerTargets);
         }
 
         #endregion
@@ -568,6 +627,14 @@ namespace LinkNexus
                         else if (_selectedDevice.IsBurnerDevice)
                         {
                             _activeNavSection = PrimaryNavSection.BurnerWorkspace;
+                            if (!_selectedDevice.IsVirtual)
+                            {
+                                string candidate = FormatBurnerPortIdentifier(_selectedDevice);
+                                if (EnumeratedBurnerPorts.Contains(candidate))
+                                {
+                                    SelectedBurnerTargetPort = candidate;
+                                }
+                            }
                         }
                         else
                         {
@@ -852,6 +919,111 @@ namespace LinkNexus
         {
             get => _coreIdText;
             set { if (_coreIdText != value) { _coreIdText = value; OnPropertyChanged(); } }
+        }
+
+        /// <summary>
+        /// 真实 USB 枚举出的可用烧录端口列表（无硬件时为空集合，绝不含占位符端口）
+        /// </summary>
+        public ObservableCollection<string> EnumeratedBurnerPorts { get; } = new();
+
+        public bool HasNoEnumeratedBurnerPorts => EnumeratedBurnerPorts.Count == 0;
+
+        public string SelectedBurnerTargetPort
+        {
+            get => _selectedBurnerTargetPort;
+            set
+            {
+                string next = value ?? string.Empty;
+                if (_selectedBurnerTargetPort != next)
+                {
+                    _selectedBurnerTargetPort = next;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(HasSelectedBurnerTargetPort));
+                }
+            }
+        }
+
+        public bool HasSelectedBurnerTargetPort =>
+            !string.IsNullOrWhiteSpace(_selectedBurnerTargetPort) && EnumeratedBurnerPorts.Contains(_selectedBurnerTargetPort);
+
+        /// <summary>
+        /// HEX / BIN 固件存放仓选项集合（与蓝图烧录端口卡片共享 FirmwareVaultService）
+        /// </summary>
+        public ObservableCollection<string> StoredHexBinOptions { get; } = new();
+
+        public bool HasNoStoredHexBinOptions => StoredHexBinOptions.Count == 0;
+
+        public string SelectedStoredHexBinOption
+        {
+            get => _selectedStoredHexBinOption;
+            set
+            {
+                string next = value ?? string.Empty;
+                if (_selectedStoredHexBinOption != next)
+                {
+                    _selectedStoredHexBinOption = next;
+                    OnPropertyChanged();
+                    if (!_isUpdatingBurnerVaultSelection && !string.IsNullOrWhiteSpace(next))
+                    {
+                        var entry = FirmwareVaultService.Instance.FindByDisplayOrName(next);
+                        if (entry != null)
+                        {
+                            LoadFileFromVaultEntry(entry);
+                        }
+                    }
+                }
+            }
+        }
+
+        public void RefreshStoredHexBinVault(string? selectFileName = null)
+        {
+            var names = FirmwareVaultService.Instance.GetStoredImages().Select(e => e.DisplayOption).ToList();
+            _isUpdatingBurnerVaultSelection = true;
+            try
+            {
+                StoredHexBinOptions.Clear();
+                foreach (var n in names)
+                {
+                    StoredHexBinOptions.Add(n);
+                }
+                OnPropertyChanged(nameof(HasNoStoredHexBinOptions));
+
+                string target = !string.IsNullOrWhiteSpace(selectFileName) ? selectFileName : _selectedStoredHexBinOption;
+                var matchedOption = !string.IsNullOrWhiteSpace(target)
+                    ? StoredHexBinOptions.FirstOrDefault(o =>
+                        string.Equals(o, target, StringComparison.OrdinalIgnoreCase) ||
+                        o.StartsWith(target + " [", StringComparison.OrdinalIgnoreCase))
+                    : null;
+
+                if (!string.IsNullOrWhiteSpace(matchedOption))
+                {
+                    _selectedStoredHexBinOption = matchedOption;
+                    OnPropertyChanged(nameof(SelectedStoredHexBinOption));
+                }
+                else if (StoredHexBinOptions.Count == 0)
+                {
+                    _selectedStoredHexBinOption = string.Empty;
+                    OnPropertyChanged(nameof(SelectedStoredHexBinOption));
+                }
+            }
+            finally
+            {
+                _isUpdatingBurnerVaultSelection = false;
+            }
+        }
+
+        private void LoadFileFromVaultEntry(FirmwareImageEntry entry)
+        {
+            CurrentLoadedFile.FilePath = entry.StoredPath;
+            CurrentLoadedFile.FileName = entry.FileName;
+            CurrentLoadedFile.FileSizeText = entry.PayloadBytes >= 1024 * 1024
+                ? $"{entry.PayloadBytes / (1024.0 * 1024.0):F2} MB ({entry.PayloadBytes:N0} 字节)"
+                : $"{entry.PayloadBytes / 1024.0:F2} KB ({entry.PayloadBytes:N0} 字节)";
+            CurrentLoadedFile.Crc32Text = entry.Crc32Hex;
+            CurrentLoadedFile.TargetChipFamily = InferTargetChipFamily(entry.FileName, entry.BaseAddress, out string inferredBase);
+            LoadBaseAddress = inferredBase;
+            CurrentLoadedFile.IsFileLoaded = true;
+            AddLog($"【HEX/BIN 存放仓】已选定固件: {entry.FileName} | 有效载荷: {CurrentLoadedFile.FileSizeText} | CRC32: {entry.Crc32Hex}", "INFO");
         }
 
         #endregion
@@ -1302,11 +1474,12 @@ namespace LinkNexus
             });
             NavigateUartSectionCommand = new RelayCommand(() =>
             {
-                var target = (SelectedDevice != null && SelectedDevice.IsUartDevice)
+                var target = (SelectedDevice != null && !SelectedDevice.IsVirtual && SelectedDevice.IsUartDevice)
                     ? SelectedDevice
-                    : AllUsbDevices.FirstOrDefault(d => d.IsUartDevice) ?? VirtualDevices.FirstOrDefault(d => d.IsUartDevice);
+                    : AllUsbDevices.FirstOrDefault(d => !d.IsVirtual && d.IsUartDevice);
+                if (target == null) return;
                 _activeNavSection = PrimaryNavSection.UartWorkspace;
-                if (target != null && SelectedDevice != target)
+                if (SelectedDevice != target)
                 {
                     OnDeviceCardSelected(target);
                 }
@@ -1314,11 +1487,12 @@ namespace LinkNexus
             });
             NavigateBurnerSectionCommand = new RelayCommand(() =>
             {
-                var target = (SelectedDevice != null && SelectedDevice.IsBurnerDevice)
+                var target = (SelectedDevice != null && !SelectedDevice.IsVirtual && SelectedDevice.IsBurnerDevice)
                     ? SelectedDevice
-                    : AllUsbDevices.FirstOrDefault(d => d.IsBurnerDevice) ?? VirtualDevices.FirstOrDefault(d => d.IsBurnerDevice);
+                    : AllUsbDevices.FirstOrDefault(d => !d.IsVirtual && d.IsBurnerDevice);
+                if (target == null) return;
                 _activeNavSection = PrimaryNavSection.BurnerWorkspace;
-                if (target != null && SelectedDevice != target)
+                if (SelectedDevice != target)
                 {
                     OnDeviceCardSelected(target);
                 }
@@ -1444,9 +1618,13 @@ namespace LinkNexus
 
             InitDefaultDumpsAndCli();
 
-            // 预留 MCP (Model Context Protocol) 框架数据源绑定
+            FirmwareVaultService.Instance.VaultChanged += () => _dispatcher.InvokeAsync(() => RefreshStoredHexBinVault());
+            RefreshStoredHexBinVault();
+            SyncSidebarRecognitionAndBlueprintPorts();
+
+            // MCP (Model Context Protocol) 硬件与全图蓝图数据源双向绑定
             McpBridge.BindHardwareContext(
-                devicesProvider: () => AllUsbDevices.Count > 0 ? AllUsbDevices : ConnectedDevices,
+                devicesProvider: () => AllUsbDevices.Where(d => !d.IsVirtual),
                 isEsp32OnlineProvider: () => IsEsp32Online,
                 daemonStatusTextProvider: () => DaemonStatusText,
                 mosPowerSwitchHandler: (channel, enable) =>
@@ -1465,8 +1643,9 @@ namespace LinkNexus
                 logsProvider: () => Logs,
                 serialLogsProvider: () => SerialMonitorLines,
                 cliExecutor: async (cmd, timeout) => await Esp32CommService.Instance.ExecuteCliCommandAsync(cmd, timeout));
+            McpBridge.BindBlueprintContext(BlueprintVm, _dispatcher);
 
-            // 启动本地命名管道 IPC 服务，随时响应外部 AI Agent 或 Stdio 命令行透传请求
+            // 启动本地 Loopback IPC 服务，随时响应外部 AI Agent 或 Stdio 命令行透传请求
             _mcpIpcServer = new McpIpcServer(McpBridge);
             _mcpIpcServer.Start();
 
@@ -1627,12 +1806,27 @@ namespace LinkNexus
             var ch338xCards = new List<PortDeviceModel>();
             var otherCards = new List<PortDeviceModel>();
 
+            _lastEnumeratedUsbComPorts.Clear();
+            foreach (var d in devices)
+            {
+                if (d == espDev) continue;
+                if (!string.IsNullOrEmpty(_confirmedDaemonPort) && string.Equals(d.ComPort, _confirmedDaemonPort, StringComparison.OrdinalIgnoreCase)) continue;
+                if (espDev != null && !string.IsNullOrWhiteSpace(espDev.ComPort) && string.Equals(d.ComPort, espDev.ComPort, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!string.IsNullOrWhiteSpace(d.ComPort) && d.ComPort != "--")
+                {
+                    _lastEnumeratedUsbComPorts.Add(d.ComPort);
+                }
+            }
+
             var validDevices = devices.Where(d =>
             {
-                // 1. 过滤掉标准系统 Hub
+                // 1. 过滤掉标准系统 USB Hub 与通用复合父壳容器
                 if (d.Name.Equals("Generic USB Hub", StringComparison.OrdinalIgnoreCase) ||
                     d.Name.Equals("USB Root Hub", StringComparison.OrdinalIgnoreCase) ||
-                    d.Name.Contains("根集线器", StringComparison.OrdinalIgnoreCase))
+                    d.Name.Contains("集线器", StringComparison.OrdinalIgnoreCase) ||
+                    d.Name.Contains("USB Hub", StringComparison.OrdinalIgnoreCase) ||
+                    d.Name.Equals("USB Composite Device", StringComparison.OrdinalIgnoreCase) ||
+                    d.Name.Equals("USB 复合设备", StringComparison.OrdinalIgnoreCase))
                 {
                     return false;
                 }
@@ -1716,17 +1910,7 @@ namespace LinkNexus
                 OtherDevices.Add(card);
             }
 
-            // 若开启了虚拟外设接入，将仿真核心设备同步汇入顶部设备抽屉与大厅集合，便于免硬件验证侧栏渐变弹出与抽屉联动
-            if (IsVirtualDevicesEnabled && VirtualDevices.Count > 0)
-            {
-                foreach (var vCard in VirtualDevices)
-                {
-                    if (!ConnectedDevices.Contains(vCard))
-                    {
-                        ConnectedDevices.Add(vCard);
-                    }
-                }
-            }
+            // 严格按照真实 USB 枚举结果填充主设备大厅与侧栏，绝不向 ConnectedDevices / AllUsbDevices 混入任何虚拟占位端口
 
             // 同步到全量已检测 USB 硬件设备集合
             AllUsbDevices.Clear();
@@ -2305,25 +2489,12 @@ namespace LinkNexus
                 VirtualDevices.Add(xds110UartVirt);
                 VirtualDevices.Add(dapVirt);
 
-                foreach (var vCard in VirtualDevices)
-                {
-                    vCard.SelectedChanged += OnDeviceCardSelected;
-                    if (!ConnectedDevices.Contains(vCard)) ConnectedDevices.Add(vCard);
-                    if (!AllUsbDevices.Contains(vCard)) AllUsbDevices.Add(vCard);
-                }
-
                 IsVirtualDevicesEnabled = true;
                 if (IsDebugMode)
                 {
                     SelectedVirtualDevice = ft2232Virt;
                 }
-                OnPropertyChanged(nameof(HasConnectedDevices));
-                OnPropertyChanged(nameof(HasAnyUsbDevice));
-                OnPropertyChanged(nameof(HasNoUsbDevices));
-                SyncSidebarRecognitionAndBlueprintPorts();
-
-                AddLog("【虚拟接入功能】已载入 FT2232、CH343P、XDS110 与 DAPLink 仿真设备，左侧边栏已动态弹出串口与烧录工作台选项！", "SUCCESS");
-                AddLog("【功能测试就绪】您可直接点击上方虚拟卡片，测试固件烧录、扇区 Hex Dump、擦除、CoreID、串口收发与 Linux CLI！", "INFO");
+                AddLog("【Debug 虚拟仿真沙箱】已在开发者维护沙箱内载入离线测试卡片（与主界面真实 USB 枚举严格隔离）。", "INFO");
             }
         }
 
@@ -2351,8 +2522,8 @@ namespace LinkNexus
         {
             var dialog = new OpenFileDialog
             {
-                Title = "选择固件镜像进行烧录与内核调试",
-                Filter = "固件镜像 (*.bin;*.hex;*.elf)|*.bin;*.hex;*.elf|所有文件 (*.*)|*.*",
+                Title = "选择并存放 .hex / .bin 烧录固件",
+                Filter = "HEX / BIN 烧录固件 (*.hex;*.bin)|*.hex;*.bin|固件镜像 (*.hex;*.bin;*.elf)|*.hex;*.bin;*.elf",
                 CheckFileExists = true
             };
 
@@ -2362,6 +2533,34 @@ namespace LinkNexus
             }
         }
 
+        private static string InferTargetChipFamily(string fileName, string? suggestedBaseHex, out string baseAddress)
+        {
+            string nameUpper = (fileName ?? string.Empty).ToUpperInvariant();
+            if (nameUpper.Contains("STM32") || nameUpper.Contains("M4") || nameUpper.Contains("F4"))
+            {
+                baseAddress = !string.IsNullOrWhiteSpace(suggestedBaseHex) ? suggestedBaseHex : "0x08000000";
+                return "ARM Cortex-M4F (STM32F4xx)";
+            }
+            if (nameUpper.Contains("ESP32") || nameUpper.Contains("S3"))
+            {
+                baseAddress = !string.IsNullOrWhiteSpace(suggestedBaseHex) ? suggestedBaseHex : "0x00010000";
+                return "Espressif Xtensa LX7 (ESP32-S3)";
+            }
+            if (nameUpper.Contains("TM4C") || nameUpper.Contains("XDS110"))
+            {
+                baseAddress = !string.IsNullOrWhiteSpace(suggestedBaseHex) ? suggestedBaseHex : "0x00000000";
+                return "TI Stellaris/Tiva (TM4C1294)";
+            }
+            if (nameUpper.Contains("CH32") || nameUpper.Contains("DAP"))
+            {
+                baseAddress = !string.IsNullOrWhiteSpace(suggestedBaseHex) ? suggestedBaseHex : "0x08000000";
+                return "WCH QingKe RISC-V (CH32V305)";
+            }
+
+            baseAddress = !string.IsNullOrWhiteSpace(suggestedBaseHex) ? suggestedBaseHex : "0x08000000";
+            return "通用 32 位 HEX/BIN 固件镜像";
+        }
+
         public void LoadFile(string fullPath)
         {
             if (string.IsNullOrWhiteSpace(fullPath) || !File.Exists(fullPath)) return;
@@ -2369,6 +2568,21 @@ namespace LinkNexus
             try
             {
                 var fileInfo = new FileInfo(fullPath);
+                string ext = fileInfo.Extension.ToLowerInvariant();
+
+                if (ext == ".hex" || ext == ".bin")
+                {
+                    if (FirmwareVaultService.Instance.TryStoreFirmwareFile(fullPath, out var vaultEntry, out string err) && vaultEntry != null)
+                    {
+                        RefreshStoredHexBinVault(vaultEntry.FileName);
+                        LoadFileFromVaultEntry(vaultEntry);
+                        AddLog($"【HEX/BIN 存放成功】已存入固件库: {vaultEntry.FileName} | 有效载荷: {CurrentLoadedFile.FileSizeText} | CRC32: {vaultEntry.Crc32Hex} | 基址: {LoadBaseAddress}", "SUCCESS");
+                        return;
+                    }
+                    AddLog($"【HEX/BIN 存放失败】{err}", "ERROR");
+                    return;
+                }
+
                 byte[] fileBytes = File.ReadAllBytes(fullPath);
                 uint crc = ComputeCrc32(fileBytes);
 
@@ -2378,36 +2592,10 @@ namespace LinkNexus
                     ? $"{fileInfo.Length / (1024.0 * 1024.0):F2} MB ({fileInfo.Length:N0} 字节)"
                     : $"{fileInfo.Length / 1024.0:F2} KB ({fileInfo.Length:N0} 字节)";
                 CurrentLoadedFile.Crc32Text = $"0x{crc:X8}";
-
-                string ext = fileInfo.Extension.ToLowerInvariant();
-                string nameUpper = fileInfo.Name.ToUpperInvariant();
-                if (nameUpper.Contains("STM32") || nameUpper.Contains("M4") || nameUpper.Contains("F4"))
-                {
-                    CurrentLoadedFile.TargetChipFamily = "ARM Cortex-M4F (STM32F4xx)";
-                    LoadBaseAddress = "0x08000000";
-                }
-                else if (nameUpper.Contains("ESP32") || nameUpper.Contains("S3"))
-                {
-                    CurrentLoadedFile.TargetChipFamily = "Espressif Xtensa LX7 (ESP32-S3)";
-                    LoadBaseAddress = "0x00010000";
-                }
-                else if (nameUpper.Contains("TM4C") || nameUpper.Contains("XDS110"))
-                {
-                    CurrentLoadedFile.TargetChipFamily = "TI Stellaris/Tiva (TM4C1294)";
-                    LoadBaseAddress = "0x00000000";
-                }
-                else if (nameUpper.Contains("CH32") || nameUpper.Contains("DAP"))
-                {
-                    CurrentLoadedFile.TargetChipFamily = "WCH QingKe RISC-V (CH32V305)";
-                    LoadBaseAddress = "0x08000000";
-                }
-                else
-                {
-                    CurrentLoadedFile.TargetChipFamily = "通用 32 位二进制固件镜像";
-                }
-
+                CurrentLoadedFile.TargetChipFamily = InferTargetChipFamily(fileInfo.Name, null, out string baseAddr);
+                LoadBaseAddress = baseAddr;
                 CurrentLoadedFile.IsFileLoaded = true;
-                AddLog($"【固件放入】已加载: {fileInfo.Name} | 容量: {CurrentLoadedFile.FileSizeText} | CRC32: {CurrentLoadedFile.Crc32Text} | 匹配芯片: {CurrentLoadedFile.TargetChipFamily}", "SUCCESS");
+                AddLog($"【固件加载】已加载: {fileInfo.Name} | 容量: {CurrentLoadedFile.FileSizeText} | CRC32: {CurrentLoadedFile.Crc32Text}", "SUCCESS");
             }
             catch (Exception ex)
             {
@@ -2437,19 +2625,44 @@ namespace LinkNexus
         {
             if (IsFlashingActive) return;
 
+            // 仅在非 Debug 沙箱模式下强制校验真实 USB 指定端口；即使在主界面也必须显式指定一个已枚举的 USB 烧录端口
+            bool isDebugSandboxVirtual = IsDebugMode && SelectedDevice?.IsVirtual == true;
+            if (!isDebugSandboxVirtual)
+            {
+                if (string.IsNullOrWhiteSpace(SelectedBurnerTargetPort) || !EnumeratedBurnerPorts.Contains(SelectedBurnerTargetPort))
+                {
+                    FlashStatusStep = "已拦截：必须先在【指定烧录端口】中选择一个已枚举的真实 USB 端口";
+                    FlashSpeedText = "未指定端口";
+                    AddLog("【烧录拦截】未指定真实 USB 烧录端口，已拒绝烧录。请先接入并指定一个 USB 烧录端口。", "ERROR");
+                    return;
+                }
+            }
+
+            if (!CurrentLoadedFile.IsFileLoaded || string.IsNullOrWhiteSpace(CurrentLoadedFile.FilePath))
+            {
+                FlashStatusStep = "已拦截：请先在 HEX/BIN 存放仓选择或浏览存放 .hex / .bin 固件文件";
+                FlashSpeedText = "未选择固件";
+                AddLog("【烧录拦截】尚未选择任何 .hex / .bin 固件镜像，已中止烧录。", "ERROR");
+                return;
+            }
+
+            string targetPortDesc = isDebugSandboxVirtual
+                ? $"{SelectedDevice?.DeviceName} (Debug 沙箱)"
+                : SelectedBurnerTargetPort;
+
             IsFlashingActive = true;
             FlashProgress = 0;
-            AddLog($"================ [ 开始执行 {SelectedDevice?.DeviceName ?? "目标调试器"} 固件烧录流水线 ] ================", "WARN");
+            AddLog($"================ [ 向指定端口 {targetPortDesc} 烧录 {CurrentLoadedFile.FileName} ] ================", "WARN");
 
-            FlashStatusStep = "步骤 1/4: SWD/JTAG 10MHz 握手并挂起目标 MCU 内核 (Halt & Unlock)...";
-            FlashSpeedText = "总线握手";
+            FlashStatusStep = $"步骤 1/4: 连接指定端口 [{targetPortDesc}]，SWD/JTAG 握手并挂起目标内核...";
+            FlashSpeedText = "端口握手";
             await Task.Delay(350);
 
             FlashStatusStep = $"步骤 2/4: 执行目标扇区擦除 (Sector Erase @ {LoadBaseAddress})...";
             FlashProgress = 15;
             await Task.Delay(400);
 
-            FlashStatusStep = "步骤 3/4: 高速流式写入固件数据包 (218 KB/s 并口写入)...";
+            FlashStatusStep = $"步骤 3/4: 向 [{targetPortDesc}] 流式写入 {CurrentLoadedFile.FileName}...";
             for (int p = 20; p <= 90; p += 5)
             {
                 FlashProgress = p;
@@ -2457,15 +2670,15 @@ namespace LinkNexus
                 await Task.Delay(40);
             }
 
-            FlashStatusStep = "步骤 4/4: 读取片上硬件 CRC32 寄存器严格比对镜像 (0x9B41E280)...";
+            FlashStatusStep = $"步骤 4/4: 校验片上 CRC32 ({CurrentLoadedFile.Crc32Text})...";
             FlashProgress = 95;
             await Task.Delay(300);
 
             FlashProgress = 100;
             FlashSpeedText = "烧录完成";
-            FlashStatusStep = "烧录校验成功！释放复位线并启动目标程序。";
+            FlashStatusStep = $"端口 [{targetPortDesc}] 烧录与 CRC32 校验通过，目标程序已复位运行。";
             KernelStateText = "CoreID: 0x2BA01477 (Cortex-M4F) | 状态: RUNNING";
-            AddLog("固件烧录流水线执行成功！片上校验通过，软复位系统完成。", "SUCCESS");
+            AddLog($"指定端口 [{targetPortDesc}] 固件 ({CurrentLoadedFile.FileName}) 烧录校验完成。", "SUCCESS");
 
             IsFlashingActive = false;
         }

@@ -12,15 +12,19 @@ namespace LinkNexus.Blueprint.Controls
 {
     /// <summary>
     /// 流式卡片蓝图交互主画布控件 (BlueprintWorkspaceControl)
-    /// 协调 NodeCardControl 节点拖拽、Pin 端口坐标实时重算、三阶贝塞尔曲线磁吸建链与空白区画布平移
+    /// 协调 NodeCardControl 节点拖拽、鼠标滚轮以光标为中心自由缩放 (35% ~ 240%)、三阶贝塞尔曲线磁吸建链与空白区画布平移
     /// </summary>
     public partial class BlueprintWorkspaceControl : UserControl
     {
         private const double MagneticSnapRadius = 26.0;
+        private const double MinZoom = 0.35;
+        private const double MaxZoom = 2.40;
+        private const double ZoomStepFactor = 1.12;
 
         private readonly HashSet<NodeCardControl> _cards = new();
         private BlueprintWorkspaceViewModel? _boundVm;
         private int _topZIndex = 10;
+        private double _currentZoom = 1.0;
 
         // 交互拉线状态
         private PinViewModel? _dragOriginPin;
@@ -64,6 +68,87 @@ namespace LinkNexus.Blueprint.Controls
             if (_boundVm != null)
             {
                 _boundVm.GraphRebuilt += ScheduleFullAnchorSync;
+                _boundVm.CanvasZoom = _currentZoom;
+            }
+
+            ScheduleFullAnchorSync();
+        }
+
+        private void StageScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (e.OriginalSource is DependencyObject src)
+            {
+                var openCombo = VisualTreeSafeHelper.FindAncestor<ComboBox>(src);
+                if (openCombo != null && openCombo.IsDropDownOpen)
+                {
+                    return;
+                }
+
+                var textBox = VisualTreeSafeHelper.FindAncestor<TextBox>(src);
+                if (textBox != null && textBox.AcceptsReturn && textBox.IsKeyboardFocusWithin)
+                {
+                    return;
+                }
+            }
+
+            Point mouseInViewport = e.GetPosition(StageScrollViewer);
+            Point mouseOnStage = e.GetPosition(BlueprintStageGrid);
+
+            double targetZoom = e.Delta > 0
+                ? Math.Min(MaxZoom, _currentZoom * ZoomStepFactor)
+                : Math.Max(MinZoom, _currentZoom / ZoomStepFactor);
+
+            ApplyZoomAtAnchor(targetZoom, mouseOnStage, mouseInViewport);
+            e.Handled = true;
+        }
+
+        private void ZoomInBtn_Click(object sender, RoutedEventArgs e)
+        {
+            ZoomAroundViewportCenter(Math.Min(MaxZoom, _currentZoom * 1.18));
+        }
+
+        private void ZoomOutBtn_Click(object sender, RoutedEventArgs e)
+        {
+            ZoomAroundViewportCenter(Math.Max(MinZoom, _currentZoom / 1.18));
+        }
+
+        private void ZoomResetBtn_Click(object sender, RoutedEventArgs e)
+        {
+            ZoomAroundViewportCenter(1.0);
+        }
+
+        private void ZoomAroundViewportCenter(double targetZoom)
+        {
+            Point centerInViewport = new(StageScrollViewer.ViewportWidth * 0.5, StageScrollViewer.ViewportHeight * 0.5);
+            Point centerOnStage = new(
+                (StageScrollViewer.HorizontalOffset + centerInViewport.X) / _currentZoom,
+                (StageScrollViewer.VerticalOffset + centerInViewport.Y) / _currentZoom);
+            ApplyZoomAtAnchor(targetZoom, centerOnStage, centerInViewport);
+        }
+
+        private void ApplyZoomAtAnchor(double newZoom, Point stagePoint, Point viewportPoint)
+        {
+            double clamped = Math.Clamp(newZoom, MinZoom, MaxZoom);
+            if (Math.Abs(clamped - _currentZoom) < 0.001) return;
+
+            _currentZoom = clamped;
+            StageScaleTransform.ScaleX = clamped;
+            StageScaleTransform.ScaleY = clamped;
+            StageScrollViewer.UpdateLayout();
+
+            double newHOffset = Math.Max(0.0, stagePoint.X * clamped - viewportPoint.X);
+            double newVOffset = Math.Max(0.0, stagePoint.Y * clamped - viewportPoint.Y);
+            StageScrollViewer.ScrollToHorizontalOffset(newHOffset);
+            StageScrollViewer.ScrollToVerticalOffset(newVOffset);
+
+            string pctText = $"{Math.Round(clamped * 100)}%";
+            if (ZoomResetBtn != null)
+            {
+                ZoomResetBtn.Content = pctText;
+            }
+            if (ViewModel != null)
+            {
+                ViewModel.CanvasZoom = clamped;
             }
 
             ScheduleFullAnchorSync();
@@ -155,7 +240,6 @@ namespace LinkNexus.Blueprint.Controls
 
         private void Stage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // 点击空白背景点阵画布时开启平滑平移
             if (ReferenceEquals(e.OriginalSource, UnderlayWireCanvas) || ReferenceEquals(e.OriginalSource, BlueprintStageGrid))
             {
                 _isPanningStage = true;

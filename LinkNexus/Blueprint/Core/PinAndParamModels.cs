@@ -31,11 +31,38 @@ namespace LinkNexus.Blueprint.Core
         private Point _canvasAnchor;
         private bool _isConnected;
         private bool _isSnapHighlighted;
+        private int _pinIndex;
+        private string _name;
 
         public string Id { get; } = Guid.NewGuid().ToString("N");
         public NodeBase OwnerNode { get; }
-        public int PinIndex { get; }
-        public string Name { get; }
+
+        public int PinIndex
+        {
+            get => _pinIndex;
+            internal set
+            {
+                if (_pinIndex != value)
+                {
+                    _pinIndex = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string Name
+        {
+            get => _name;
+            internal set
+            {
+                if (_name != value)
+                {
+                    _name = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         public PinDirection Direction { get; }
         public PinDataType DataType { get; }
 
@@ -91,8 +118,8 @@ namespace LinkNexus.Blueprint.Core
         public PinViewModel(NodeBase ownerNode, int pinIndex, string name, PinDirection direction, PinDataType dataType)
         {
             OwnerNode = ownerNode ?? throw new ArgumentNullException(nameof(ownerNode));
-            PinIndex = pinIndex;
-            Name = name;
+            _pinIndex = pinIndex;
+            _name = name;
             Direction = direction;
             DataType = dataType;
 
@@ -112,7 +139,6 @@ namespace LinkNexus.Blueprint.Core
             if (DataType == PinDataType.Any || other.DataType == PinDataType.Any) return true;
             if (DataType == other.DataType) return true;
 
-            // ChannelStream 与 ImuAttitude 均为浮点向量通道流，允许直接互联解算
             bool thisNumeric = DataType is PinDataType.ChannelStream or PinDataType.ImuAttitude;
             bool otherNumeric = other.DataType is PinDataType.ChannelStream or PinDataType.ImuAttitude;
             return thisNumeric && otherNumeric;
@@ -141,6 +167,7 @@ namespace LinkNexus.Blueprint.Core
         private string _value = string.Empty;
         private bool _boolValue;
         private string _buttonText = string.Empty;
+        private string _emptyWatermark = "未枚举到 USB 端口";
         private bool _isUpdatingOptions;
 
         public string Key { get; }
@@ -159,12 +186,27 @@ namespace LinkNexus.Blueprint.Core
         public bool IsCodeScript => Kind == NodeParamKind.CodeScript;
         public bool IsReadOnlyBadge => Kind == NodeParamKind.ReadOnlyBadge;
 
+        public bool HasNoComboOptions => Kind == NodeParamKind.Combo && Options.Count == 0;
+
+        public string EmptyWatermark
+        {
+            get => _emptyWatermark;
+            set
+            {
+                if (_emptyWatermark != value)
+                {
+                    _emptyWatermark = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         public string Value
         {
             get => _value;
             set
             {
-                // WPF ComboBox 在 ItemsSource (Options) 刷新或清空瞬间会通过 TwoWay 绑定回写 null，直接拦截防止覆盖有效值或触发空引用回调
+                // WPF ComboBox 在 ItemsSource (Options) 刷新或清空瞬间会通过 TwoWay 绑定回写 null，直接拦截
                 if (_isUpdatingOptions) return;
                 if (Kind == NodeParamKind.Combo && value == null) return;
 
@@ -208,13 +250,15 @@ namespace LinkNexus.Blueprint.Core
 
         public string ToggleStateLabel => _boolValue ? "运行中 (点击停止)" : "已停止 (点击启动)";
 
-        public NodeParameter(string key, string label, NodeParamKind kind, string initialValue = "")
+        public NodeParameter(string key, string label, NodeParamKind kind, string initialValue = "", string emptyWatermark = "未枚举到 USB 端口")
         {
             Key = key;
             Label = label;
             Kind = kind;
             _value = initialValue ?? string.Empty;
             _buttonText = initialValue ?? string.Empty;
+            _emptyWatermark = emptyWatermark;
+            Options.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasNoComboOptions));
         }
 
         public void SetValueSilently(string? newValue)
@@ -222,10 +266,11 @@ namespace LinkNexus.Blueprint.Core
             string safeValue = newValue ?? string.Empty;
             _value = safeValue;
             OnPropertyChanged(nameof(Value));
+            OnPropertyChanged(nameof(HasNoComboOptions));
         }
 
         /// <summary>
-        /// 原子刷新下拉列表选项，抑制 WPF ComboBox 在集合清空瞬间回写 SelectedItem = null
+        /// 原子刷新下拉列表选项（严格使用真实枚举项，无选项时 Value 置空字符串，绝不填充占位符端口）
         /// </summary>
         public void ReplaceOptions(IEnumerable<string>? newOptions, string? preferredValue = null)
         {
@@ -236,13 +281,13 @@ namespace LinkNexus.Blueprint.Core
                 {
                     if (!string.IsNullOrWhiteSpace(item))
                     {
-                        targetList.Add(item);
+                        targetList.Add(item.Trim());
                     }
                 }
             }
 
             string candidate = !string.IsNullOrWhiteSpace(preferredValue)
-                ? preferredValue!
+                ? preferredValue!.Trim()
                 : (!string.IsNullOrWhiteSpace(_value) ? _value : (targetList.Count > 0 ? targetList[0] : string.Empty));
 
             string resolved = targetList.Contains(candidate)
@@ -284,6 +329,7 @@ namespace LinkNexus.Blueprint.Core
             }
 
             OnPropertyChanged(nameof(Value));
+            OnPropertyChanged(nameof(HasNoComboOptions));
         }
 
         public void SetBoolSilently(bool newValue)
@@ -301,4 +347,3 @@ namespace LinkNexus.Blueprint.Core
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
     }
 }
-

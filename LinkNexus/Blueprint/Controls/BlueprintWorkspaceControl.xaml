@@ -54,14 +54,14 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 1. 顶部节点组件仓库与预设编排工具栏 -->
+        <!-- 1. 顶部节点组件仓库与画布缩放/编排工具栏 -->
         <Border Grid.Row="0"
                 Background="{DynamicResource AppSurfaceBrush}"
                 BorderBrush="{DynamicResource AppBorderBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="12,8">
             <DockPanel LastChildFill="False">
-                <!-- 左侧：七大核心流式卡片生成器 -->
+                <!-- 左侧：八大核心流式与烧录卡片生成器 -->
                 <WrapPanel DockPanel.Dock="Left" VerticalAlignment="Center">
                     <TextBlock Text="添加节点"
                                FontSize="11"
@@ -70,28 +70,28 @@
                                VerticalAlignment="Center"
                                Margin="0,0,8,0" />
 
-                    <Button Command="{Binding AddComInputNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 COM 串口输入采集卡片">
+                    <Button Command="{Binding AddComInputNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 COM 串口输入采集卡片 (必须指定 USB 枚举端口 · 右键卡片可按需拆分 CH 通道)">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse Width="7" Height="7" Fill="#0EA5E9" Margin="0,0,5,0" VerticalAlignment="Center" />
                             <TextBlock Text="+ COM 输入" />
                         </StackPanel>
                     </Button>
 
-                    <Button Command="{Binding AddComOutputNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 COM 串口输出下发卡片">
+                    <Button Command="{Binding AddComOutputNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 COM 串口输出下发卡片 (严格绑定真实 USB 枚举端口)">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse Width="7" Height="7" Fill="#10B981" Margin="0,0,5,0" VerticalAlignment="Center" />
                             <TextBlock Text="+ COM 输出" />
                         </StackPanel>
                     </Button>
 
-                    <Button Command="{Binding AddMcpInputNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 MCP Agent / ESP32 遥测数据输入卡片">
+                    <Button Command="{Binding AddMcpInputNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 MCP 数据采样与共享节点 (连入指定数据流供 AI Agent 分析并联动调优 Python 算法参数)">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse Width="7" Height="7" Fill="#14B8A6" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ MCP 输入" />
+                            <TextBlock Text="+ MCP 节点" />
                         </StackPanel>
                     </Button>
 
-                    <Button Command="{Binding AddPythonAlgoNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 Python 算法仓库信号解算卡片">
+                    <Button Command="{Binding AddPythonAlgoNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建外部隔离 Python 算法卡片 (独立于软件目录之外，支持 Agent 安全调优标量参数)">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse Width="7" Height="7" Fill="#8B5CF6" Margin="0,0,5,0" VerticalAlignment="Center" />
                             <TextBlock Text="+ Python 算法" />
@@ -118,13 +118,47 @@
                             <TextBlock Text="+ CSV 保存" />
                         </StackPanel>
                     </Button>
+
+                    <Button Command="{Binding AddFlashPortNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建烧录端口卡片 (支持存放 .hex / .bin 固件，必须指定一个 USB 枚举端口执行烧录)">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="#34D399" Margin="0,0,5,0" VerticalAlignment="Center" />
+                            <TextBlock Text="+ 烧录端口" />
+                        </StackPanel>
+                    </Button>
                 </WrapPanel>
 
-                <!-- 右侧：全局流控与典型拓扑预设 -->
+                <!-- 右侧：画布滚轮缩放指示、自动排版、全局流控与典型拓扑预设 -->
                 <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Center">
+                    <!-- 缩放控制胶囊 -->
+                    <Button Click="ZoomOutBtn_Click"
+                            Content="−"
+                            Padding="7,4"
+                            Margin="0,0,3,0"
+                            ToolTip="缩小蓝图画布 (也可直接在画布上滚动鼠标滚轮)"
+                            Style="{StaticResource PaletteBtnStyle}" />
+                    <Button x:Name="ZoomResetBtn"
+                            Click="ZoomResetBtn_Click"
+                            Content="100%"
+                            FontFamily="Consolas"
+                            Padding="7,4"
+                            Margin="0,0,3,0"
+                            ToolTip="重置画布缩放至 100% (鼠标滚轮可自由缩放 35% ~ 240%)"
+                            Style="{StaticResource PaletteBtnStyle}" />
+                    <Button Click="ZoomInBtn_Click"
+                            Content="+"
+                            Padding="7,4"
+                            Margin="0,0,6,0"
+                            ToolTip="放大蓝图画布 (也可直接在画布上滚动鼠标滚轮)"
+                            Style="{StaticResource PaletteBtnStyle}" />
+
+                    <Button Command="{Binding AutoLayoutCommand}"
+                            Content="自动排版"
+                            ToolTip="按数据流拓扑层级自动摆放所有蓝图节点坐标"
+                            Style="{StaticResource PaletteBtnStyle}" />
+
                     <Button Command="{Binding StartAllStreamsCommand}"
                             Style="{StaticResource RunPrimaryBtnStyle}"
-                            ToolTip="一键启动画布上全部数据采集源节点">
+                            ToolTip="启动画布上已指定 USB 端口的采集源节点">
                         <StackPanel Orientation="Horizontal">
                             <Path Data="M0,0 L8,5 L0,10 Z" Fill="{DynamicResource SuccessGreenBrush}" Width="8" Height="9" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center" />
                             <TextBlock Text="启动全部源" />
@@ -146,27 +180,31 @@
                                Foreground="{DynamicResource AppTextMutedBrush}"
                                VerticalAlignment="Center"
                                Margin="0,0,5,0" />
-                    <Button Command="{Binding LoadDualShowcasePresetCommand}" Content="双链全景" Style="{StaticResource PaletteBtnStyle}" ToolTip="载入 VOFA+ 卡尔曼滤波与 IMU 三维姿态双链路全景蓝图" />
-                    <Button Command="{Binding LoadVofaFilterPresetCommand}" Content="VOFA+ 示波" Style="{StaticResource PaletteBtnStyle}" ToolTip="载入并自动启动 VOFA+ 实时滤波与 CSV 记录链路" />
-                    <Button Command="{Binding LoadImuAttitudePresetCommand}" Content="IMU 姿态" Style="{StaticResource PaletteBtnStyle}" ToolTip="载入并自动启动 IMU 三维姿态与三轴欧拉角同步示波链路" />
-                    <Button Command="{Binding LoadMcpTelemetryPresetCommand}" Content="MCP 遥测" Style="{StaticResource PaletteBtnStyle}" Margin="0" ToolTip="载入 MCP Agent 与 ESP32 INA236 实时电气遥测链路" />
+                    <Button Command="{Binding LoadDualShowcasePresetCommand}" Content="双链全景" Style="{StaticResource PaletteBtnStyle}" ToolTip="载入 VOFA+ 外部卡尔曼算子、MCP 分析节点与 IMU 三维姿态拓扑" />
+                    <Button Command="{Binding LoadVofaFilterPresetCommand}" Content="VOFA+ 示波" Style="{StaticResource PaletteBtnStyle}" ToolTip="载入 COM 采集 -> MCP 分析 -> 外部 Python 滤波 -> VOFA+ 示波链路" />
+                    <Button Command="{Binding LoadImuAttitudePresetCommand}" Content="IMU 姿态" Style="{StaticResource PaletteBtnStyle}" ToolTip="载入 IMU 三维姿态与欧拉角同步示波链路" />
+                    <Button Command="{Binding LoadMcpTelemetryPresetCommand}" Content="MCP 遥测" Style="{StaticResource PaletteBtnStyle}" Margin="0" ToolTip="载入 MCP 数据分析节点与烧录端口协同链路" />
                 </WrapPanel>
             </DockPanel>
         </Border>
 
-        <!-- 2. 中部无限感三阶贝塞尔蓝图主画布 (支持空白区拖拽平移、磁吸连线、右键断线) -->
+        <!-- 2. 中部大尺寸三阶贝塞尔蓝图主画布 (4200x2800，鼠标滚轮以光标为中心自由缩放、空白区拖拽平移、磁吸连线) -->
         <ScrollViewer x:Name="StageScrollViewer"
                       Grid.Row="1"
                       HorizontalScrollBarVisibility="Auto"
                       VerticalScrollBarVisibility="Auto"
-                      PanningMode="Both">
+                      PanningMode="Both"
+                      PreviewMouseWheel="StageScrollViewer_PreviewMouseWheel">
             <Grid x:Name="BlueprintStageGrid"
-                  Width="1960"
-                  Height="1180"
+                  Width="4200"
+                  Height="2800"
                   Background="Transparent"
                   MouseMove="Stage_MouseMove"
                   MouseLeftButtonUp="Stage_MouseLeftButtonUp"
                   MouseLeftButtonDown="Stage_MouseLeftButtonDown">
+                <Grid.LayoutTransform>
+                    <ScaleTransform x:Name="StageScaleTransform" ScaleX="1.0" ScaleY="1.0" />
+                </Grid.LayoutTransform>
 
                 <!-- 底层：工程点阵底图 + 已绑定的三阶贝塞尔数据流连线 -->
                 <ctrl:BezierWireCanvas x:Name="UnderlayWireCanvas"
@@ -221,7 +259,9 @@
                     <TextBlock Text="通用端口(ANY)" FontSize="10.5" Foreground="{DynamicResource AppTextMutedBrush}" Margin="0,0,12,0" />
 
                     <TextBlock FontFamily="Consolas" FontSize="11" Foreground="{DynamicResource AccentCyanBrush}">
-                        <Run Text="节点:" />
+                        <Run Text="缩放:" />
+                        <Run Text="{Binding CanvasZoomPercentText, Mode=OneWay}" />
+                        <Run Text=" · 节点:" />
                         <Run Text="{Binding NodeCount, Mode=OneWay}" />
                         <Run Text=" · 管道:" />
                         <Run Text="{Binding ConnectionCount, Mode=OneWay}" />

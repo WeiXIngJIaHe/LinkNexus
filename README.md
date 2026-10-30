@@ -6,7 +6,7 @@
 ![.NET Version](https://img.shields.io/badge/.NET-10.0-512BD4?style=for-the-badge&logo=dotnet)
 ![Architecture](https://img.shields.io/badge/Architecture-WPF%20%7C%20MVVM%20%7C%20Win32%20PnP-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Version](https://img.shields.io/badge/Release-v0.33--preview.2641-38BDF8?style=for-the-badge)
+![Version](https://img.shields.io/badge/Release-v0.34--preview.2641-38BDF8?style=for-the-badge)
 
 **面向嵌入式软硬件调试的高质感桌面中枢，支持 Windows PnP 动态设备流、流式固件烧录、智能串口 CLI、硬件拓扑安全控制与 MCP (Model Context Protocol) AI Agent 架构体系**
 

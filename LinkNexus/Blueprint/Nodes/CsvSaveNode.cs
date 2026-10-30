@@ -30,6 +30,7 @@ namespace LinkNexus.Blueprint.Nodes
         private long _savedRows;
         private string _currentFileName = string.Empty;
 
+        public override string NodeTypeKey => "csv_save";
         public string SaveDirectory { get; }
 
         public CsvSaveNode(double x = 760, double y = 48)

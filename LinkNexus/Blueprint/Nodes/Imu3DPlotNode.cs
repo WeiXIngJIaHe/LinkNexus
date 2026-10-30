@@ -36,6 +36,7 @@ namespace LinkNexus.Blueprint.Nodes
         private string _yawDisplay = "0.0°";
         private long _lastUiTickMs;
 
+        public override string NodeTypeKey => "imu_3d";
         public override double CardWidth => 342.0;
         public override bool HasImu3DPreview => true;
 

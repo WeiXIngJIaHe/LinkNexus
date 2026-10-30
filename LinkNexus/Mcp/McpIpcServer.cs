@@ -88,8 +88,8 @@ namespace LinkNexus.Mcp
         {
             using (tcpClient)
             using (var stream = tcpClient.GetStream())
-            using (var reader = new StreamReader(stream, Encoding.UTF8))
-            using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
+            using (var reader = new StreamReader(stream, new UTF8Encoding(false)))
+            using (var writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true })
             {
                 try
                 {

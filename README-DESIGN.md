@@ -522,17 +522,23 @@ LinkNexus (Firmware Workspace)
 
 ---
 
-# 七、 最新提交记录与演进状态 (v0.36-preview.2641)
+| **31** | **修改：<br/>1. 软件修复启动上位机全白状态无任何 UI 问题。<br/>2. 软件修复全部 8 项 BindingExpression path error（`AddVofaScopeNodeCommand`、`AddImu3DNodeCommand`、`AddPythonNodeCommand`、`AddCsvLoggerNodeCommand`、`AddMathOpNodeCommand`、`AddEsp32SerialNodeCommand`、`AddMcpBridgeNodeCommand` 以及 `IsVirtualDevicesDisabled`）。<br/>全栈升级至 v0.37-preview.2641。** | 1. **根治上位机全白无 UI 渲染故障（`App.xaml` 资源拓扑重构）**：<br/>• **根因精准定位**：`FluentWindow` 的基础 ControlTemplate 与 AdornerDecorator 依赖 `Wpf.Ui.xaml` 控件库总字典。原 `App.xaml` 仅合并了静态字体与颜色，未引入 `Theme/Dark.xaml` 与 `Wpf.Ui.xaml`，导致 `FluentWindow` 无法解析默认模板，VisualTree 渲染子元素数量恒为 0，Win32 窗口回退呈现 GDI 默认全白背景；<br/>• **资源字典规范化挂载**：在 `App.xaml` 中完整合并 `pack://application:,,,/Wpf.Ui;component/Resources/Theme/Dark.xaml` 与 `Wpf.Ui.xaml`；移除 `App.xaml` 中的 `StartupUri="MainWindow.xaml"`，消除与 `App.xaml.cs` 中 `new MainWindow().Show()` 冲突导致的双窗体启动竞争；<br/>• **主题管理器深度对接**：在 `ThemeManager.ApplyTheme` 中挂载 `Wpf.Ui.Appearance.ApplicationThemeManager.Apply`，实现工业暗黑与高反差白昼模式全系统无缝联动；<br/>2. **根治 8 项 XAML 数据绑定缺失异常**：<br/>• **蓝图工具箱命令映射对齐**：在 `BlueprintWorkspaceViewModel` 中补充 `AddVofaScopeNodeCommand`、`AddImu3DNodeCommand`、`AddPythonNodeCommand`、`AddCsvLoggerNodeCommand`、`AddMathOpNodeCommand`、`AddEsp32SerialNodeCommand`、`AddMcpBridgeNodeCommand` 规范属性别名，并在 `MainWindow.xaml` 中对齐原生属性；<br/>• **虚拟外设禁用状态属性补齐**：在 `MainViewModel` 中定义 `IsVirtualDevicesDisabled => !_isVirtualDevicesEnabled;`，并在 `IsVirtualDevicesEnabled` 变更时触发通知，彻底消除 `BindingExpression` 警告；<br/>3. **软硬件修改边界隔离贯彻**：<br/>• 本次为**纯软件修复任务**，下位机固件与硬件驱动保持零改动；<br/>4. **全站版本号统一递增至 `v0.37-preview.2641`**。 | ✅ **已完全落地** |
+
+---
+
+# 七、 最新提交记录与演进状态 (v0.37-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **版本号统一推进并锁定为 `v0.36-preview.2641`**：
->    - 全量同步至 [`include/linknexus_config.hpp`](include/linknexus_config.hpp)、[`CMakeLists.txt`](CMakeLists.txt)、[`README.md`](README.md)、[`simulator/index.html`](simulator/index.html) 与本备忘录；
-> 2. **硬件固件极简化（通信核心枢纽）**：
->    - 彻底移除 MOS 电源管理、INA236/IMU 遥测与屏幕 UI 渲染驱动，仅保留 Native USB CDC 串口、原生 CLI（`esp_console`）与 Wi-Fi 射频通信；PlatformIO 编译 0 警告 0 错误；
-> 3. **上位机 WPF FluentWindow Mica 背景修复**：
->    - 声明 `ExtendsContentIntoTitleBar="True"`，根除 `System.InvalidOperationException`；.NET 10 Release & Debug 构建 0 警告 0 错误，Git 追踪 0 个 `.py` 文件；
-> 4. **确立软硬件变更边界隔离标准**：
->    - 硬件任务与软件任务互不污染，按标注独立推进。
+> 1. **版本号统一推进并锁定为 `v0.37-preview.2641`**：
+>    - 全量同步至上位机工程 [`LinkNexus.csproj`](../source/repos/LinkNexus/LinkNexus/LinkNexus.csproj)、[`VersionInfo.cs`](../source/repos/LinkNexus/LinkNexus/VersionInfo.cs)、[`README.md`](../source/repos/LinkNexus/README.md) 与本备忘录；
+> 2. **上位机 WPF 启动全白故障根治**：
+>    - 完整挂载 `Wpf.Ui.xaml` 控件总模板与 `Theme/Dark.xaml` 动态主题字典，消除双窗体竞争，VisualTree 渲染子节点恢复 100% 正常；
+> 3. **根治 8 项 XAML 数据绑定缺失警告**：
+>    - 补齐蓝图节点快速添加命令别名（VOFA+、IMU 3D、Python、CSV、DSP 滤波、COM 输入、MCP 协议桥接）及 `IsVirtualDevicesDisabled` 响应式属性；
+> 4. **构建与运行验证**：
+>    - .NET 10 Release & Debug 构建实现 **0 警告、0 错误**，DataBinding 零异常，Git 严格追踪 0 个 `.py` 文件；
+> 5. **软硬件单向隔离准则持续遵守**：
+>    - 本次任务仅涉及上位机，下位机固件与引脚定义保持干净隔离。
 
 ---
 

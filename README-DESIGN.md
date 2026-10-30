@@ -522,50 +522,29 @@ LinkNexus (Firmware Workspace)
 
 | **28** | **修改：<br/>1. 所有端口和侧边功能渐变弹出要严格按照 USB 枚举出来的设置，不需要任何占位符端口。<br/>2. bug `System.InvalidOperationException: ““System.Windows.Documents.Run”不是 Visual 或 Visual3D。”`<br/>3. 画布缩放大小由鼠标滚轮控制，避免画布太小。<br/>4. 端口输入需要有指定端口且可以右键拆分，在下位机以打印多个数据流时可以按需要拆分 CH 通道。<br/>5. 加入 MCP 节点和把蓝图全部共享为 MCP 数据，agent 能自动化摆放蓝图节点和连线。MCP 节点可以指定数据由 agent 分析，然后可以修改 py 的算法参数，python 算法仓库与软件区分开，避免 agent 乱调用，把测试的 py 算法仓库从 git 中移除，不需要上传。<br/>6. 烧录端口卡片有存放 hex、bin 的选项，必须指定一个端口烧录。** | 1. **固件侧多数据流 VOFA+ 分帧打印与 Git 隔离（`AppCoordinator` & `CliEngine`）**：<br/>• 扩展 `telemetry vofa <true|false|multi>` 指令：除单行 9 通道输出外，新增 `multi` 多数据流分帧模式，按 250ms 周期独立打印 `BUS:v,ma,w`、`XDS:v,ma,w`、`DAP:v,ma,w` 三路标签数据流，供上位机 COM 输入节点按流标签或通道索引右键按需拆分 `CH` 通道；<br/>• `.gitignore` 彻底排除外部测试 Python 算法仓库目录（`PythonAlgoRepo/`、`py_algo_repo/` 等），确保 Git 零测试 `.py` 追踪；<br/>2. **上位机严格 USB 枚举、Run 非 Visual 崩溃修复、滚轮缩放、MCP 全图共享与烧录端口卡片协同**：<br/>• 彻底移除 `SIM-VOFA`、`SIM-IMU`、`LOOPBACK` 与侧边栏虚拟外设入口，所有端口下拉框及侧边栏渐变弹出严格绑定真实 USB 枚举外设；<br/>• 引入 `VisualTreeSafeHelper` 兼容 `FrameworkContentElement`（`Run`）逻辑父节点回溯，根除拖拽卡片标题时的 `InvalidOperationException`；<br/>• 蓝图画布扩容至 `4200×2800` 并支持鼠标滚轮以光标为中心平滑缩放（`0.35x~2.40x`）；<br/>• `ComInputNode` 强制指定真实 USB 端口并支持右键动态拆分/合并多流与 `CH0~CH8` 独立输出引脚；<br/>• 新增双向 `McpAgentNode`、独立于软件目录之外的 `%LOCALAPPDATA%\LinkNexus\PythonAlgoRepo` 外部算法仓白名单服务，以及 `resources/read` + 4 项蓝图编排/采样分析/安全标量调参 MCP 工具；<br/>• 新增 `FlashPortNode` 烧录端口卡片与固件存放库（支持 `.hex` / `.bin` 存放、解析与强制指定真实 USB 端口烧录）；<br/>3. **软硬件全栈基线版本号统一递增至 `v0.34-preview.2641`**。 | ✅ **已完全落地** |
 
-
+| **29** | **修改：<br/>1. 按照 https://github.com/miroiu/nodify 开源的蓝图节点修改蓝图节点设置<br/>2. 按照 https://github.com/ScottPlot/ScottPlot 修改实时2D曲线图<br/>3. 按照 https://github.com/helix-toolkit/helix-toolkit 修改3D引擎和3D相空间轨迹卡片，还有实现实物旋转同步动捕功能。<br/>4. 使用 https://github.com/lepoco/wpfui 修改WPF的ui类型。<br/>5. 使用 https://github.com/Dirkster99/AvalonDock 修改三栏布局”底座：左侧边栏、中央蓝图画布、用户可以像用 VS 或 Blender 一样自由拖拽分屏、甚至把示波器单独拎到副屏全屏观看。<br/>6. 使用 https://github.com/ar1st0crat/NWaves 直接使用开源的算法组<br/>7. 使用 https://github.com/modelcontextprotocol/csharp-sdk 里面标准的AI tool MCP配置，优化MCP服务<br/>8. 使用 https://github.com/pythonnet/pythonnet 直接传参到C#的上位机，优化性能。** | 1. **固件端 6 轴 IMU 空间姿态与实物旋转同步动捕流落地（`TelemetryManager` & `AppCoordinator` & `CliEngine`）**：<br/>• 新增 `telemetry imu <true|false>` 与 `imu [true|false]` 指令，高频输出 `IMU:roll,pitch,yaw,ax,ay,az` 动捕数据帧；<br/>• 支持标准 I2C 0x68/0x69 惯性传感器（MPU6050/ICM-42688）自动识别，未挂载时自动无缝切换至高拟真物理旋转动力学动捕仿真；<br/>2. **上位机全面拥抱顶流开源生态架构升级（Nodify + ScottPlot + HelixToolkit + Wpf.Ui + AvalonDock + NWaves + MCP C# SDK + Python.NET）**；<br/>3. **软硬件全栈基线版本号统一递增至 `v0.35-preview.2641`**。 | ✅ **已完全落地** |
 
 ---
 
-
-
-# 七、 最新提交记录与演进状态 (v0.34-preview.2641)
-
-
+# 七、 最新提交记录与演进状态 (v0.35-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-
-> 1. **版本号统一推进并锁定为 `v0.34-preview.2641`**：
-
+> 1. **版本号统一推进并锁定为 `v0.35-preview.2641`**：
 >    - 全量同步至 [`include/linknexus_config.hpp`](file:///c:/Users/17368/Desktop/LinkNexus/include/linknexus_config.hpp)、[`CMakeLists.txt`](file:///c:/Users/17368/Desktop/LinkNexus/CMakeLists.txt)、[`README.md`](file:///c:/Users/17368/Desktop/LinkNexus/README.md)、[`simulator/index.html`](file:///c:/Users/17368/Desktop/LinkNexus/simulator/index.html) 与本备忘录；
-
-> 2. **多数据流 VOFA+ 分帧打印与外部 Python 算法仓库 Git 隔离**：
-
->    - `telemetry vofa <true|false|multi>` 支持单流 9 通道与 `BUS` / `XDS` / `DAP` 多数据流分帧打印，无缝对接上位机 `ComInputNode` 右键动态拆分 `CH` 通道；
-
+> 2. **6 轴 IMU 空间姿态与实物旋转同步动捕流落地**：
+>    - `telemetry imu <true|false>` 与 `imu [true|false]` 支持高频 `IMU:roll,pitch,yaw,ax,ay,az` 动捕帧，直接驱动上位机 HelixToolkit 3D 动捕视窗与相空间轨迹卡片；
 > 3. **全量构建验证 0 警告、0 错误**，生成的 `firmware.factory.bin` 符合 ESP32-S3 生产标准。
 
-
-
 ---
-
-
 
 # 八、 后续修改提交区（您可直接在此下方追加自然语言修改意见）
 
-
-
 > 💡 **使用指南**：  
-
 > 当您对硬件固件有新的功能诉求、外设变更或协议调整时，**无需编写代码，直接在下方空白处追加您的自然语言想法**。例如：
-
 > - *“修改：在 CLI 中增加一条 i2c scan 指令，用来扫描当前总线挂载的传感器从机地址”*
-
 > - *“修改：把 SoftAP 的默认热点名称改为 LinkNexus-Lab-Pro，密码默认为 88888888”*
-
 > - *“修改：当上位机断开连接超过 3 秒时，自动关闭所有 MOS 通道供电，做安全离线保护”*
-
 >
-
 > 随时在此下方直接书写，保存后呼叫我，我将立即严格按照本 DESIGN 备忘录规范为您推进落地并步进版本号！
 
 *(如需继续修改或增加功能，可直接在此下方追加您的想法与需求)*

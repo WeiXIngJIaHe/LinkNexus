@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdint.h>
+#include <stdbool.h>
+#include <atomic>
 #include "protocol.hpp"
 #include "power_manager.hpp"
 #include "telemetry_manager.hpp"
@@ -8,7 +11,6 @@
 #include "wifi_manager.hpp"
 #include "cli_engine.hpp"
 #include "freertos/FreeRTOS.h"
-#include <atomic>
 
 namespace LinkNexus {
 
@@ -60,6 +62,13 @@ public:
     void SetVofaMultiStream(bool enable);
     bool IsVofaMultiStream() const;
 
+    /**
+     * @brief 设置/查询 IMU 空间姿态动捕流
+     * 开启后每 50ms~100ms 输出 IMU:roll,pitch,yaw,ax,ay,az 帧，直接驱动上位机 3D 动捕与相空间轨迹卡片
+     */
+    void SetImuStream(bool enable);
+    bool IsImuStream() const;
+
 private:
     AppCoordinator();
     ~AppCoordinator() = default;
@@ -80,8 +89,8 @@ private:
     std::atomic<bool> m_manual_telemetry_stream{false};
     std::atomic<bool> m_vofa_stream{false};
     std::atomic<bool> m_vofa_multistream{false};
+    std::atomic<bool> m_imu_stream{false};
     std::atomic<uint32_t> m_last_host_activity_tick{0};
 };
 
 } // namespace LinkNexus
-

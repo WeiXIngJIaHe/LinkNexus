@@ -13,6 +13,7 @@ namespace LinkNexus.Blueprint.Core
         public double[] Channels { get; }
         public string RawText { get; }
         public string SourceTag { get; }
+        public string Header => SourceTag;
         public string StreamPrefix { get; }
         public DateTime Timestamp { get; }
 

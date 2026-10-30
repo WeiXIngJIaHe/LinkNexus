@@ -1,10 +1,13 @@
-<Window x:Class="LinkNexus.MainWindow"
+<ui:FluentWindow x:Class="LinkNexus.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:LinkNexus"
         xmlns:bpCtrl="clr-namespace:LinkNexus.Blueprint.Controls"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:dock="https://github.com/Dirkster99/AvalonDock"
+        WindowBackdropType="Mica"
         mc:Ignorable="d"
         Title="LinkNexus - 多协议桌面硬件调试站"
         Icon="assets/app.ico"
@@ -1406,14 +1409,71 @@
                     <!-- 左侧工作台容器 -->
                     <Grid Grid.Column="0">
                         <!-- ========================================================= -->
-                        <!-- 独立工作页面 0: 流式卡片蓝图引擎 (VOFA+ 多通道示波 / IMU 三维姿态 / Python 算法仓库 / CSV 落盘) -->
+                        <!-- 独立工作页面 0: 流式卡片蓝图引擎 + AvalonDock 可拖拽分屏基座 (VS / Blender 级自由停靠、浮动多屏) -->
                         <!-- ========================================================= -->
                         <Border Visibility="{Binding IsBlueprintWorkspaceVisible, Converter={StaticResource BoolToVisConverter}}"
                                 BorderBrush="{DynamicResource AppBorderBrush}"
                                 BorderThickness="1"
                                 CornerRadius="8"
                                 ClipToBounds="True">
-                            <bpCtrl:BlueprintWorkspaceControl DataContext="{Binding BlueprintVm}" />
+                            <dock:DockingManager x:Name="BlueprintDockManager"
+                                                 Background="{DynamicResource AppSurfaceBrush}">
+                                <dock:LayoutRoot>
+                                    <dock:LayoutPanel Orientation="Horizontal">
+                                        <!-- 左侧停靠栏: 蓝图节点工具箱与通道总览 -->
+                                        <dock:LayoutAnchorablePane DockWidth="230">
+                                            <dock:LayoutAnchorable Title="蓝图工具箱与通道" CanClose="False" CanFloat="True" CanAutoHide="True">
+                                                <Grid Background="{DynamicResource AppSurfaceSubtleBrush}" Margin="6">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="*" />
+                                                    </Grid.RowDefinitions>
+                                                    <TextBlock Grid.Row="0" Text="算子与流式节点快速添加" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" Margin="4,4,4,8" />
+                                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                                        <StackPanel>
+                                                            <Button Content="+ DSP 滤波节点 (NWaves)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                                    Command="{Binding BlueprintVm.AddDspFilterNodeCommand}" />
+                                                            <Button Content="+ 3D 相空间轨迹节点" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                                    Command="{Binding BlueprintVm.AddPhaseSpaceNodeCommand}" />
+                                                            <Button Content="+ VOFA+ 实时示波卡片" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                                    Command="{Binding BlueprintVm.AddVofaScopeNodeCommand}" />
+                                                            <Button Content="+ IMU 三维姿态视窗" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                                    Command="{Binding BlueprintVm.AddImu3DNodeCommand}" />
+                                                            <Button Content="+ Python 算法算子" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                                    Command="{Binding BlueprintVm.AddPythonNodeCommand}" />
+                                                            <Button Content="+ CSV 数据流落盘" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                                    Command="{Binding BlueprintVm.AddCsvLoggerNodeCommand}" />
+                                                            <Button Content="+ 数学算子计算" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                                    Command="{Binding BlueprintVm.AddMathOpNodeCommand}" />
+                                                            <Button Content="+ ESP32 串口输入" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                                    Command="{Binding BlueprintVm.AddEsp32SerialNodeCommand}" />
+                                                            <Button Content="+ MCP 智能体协议桥接" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                                    Command="{Binding BlueprintVm.AddMcpBridgeNodeCommand}" />
+                                                        </StackPanel>
+                                                    </ScrollViewer>
+                                                </Grid>
+                                            </dock:LayoutAnchorable>
+                                        </dock:LayoutAnchorablePane>
+
+                                        <!-- 中央主体: Nodify 节点式流式蓝图设计器 -->
+                                        <dock:LayoutDocumentPane>
+                                            <dock:LayoutDocument Title="节点式流式蓝图设计器" CanClose="False">
+                                                <bpCtrl:BlueprintWorkspaceControl DataContext="{Binding BlueprintVm}" />
+                                            </dock:LayoutDocument>
+                                        </dock:LayoutDocumentPane>
+
+                                        <!-- 右侧停靠栏: ScottPlot 2D 示波器与 Helix 3D 空间动捕视口 (支持拖出至副屏全屏、分屏布局) -->
+                                        <dock:LayoutAnchorablePane DockWidth="440">
+                                            <dock:LayoutAnchorable Title="ScottPlot 实时 2D 示波器 (副屏支持)" CanClose="False" CanFloat="True" CanAutoHide="True">
+                                                <bpCtrl:ScottPlotOscilloscopeControl x:Name="MainScopeControl" />
+                                            </dock:LayoutAnchorable>
+                                            <dock:LayoutAnchorable Title="Helix 3D 空间动捕与相空间轨迹" CanClose="False" CanFloat="True" CanAutoHide="True">
+                                                <bpCtrl:Helix3DViewportControl x:Name="MainHelixControl" />
+                                            </dock:LayoutAnchorable>
+                                        </dock:LayoutAnchorablePane>
+                                    </dock:LayoutPanel>
+                                </dock:LayoutRoot>
+                            </dock:DockingManager>
                         </Border>
 
                         <!-- ========================================================= -->
@@ -3030,4 +3090,4 @@
             </Grid>
         </Border>
     </Grid>
-</Window>
+</ui:FluentWindow>

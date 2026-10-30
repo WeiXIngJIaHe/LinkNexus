@@ -384,6 +384,17 @@ bool AppCoordinator::IsVofaMultiStream() const
     return m_vofa_multistream.load();
 }
 
+void AppCoordinator::SetImuStream(bool enable)
+{
+    m_imu_stream.store(enable);
+    ESP_LOGI(TAG, "IMU motion capture stream set to: %s", enable ? "ON" : "OFF");
+}
+
+bool AppCoordinator::IsImuStream() const
+{
+    return m_imu_stream.load();
+}
+
 void AppCoordinator::TelemetryTaskEntry(void *pvParameters)
 {
     auto *self = static_cast<AppCoordinator*>(pvParameters);
@@ -398,11 +409,14 @@ void AppCoordinator::TelemetryTaskEntry(void *pvParameters)
         // 彻底杜绝纯文本终端 (ESP Decoder) 刷屏乱码，并节约双核 CPU 与总线资源
         bool send_binary = self && self->IsHostActive();
         bool send_vofa = self && self->IsVofaStream();
-        if (!send_binary && !send_vofa) {
+        bool send_imu = self && self->IsImuStream();
+        if (!send_binary && !send_vofa && !send_imu) {
             continue;
         }
 
-        TelemetryManager::Instance().ReadTelemetry(telemetry, PowerManager::Instance());
+        if (send_binary || send_vofa) {
+            TelemetryManager::Instance().ReadTelemetry(telemetry, PowerManager::Instance());
+        }
 
         if (send_binary) {
             size_t len = ProtocolUtils::PackTelemetry(telemetry, tx_buf);
@@ -429,6 +443,14 @@ void AppCoordinator::TelemetryTaskEntry(void *pvParameters)
                     xds_v, (int)telemetry.xds_current_ma, xds_w,
                     dap_v, (int)telemetry.dap_current_ma, dap_w);
             }
+        }
+
+        if (send_imu) {
+            ImuMotionData imu;
+            TelemetryManager::Instance().ReadImuMotion(imu);
+            CommManager::Instance().Printf("IMU:%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+                imu.roll_deg, imu.pitch_deg, imu.yaw_deg,
+                imu.accel_x, imu.accel_y, imu.accel_z);
         }
     }
 }

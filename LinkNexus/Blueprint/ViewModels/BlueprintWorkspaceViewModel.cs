@@ -72,6 +72,8 @@ namespace LinkNexus.Blueprint.ViewModels
         public ICommand AddImu3DPlotNodeCommand { get; }
         public ICommand AddCsvSaveNodeCommand { get; }
         public ICommand AddFlashPortNodeCommand { get; }
+        public ICommand AddDspFilterNodeCommand { get; }
+        public ICommand AddPhaseSpaceNodeCommand { get; }
 
         // 自动排版、预设蓝图与全局流控命令
         public ICommand AutoLayoutCommand { get; }
@@ -84,6 +86,7 @@ namespace LinkNexus.Blueprint.ViewModels
         public ICommand ClearAllWiresCommand { get; }
 
         public event Action? GraphRebuilt;
+        public event Action<NodeBase, int, BlueprintPacket>? GlobalPacketEmitted;
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public BlueprintWorkspaceViewModel()
@@ -140,6 +143,18 @@ namespace LinkNexus.Blueprint.ViewModels
                 var (x, y) = NextSpawnPosition(1130, 340);
                 string defaultBurner = _availableBurnerPorts.FirstOrDefault() ?? _availableComPorts.FirstOrDefault() ?? string.Empty;
                 RegisterNode(new FlashPortNode(defaultBurner, x, y));
+            });
+
+            AddDspFilterNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(460, 200);
+                RegisterNode(new DspFilterNode(x, y));
+            });
+
+            AddPhaseSpaceNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(740, 460);
+                RegisterNode(new PhaseSpace3DPlotNode(x, y));
             });
 
             AutoLayoutCommand = new RelayCommand(() =>
@@ -216,6 +231,7 @@ namespace LinkNexus.Blueprint.ViewModels
         {
             node.PinRemoving += OnNodePinRemoving;
             node.PinsChanged += OnNodePinsChanged;
+            node.PacketEmitted += (src, pin, pkt) => GlobalPacketEmitted?.Invoke(src, pin, pkt);
             node.RefreshAvailableComPorts(_availableComPorts);
             node.RefreshAvailableBurnerPorts(_availableBurnerPorts);
             Nodes.Add(node);
@@ -381,6 +397,8 @@ namespace LinkNexus.Blueprint.ViewModels
                 "imu_3d" or "imu" or "3d_plot" => new Imu3DPlotNode(x, y),
                 "csv_save" or "csv" => new CsvSaveNode(x, y),
                 "flash_port" or "flash" or "burner_port" => new FlashPortNode(defaultBurner, x, y),
+                "dsp_filter" or "dsp" or "nwaves" => new DspFilterNode(x, y),
+                "phase_space_3d" or "phase_space" or "phase3d" => new PhaseSpace3DPlotNode(x, y),
                 _ => null
             };
 

@@ -6,12 +6,13 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.34.2641</Version>
-    <AssemblyVersion>0.34.2641.0</AssemblyVersion>
-    <FileVersion>0.34.2641.0</FileVersion>
-    <InformationalVersion>0.34-preview.2641</InformationalVersion>
+    <Version>0.35.2641</Version>
+    <AssemblyVersion>0.35.2641.0</AssemblyVersion>
+    <FileVersion>0.35.2641.0</FileVersion>
+    <InformationalVersion>0.35-preview.2641</InformationalVersion>
     <ApplicationIcon>assets\app.ico</ApplicationIcon>
     <SatelliteResourceLanguages>zh-Hans;zh-CN;en;en-US</SatelliteResourceLanguages>
+    <NoWarn>$(NoWarn);NU1701;CS8618;CS8600;CS8602;CS8603;CS8604</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,6 +23,14 @@
   <ItemGroup>
     <PackageReference Include="System.IO.Ports" Version="10.0.12" />
     <PackageReference Include="System.Management" Version="10.0.12" />
+    <PackageReference Include="Nodify" Version="7.3.0" />
+    <PackageReference Include="ScottPlot.WPF" Version="5.1.59" />
+    <PackageReference Include="HelixToolkit.Wpf" Version="3.1.2" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+    <PackageReference Include="Dirkster.AvalonDock" Version="5.0.1" />
+    <PackageReference Include="NWaves" Version="0.9.6" />
+    <PackageReference Include="ModelContextProtocol" Version="2.3.0" />
+    <PackageReference Include="pythonnet" Version="3.2.1" />
   </ItemGroup>
 
   <ItemGroup>

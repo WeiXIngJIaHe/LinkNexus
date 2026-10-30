@@ -94,6 +94,7 @@ static int cmd_help(int argc, char **argv)
         "  status                             - 查询 ESP32-S3 双核系统资源与运行状态\r\n"
         "  telemetry [true|false] [save]      - 查询遥测数据或控制二进制广播流 (可选 [save])\r\n"
         "  telemetry vofa <true|false|multi>  - 启闭 VOFA+ 9通道单流或 BUS/XDS/DAP 多数据流 (供蓝图右键拆分CH)\r\n"
+        "  imu [true|false]                   - 启闭 6 轴 IMU 空间动捕姿态流 (对接 HelixToolkit 3D 与相空间)\r\n"
         "  whoami                             - 查询设备身份标识与主控角色确认\r\n"
         "  reboot                             - 软复位重启 ESP32-S3\r\n"
         "  clear                              - 清空当前终端屏幕\r\n"
@@ -500,8 +501,51 @@ static int cmd_status(int argc, char **argv)
     return 0;
 }
 
+static int cmd_imu(int argc, char **argv)
+{
+    if (argc > 1) {
+        bool en = false;
+        if (ParseBoolCli(argv[1], en)) {
+            AppCoordinator::Instance().SetImuStream(en);
+            CliEngine::PrintResponse("[IMU动捕] IMU 6轴空间姿态动捕流已%s (IMU:roll,pitch,yaw,ax,ay,az 格式，支持 HelixToolkit 3D 渲染与相空间绘制)。\r\n",
+                                     en ? "开启" : "关闭");
+            return 0;
+        }
+    }
+    ImuMotionData imu;
+    TelemetryManager::Instance().ReadImuMotion(imu);
+    CliEngine::PrintResponse(
+        "IMU 空间动捕姿态状态:\r\n"
+        "  动捕数据流  : %s\r\n"
+        "  硬件接入状态: %s\r\n"
+        "  姿态欧拉角  : Roll: %+.2f°, Pitch: %+.2f°, Yaw: %+.2f°\r\n"
+        "  加速度向量  : Ax: %+.2fg, Ay: %+.2fg, Az: %+.2fg\r\n"
+        "  指令用法    : imu <true|false> 或 telemetry imu <true|false>\r\n",
+        AppCoordinator::Instance().IsImuStream() ? "开启" : "关闭",
+        imu.is_hardware_present ? "物理 I2C 传感器 (0x68/0x69 响应)" : "动态实物旋转动捕仿真模式 (就绪)",
+        imu.roll_deg, imu.pitch_deg, imu.yaw_deg,
+        imu.accel_x, imu.accel_y, imu.accel_z);
+    return 0;
+}
+
 static int cmd_telemetry(int argc, char **argv)
 {
+    if (argc > 1 && strcasecmp(argv[1], "imu") == 0) {
+        if (argc < 3) {
+            CliEngine::PrintResponse("IMU 动捕流状态: %s\r\n用法: telemetry imu <true|false>\r\n",
+                AppCoordinator::Instance().IsImuStream() ? "开启" : "关闭");
+            return 0;
+        }
+        bool en = false;
+        if (!ParseBoolCli(argv[2], en)) {
+            CliEngine::PrintResponse("错误: 参数应为 true 或 false。\r\n");
+            return 1;
+        }
+        AppCoordinator::Instance().SetImuStream(en);
+        CliEngine::PrintResponse("[遥测控制] IMU 空间动捕流已%s。\r\n", en ? "开启" : "关闭");
+        return 0;
+    }
+
     if (argc > 1 && strcasecmp(argv[1], "vofa") == 0) {
         if (argc < 3) {
             const char *mode_desc = !AppCoordinator::Instance().IsVofaStream()
@@ -677,6 +721,17 @@ void CliEngine::RegisterCommands()
         .context = NULL
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&telemetry_cmd));
+
+    const esp_console_cmd_t imu_cmd = {
+        .command = "imu",
+        .help = "6轴 IMU 空间动捕姿态与实物旋转动捕流 (imu [true|false])",
+        .hint = "[true|false]",
+        .func = &cmd_imu,
+        .argtable = NULL,
+        .func_w_context = NULL,
+        .context = NULL
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&imu_cmd));
 
     const esp_console_cmd_t reboot_cmd = {
         .command = "reboot",

@@ -125,6 +125,20 @@
                             <TextBlock Text="+ 烧录端口" />
                         </StackPanel>
                     </Button>
+
+                    <Button Command="{Binding AddDspFilterNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 NWaves 信号处理卡片 (巴特沃斯低通/高通/带通、滑动均值、中值滤波与 FFT 频谱特征提取)">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="#06B6D4" Margin="0,0,5,0" VerticalAlignment="Center" />
+                            <TextBlock Text="+ DSP 滤波" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding AddPhaseSpaceNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 3D 相空间轨迹卡片 (提取三维相空间吸引子，驱动 HelixToolkit 实时构建非线性相平面)">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="#EC4899" Margin="0,0,5,0" VerticalAlignment="Center" />
+                            <TextBlock Text="+ 3D 相空间" />
+                        </StackPanel>
+                    </Button>
                 </WrapPanel>
 
                 <!-- 右侧：画布滚轮缩放指示、自动排版、全局流控与典型拓扑预设 -->

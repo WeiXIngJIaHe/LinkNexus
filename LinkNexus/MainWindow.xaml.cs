@@ -4,6 +4,8 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using LinkNexus.Blueprint.Core;
+using LinkNexus.Blueprint.Nodes;
 
 namespace LinkNexus
 {
@@ -12,7 +14,7 @@ namespace LinkNexus
     /// 接管 Windows Win32 消息泵 WndProc，监听 USB PnP 热插拔并挂载 MVVM 架构
     /// 包含文件拖拽载入与 Linux CLI 键盘回车交互
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         private readonly UsbMonitorService _usbMonitorService;
         private readonly MainViewModel _viewModel;
@@ -39,6 +41,14 @@ namespace LinkNexus
                     Esp32CliScrollViewer?.ScrollToBottom();
                 });
             };
+
+            // 4. 接入全局蓝图数据包广播至 ScottPlot 实时示波器与 Helix 3D 空间动捕视口
+            _viewModel.BlueprintVm.GlobalPacketEmitted += OnGlobalBlueprintPacketEmitted;
+            _viewModel.BlueprintVm.Nodes.CollectionChanged += BlueprintNodes_CollectionChanged;
+            foreach (var node in _viewModel.BlueprintVm.Nodes)
+            {
+                AttachNodeCallbacks(node);
+            }
         }
 
         /// <summary>
@@ -340,6 +350,59 @@ namespace LinkNexus
 
         #endregion
 
+        #region 蓝图数据流与 ScottPlot 示波器 / Helix 3D 空间动捕联动
+
+        private void BlueprintNodes_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (e.NewItems != null)
+            {
+                foreach (var item in e.NewItems)
+                {
+                    if (item is NodeBase node)
+                    {
+                        AttachNodeCallbacks(node);
+                    }
+                }
+            }
+        }
+
+        private void AttachNodeCallbacks(NodeBase node)
+        {
+            if (node is Imu3DPlotNode imuNode)
+            {
+                imuNode.AttitudeUpdatedCallback = (r, p, y) =>
+                {
+                    Dispatcher.InvokeAsync(() => MainHelixControl?.UpdateAttitude(r, p, y));
+                };
+            }
+            else if (node is PhaseSpace3DPlotNode phaseNode)
+            {
+                phaseNode.PhasePointCallback = (x, y, z) =>
+                {
+                    Dispatcher.InvokeAsync(() => MainHelixControl?.PushPhasePoint(x, y, z));
+                };
+            }
+        }
+
+        private void OnGlobalBlueprintPacketEmitted(NodeBase sourceNode, int outputPinIndex, BlueprintPacket packet)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                MainScopeControl?.PushPacket(packet);
+
+                if (packet.Header == "PHASE_3D" && packet.Channels.Length >= 3)
+                {
+                    MainHelixControl?.PushPhasePoint(packet.Channels[0], packet.Channels[1], packet.Channels[2]);
+                }
+                else if ((packet.Header == "IMU" || packet.Header == "IMU_3D") && packet.Channels.Length >= 3)
+                {
+                    MainHelixControl?.UpdateAttitude(packet.Channels[0], packet.Channels[1], packet.Channels[2]);
+                }
+            });
+        }
+
+        #endregion
+
         private void MainWindow_Closed(object? sender, EventArgs e)
         {
             if (_hwndSource != null)
@@ -348,8 +411,14 @@ namespace LinkNexus
                 _hwndSource = null;
             }
 
-            _viewModel.CloseSerialPortInternal();
-            _viewModel.BlueprintVm.Dispose();
+            if (_viewModel?.BlueprintVm != null)
+            {
+                _viewModel.BlueprintVm.GlobalPacketEmitted -= OnGlobalBlueprintPacketEmitted;
+                _viewModel.BlueprintVm.Nodes.CollectionChanged -= BlueprintNodes_CollectionChanged;
+            }
+
+            _viewModel?.CloseSerialPortInternal();
+            _viewModel?.BlueprintVm.Dispose();
             _usbMonitorService.Dispose();
         }
     }

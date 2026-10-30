@@ -40,6 +40,8 @@ namespace LinkNexus.Blueprint.Nodes
         public override double CardWidth => 342.0;
         public override bool HasImu3DPreview => true;
 
+        public Action<double, double, double>? AttitudeUpdatedCallback { get; set; }
+
         public Quaternion AttitudeQuaternion
         {
             get => _attitudeQuaternion;
@@ -154,6 +156,7 @@ namespace LinkNexus.Blueprint.Nodes
             RollDisplay = string.Create(CultureInfo.InvariantCulture, $"{rollDeg:+0.0;-0.0;0.0}°");
             PitchDisplay = string.Create(CultureInfo.InvariantCulture, $"{pitchDeg:+0.0;-0.0;0.0}°");
             YawDisplay = string.Create(CultureInfo.InvariantCulture, $"{yawDeg:+0.0;-0.0;0.0}°");
+            AttitudeUpdatedCallback?.Invoke(rollDeg, pitchDeg, yawDeg);
         }
 
         private static double NormalizeDegrees(double angle)

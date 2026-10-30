@@ -8,9 +8,19 @@
 
 namespace LinkNexus {
 
+struct ImuMotionData {
+    float roll_deg;
+    float pitch_deg;
+    float yaw_deg;
+    float accel_x;
+    float accel_y;
+    float accel_z;
+    bool is_hardware_present;
+};
+
 /**
- * @brief INA236 高精度电流/电压遥测管理模块
- * 负责 3 路物理 INA236 (整机主母线、XDS110、DAPLink) 的 I2C 采样与仿真回退保护
+ * @brief INA236 与 IMU 空间动捕遥测管理模块
+ * 负责 3 路物理 INA236 (整机主母线、XDS110、DAPLink) 与 6 轴空间动捕姿态采样与动态回退保护
  * 内置互斥锁保护 I2C 硬件总线与数据缓存，杜绝双核竞争导致的 I2C 驱动死锁
  */
 class TelemetryManager {
@@ -29,6 +39,12 @@ public:
      */
     void ReadTelemetry(TelemetryPayload &out_payload, PowerManager &power_mgr);
 
+    /**
+     * @brief 采集 6 轴 IMU 空间姿态与加速度动捕数据
+     * 支持物理 I2C IMU (MPU6050/ICM-42688 0x68/0x69) 探测；未挂载时输出平滑旋转动力学仿真
+     */
+    void ReadImuMotion(ImuMotionData &out_imu);
+
 private:
     TelemetryManager() = default;
     ~TelemetryManager() = default;
@@ -37,10 +53,15 @@ private:
     TelemetryManager& operator=(const TelemetryManager&) = delete;
 
     bool ReadIna236Raw(uint8_t addr, uint16_t &out_v_mv, int16_t &out_i_ma);
+    bool ProbeImuHardware(uint8_t &out_addr);
 
     Mutex m_mutex;
     bool m_i2c_initialized{false};
+    bool m_imu_hardware_checked{false};
+    bool m_imu_present{false};
+    uint8_t m_imu_addr{0x68};
+    float m_sim_yaw{0.0f};
+    float m_sim_phase{0.0f};
 };
 
 } // namespace LinkNexus
-

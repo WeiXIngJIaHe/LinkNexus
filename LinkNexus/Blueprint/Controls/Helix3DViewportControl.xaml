@@ -1,0 +1,91 @@
+<UserControl x:Class="LinkNexus.Blueprint.Controls.Helix3DViewportControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:helix="http://helix-toolkit.org/wpf"
+             mc:Ignorable="d" 
+             d:DesignHeight="420" d:DesignWidth="600"
+             Background="#0B0F17">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- 顶部工具栏 -->
+        <Border Grid.Row="0" Background="#111827" BorderBrush="#1F2937" BorderThickness="0,0,0,1" Padding="12,8">
+            <DockPanel LastChildFill="False">
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
+                    <Path Data="M12,2 L21,7 V17 L12,22 L3,17 V7 Z M12,2 V12 M21,7 L12,12 L3,7"
+                          Stroke="#A855F7" StrokeThickness="2" Width="18" Height="18" Margin="0,0,8,0" Stretch="Uniform" />
+                    <TextBlock Text="HelixToolkit 三维动捕与相空间轨迹引擎" Foreground="#F3F4F6" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                    <Border Background="#2E1065" CornerRadius="4" Padding="6,2" Margin="10,0,0,0">
+                        <TextBlock x:Name="ModeBadge" Text="实物旋转动捕同步中" Foreground="#C084FC" FontSize="11" />
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                    <Button x:Name="BtnResetView" Content="视角居中" Click="BtnResetView_Click"
+                            Background="#1E293B" Foreground="#E2E8F0" BorderBrush="#334155" BorderThickness="1"
+                            Padding="10,4" Margin="0,0,8,0" Cursor="Hand" />
+                    <Button x:Name="BtnTare" Content="姿态一键归零 (Tare)" Click="BtnTare_Click"
+                            Background="#1E293B" Foreground="#E2E8F0" BorderBrush="#334155" BorderThickness="1"
+                            Padding="10,4" Margin="0,0,8,0" Cursor="Hand" />
+                    <Button x:Name="BtnClearTrajectory" Content="清空相空间轨迹" Click="BtnClearTrajectory_Click"
+                            Background="#1E293B" Foreground="#E2E8F0" BorderBrush="#334155" BorderThickness="1"
+                            Padding="10,4" Cursor="Hand" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Helix 3D 视口核心 -->
+        <helix:HelixViewport3D x:Name="Viewport3D" Grid.Row="1"
+                               ShowCoordinateSystem="True"
+                               CoordinateSystemLabelX="X"
+                               CoordinateSystemLabelY="Y"
+                               CoordinateSystemLabelZ="Z"
+                               ShowViewCube="True"
+                               Background="#070A10">
+            <helix:DefaultLights />
+            <helix:GridLinesVisual3D Width="60" Length="60" MinorDistance="2" MajorDistance="10" Thickness="0.8" Fill="#1E293B" />
+
+            <!-- 实物动捕 3D 载体机体模型 -->
+            <ModelVisual3D x:Name="BodyModelVisual">
+                <ModelVisual3D.Transform>
+                    <Transform3DGroup>
+                        <RotateTransform3D>
+                            <RotateTransform3D.Rotation>
+                                <QuaternionRotation3D x:Name="AttitudeRotation" />
+                            </RotateTransform3D.Rotation>
+                        </RotateTransform3D>
+                    </Transform3DGroup>
+                </ModelVisual3D.Transform>
+
+                <!-- 机身主体 (深蓝机身) -->
+                <helix:BoxVisual3D Center="0,0,0" Length="12" Width="6" Height="1.8" Fill="#1E40AF" />
+                <!-- 机头指示 (电光青标) -->
+                <helix:BoxVisual3D Center="6.5,0,0" Length="2" Width="4" Height="1.4" Fill="#38BDF8" />
+                <!-- 左右机翼 (紫色侧翼) -->
+                <helix:BoxVisual3D Center="0,0,0" Length="4" Width="20" Height="0.5" Fill="#9333EA" />
+                <!-- 垂直尾翼 (翡翠绿舵面) -->
+                <helix:BoxVisual3D Center="-5,0,2.5" Length="3" Width="0.6" Height="4" Fill="#10B981" />
+            </ModelVisual3D>
+
+            <!-- 三维相空间轨迹线 -->
+            <helix:LinesVisual3D x:Name="PhaseSpaceLines" Color="#38BDF8" Thickness="2.5" />
+        </helix:HelixViewport3D>
+
+        <!-- 底部状态读数条 -->
+        <Border Grid.Row="2" Background="#0F172A" BorderBrush="#1E293B" BorderThickness="0,1,0,0" Padding="12,6">
+            <DockPanel LastChildFill="True">
+                <TextBlock x:Name="TxtAttitude" Text="Roll: +0.0° | Pitch: +0.0° | Yaw: +0.0°"
+                           Foreground="#E2E8F0" FontSize="11" FontFamily="Consolas, monospace" DockPanel.Dock="Left" VerticalAlignment="Center" />
+                <TextBlock x:Name="TxtPhasePoints" Text="相空间点数: 0 / 2000"
+                           Foreground="#94A3B8" FontSize="11" FontFamily="Consolas, monospace" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>
+

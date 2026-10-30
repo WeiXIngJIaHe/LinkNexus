@@ -81,7 +81,19 @@ namespace LinkNexus.Blueprint.Core
         public event Action<NodeBase>? PositionChanged;
         public event Action<PinViewModel>? PinRemoving;
         public event Action<NodeBase>? PinsChanged;
+        public event Action<NodeBase, int, BlueprintPacket>? PacketEmitted;
         public event PropertyChangedEventHandler? PropertyChanged;
+
+        public Point Location
+        {
+            get => new Point(_x, _y);
+            set
+            {
+                X = value.X;
+                Y = value.Y;
+                OnPropertyChanged();
+            }
+        }
 
         public double X
         {
@@ -93,6 +105,7 @@ namespace LinkNexus.Blueprint.Core
                 {
                     _x = clamped;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(Location));
                     PositionChanged?.Invoke(this);
                 }
             }
@@ -108,6 +121,7 @@ namespace LinkNexus.Blueprint.Core
                 {
                     _y = clamped;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(Location));
                     PositionChanged?.Invoke(this);
                 }
             }
@@ -272,6 +286,7 @@ namespace LinkNexus.Blueprint.Core
         /// </summary>
         protected void EmitPacket(int outputPinIndex, BlueprintPacket packet)
         {
+            try { PacketEmitted?.Invoke(this, outputPinIndex, packet); } catch { }
             DownstreamSubscription[] targets;
             lock (_routeLock)
             {

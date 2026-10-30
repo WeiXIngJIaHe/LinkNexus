@@ -32,6 +32,8 @@
 - **原生交互式命令行 (CLI) 引擎**：
   * 提供涵盖 Wi-Fi 模式切换、周边 AP 扫描、6 路 MOS 供电控制、双核状态遥测与软复位的完整控制台；
   * 上位机可通过串口或网络发送 `0x50` 指令流呼出并嵌入 CLI 终端页面，同时支持双击上位机卡片进入交互调试。
+- **6 轴 IMU 空间动捕与实物旋转动捕流 (MPU6050 / ICM-42688)**：开机自动探测 I2C 0x68/0x69 从机，支持真实硬件与平滑六自由度动力学仿真，以 30ms 周期通过串口/网络广播 `IMU:roll,pitch,yaw,ax,ay,az` 毫秒级姿态流，直通上位机 HelixToolkit 3D 引擎驱动实物旋转动捕与相空间轨迹。
+- **VOFA+ FireWater 多通道流式输出**：提供 `telemetry vofa` 流控模式，支持单行 9 通道与 `BUS` / `XDS` / `DAP` 多数据流分帧打印，无缝对接上位机蓝图示波与 CSV 落盘。
 - **高精度母线/支路遥测与安全互锁**：支持 3 路 INA236（主母线、XDS110、DAPLink）实时采样，提供通道断电时数据归零保护；在脱机无传感器环境下提供微扰平滑仿真回退，保障上位机界面联调。
 - **预留 1.9 寸 ST7789 屏幕与 LVGL UI 架构**：支持上位机 0x20 命令反向同步当前选定通道、固件烧录进度（0~100%）与设备友好名称，抽象出清晰的 UI 局部刷新管道与 LVGL 任务循环接口。
 
@@ -177,13 +179,20 @@ extern "C" void app_main(void)
 | 指令语法 | 功能说明 | 典型执行示例 |
 | :--- | :--- | :--- |
 | `help` 或 `?` | 显示 CLI 指令帮助说明与语法清单 | `help` |
+| `whoami` | 查询当前主控固件角色、MAC 唯一标识符、版本与硬件芯片指纹 | `whoami` |
+| `telemetry [on\|off]` | 即时采样 INA236 母线与支路电压/电流/功率，或启闭二进制上报 | `telemetry` |
+| `telemetry vofa <true\|false\|multi>` | 启闭 VOFA+ FireWater 格式流输出 (单行 9 通道或多流分帧) | `telemetry vofa true` |
+| `telemetry imu <true\|false>` (或 `imu`) | 启闭 6 轴 IMU 空间动捕流 (`IMU:roll,pitch,yaw,ax,ay,az`) | `imu true` |
 | `wifi ap <ssid> [pwd]` | 启动 ESP32 主动作为 SoftAP 独立热点 | `wifi ap LinkNexus-Lab 12345678` |
 | `wifi connect <ssid> <pwd>` | 控制 ESP32 作为从设备连接指定 AP (STA) | `wifi connect MyRouter 88888888` |
 | `wifi status` | 查看当前工作模式、SSID、IP、信道与服务端口 | `wifi status` |
 | `wifi scan` | 扫描并列出周围环境可用的 Wi-Fi 热点 | `wifi scan` |
 | `wifi disconnect` | 断开当前 Wi-Fi 并关闭无线调试 TCP 端口 | `wifi disconnect` |
+| `wifi txpower [dbm]` | 动态调节 8~20dBm 射频发射功率，抑制高驻波失真 | `wifi txpower 13` |
+| `wifi diag` | 输出当前芯片射频天线匹配参数与诊断建议 | `wifi diag` |
 | `power <ch 0-5> <0\|1>` | 控制指定通道 MOS 供电开通 (1) 或断开隔离 (0) | `power 0 1` (导通 XDS110) |
-| `status` | 查询 ESP32-S3 双核系统资源 (CPU、堆栈、运行期) | `status` |
+| `status` | 查询 ESP32-S3 双核系统资源 (CPU、堆栈、运行期、唯一 MAC) | `status` |
+| `clear` | 清屏并复位 ANSI VT100 终端光标 | `clear` |
 | `reboot` | 触发 ESP32-S3 硬件级软复位重启 | `reboot` |
 
 ---

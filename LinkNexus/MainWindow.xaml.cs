@@ -352,6 +352,7 @@ namespace LinkNexus
             }
 
             _viewModel.CloseSerialPortInternal();
+            _viewModel.BlueprintVm.Dispose();
             _usbMonitorService.Dispose();
         }
     }

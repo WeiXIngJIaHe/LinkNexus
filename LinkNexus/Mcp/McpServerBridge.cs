@@ -51,6 +51,7 @@ namespace LinkNexus.Mcp
             RegisterTool(new FlashKernelTool());
             RegisterTool(new ControlMosPowerTool());
             RegisterTool(new ReadLogsTool());
+            RegisterTool(new PushBlueprintDataTool());
         }
 
         /// <summary>

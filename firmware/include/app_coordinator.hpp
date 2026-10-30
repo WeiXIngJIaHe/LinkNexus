@@ -51,6 +51,13 @@ public:
     bool IsManualTelemetryStream() const;
     uint32_t GetLastHostActivityTick() const;
 
+    /**
+     * @brief 设置/查询 VOFA+ FireWater 文本遥测流
+     * 开启后每 250ms 输出一行逗号分隔浮点帧，直接对接上位机流式蓝图 COM 输入卡片与 VOFA+ 波形绘制。
+     */
+    void SetVofaStream(bool enable);
+    bool IsVofaStream() const;
+
 private:
     AppCoordinator();
     ~AppCoordinator() = default;
@@ -69,6 +76,7 @@ private:
     bool m_initialized{false};
     bool m_started{false};
     std::atomic<bool> m_manual_telemetry_stream{false};
+    std::atomic<bool> m_vofa_stream{false};
     std::atomic<uint32_t> m_last_host_activity_tick{0};
 };
 

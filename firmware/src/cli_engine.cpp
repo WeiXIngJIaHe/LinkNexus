@@ -93,6 +93,7 @@ static int cmd_help(int argc, char **argv)
         "  power status                       - 显示 6 通道当前供电状态与 NVS 开机默认 Mask\r\n"
         "  status                             - 查询 ESP32-S3 双核系统资源与运行状态\r\n"
         "  telemetry [true|false] [save]      - 查询遥测数据或控制二进制广播流 (可选 [save])\r\n"
+        "  telemetry vofa <true|false>        - 启闭 VOFA+ FireWater 9通道文本流 (对接蓝图节点)\r\n"
         "  whoami                             - 查询设备身份标识与主控角色确认\r\n"
         "  reboot                             - 软复位重启 ESP32-S3\r\n"
         "  clear                              - 清空当前终端屏幕\r\n"
@@ -501,6 +502,27 @@ static int cmd_status(int argc, char **argv)
 
 static int cmd_telemetry(int argc, char **argv)
 {
+    if (argc > 1 && strcasecmp(argv[1], "vofa") == 0) {
+        if (argc < 3) {
+            CliEngine::PrintResponse(
+                "VOFA+ FireWater 文本流状态: %s\r\n"
+                "  通道映射: CH0=bus_v, CH1=bus_ma, CH2=bus_w, CH3=xds_v, CH4=xds_ma, CH5=xds_w, CH6=dap_v, CH7=dap_ma, CH8=dap_w\r\n"
+                "  用法: telemetry vofa <true|false>\r\n",
+                AppCoordinator::Instance().IsVofaStream() ? "开启 (250ms)" : "关闭");
+            return 0;
+        }
+        bool vofa_en = false;
+        if (!ParseBoolCli(argv[2], vofa_en)) {
+            CliEngine::PrintResponse("错误: 参数应为 true 或 false。\r\n");
+            return 1;
+        }
+        AppCoordinator::Instance().SetVofaStream(vofa_en);
+        CliEngine::PrintResponse(vofa_en
+            ? "[遥测控制] 已开启 VOFA+ FireWater 9通道文本遥测流 (250ms 周期)。\r\n"
+            : "[遥测控制] 已关闭 VOFA+ FireWater 文本遥测流。\r\n");
+        return 0;
+    }
+
     if (argc > 1) {
         const char *arg = argv[1];
         if (strcasecmp(arg, "save") == 0) {
@@ -635,8 +657,8 @@ void CliEngine::RegisterCommands()
 
     const esp_console_cmd_t telemetry_cmd = {
         .command = "telemetry",
-        .help = "查询 INA236 文本遥测采样或控制二进制广播流 (true/false) [save]",
-        .hint = "[true|false] [save]",
+        .help = "查询 INA236 遥测、控制二进制广播流 (true/false) 或 VOFA+ 文本流 (vofa true/false)",
+        .hint = "[true|false|vofa] [save]",
         .func = &cmd_telemetry,
         .argtable = NULL,
         .func_w_context = NULL,

@@ -1,0 +1,671 @@
+<UserControl x:Class="LinkNexus.Blueprint.Controls.NodeCardControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:core="clr-namespace:LinkNexus.Blueprint.Core"
+             Width="{Binding CardWidth}"
+             SnapsToDevicePixels="True"
+             UseLayoutRounding="True">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <!-- 节点内部紧凑工业按钮样式 -->
+        <Style x:Key="NodeActionBtnStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource IndustrialBtnBgBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource IndustrialBtnBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource IndustrialBtnHoverBgBrush}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentCyanBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 节点内部紧凑暗黑/浅色自适应下拉框样式 -->
+        <Style x:Key="NodeComboStyle" TargetType="ComboBox">
+            <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+            <Setter Property="Background" Value="{DynamicResource AppTerminalBgBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Height" Value="27" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleBtn"
+                                          Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press"
+                                          Cursor="Hand">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="Border"
+                                                Background="{DynamicResource AppTerminalBgBrush}"
+                                                BorderBrush="{DynamicResource AppBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="5">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="24" />
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="1"
+                                                      Data="M0,0 L4,4 L8,0"
+                                                      Stroke="{DynamicResource AppTextMutedBrush}"
+                                                      StrokeThickness="1.5"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource AccentCyanBrush}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ContentSite"
+                                              IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              Margin="8,3,26,3"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left" />
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Fade">
+                                <Border x:Name="DropDownBorder"
+                                        MinWidth="{TemplateBinding ActualWidth}"
+                                        MaxHeight="220"
+                                        Margin="0,2,0,0"
+                                        Background="{DynamicResource AppSurfaceBrush}"
+                                        BorderBrush="{DynamicResource AccentCyanBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="5">
+                                    <ScrollViewer Margin="2" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="Padding" Value="8,5" />
+                        <Setter Property="Cursor" Value="Hand" />
+                        <Style.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource AppSurfaceHoverBrush}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <!-- 外层卡片容器 (留出左右 8px 让彩色圆点端口精准骑跨在卡片边缘) -->
+    <Grid Margin="8,4">
+        <Border x:Name="CardRootBorder"
+                Background="{DynamicResource CardGlassBgBrush}"
+                BorderBrush="{DynamicResource CardGlassBorderBrush}"
+                BorderThickness="1.2"
+                CornerRadius="9"
+                MouseLeftButtonDown="CardRoot_MouseLeftButtonDown">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270" Color="#000000" Opacity="0.32" />
+            </Border.Effect>
+
+            <StackPanel>
+                <!-- 1. 顶部 3.5px 分类颜色条 -->
+                <Border Height="3.5"
+                        Background="{Binding HeaderAccentBrush}"
+                        CornerRadius="8,8,0,0" />
+
+                <!-- 2. Header 拖拽标题栏 (按住可拖拽移动节点) -->
+                <Border x:Name="HeaderDragBorder"
+                        Background="{DynamicResource AppSurfaceSubtleBrush}"
+                        BorderBrush="{DynamicResource AppBorderSubtleBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="10,7"
+                        Cursor="SizeAll"
+                        MouseLeftButtonDown="Header_MouseLeftButtonDown"
+                        MouseMove="Header_MouseMove"
+                        MouseLeftButtonUp="Header_MouseLeftButtonUp">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- 矢量几何分类图标 -->
+                        <Border Grid.Column="0"
+                                Width="24" Height="24"
+                                CornerRadius="5"
+                                Background="{DynamicResource AppTerminalBgBrush}"
+                                BorderBrush="{Binding HeaderAccentBrush}"
+                                BorderThickness="1"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center">
+                            <Path Data="{Binding IconGeometry}"
+                                  Stroke="{Binding HeaderAccentBrush}"
+                                  StrokeThickness="1.65"
+                                  Stretch="Uniform"
+                                  Width="13" Height="13"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center" />
+                        </Border>
+
+                        <!-- 节点标题与分类副标 -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Title}"
+                                       FontSize="12.5"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock FontSize="10"
+                                       Foreground="{DynamicResource AppTextMutedBrush}">
+                                <Run Text="{Binding CategoryName, Mode=OneWay}" />
+                                <Run Text=" · " />
+                                <Run Text="{Binding PacketCounter, Mode=OneWay}" FontFamily="Consolas" />
+                                <Run Text=" 帧" />
+                            </TextBlock>
+                        </StackPanel>
+
+                        <!-- 运行状态胶囊 -->
+                        <Border Grid.Column="2"
+                                CornerRadius="4"
+                                Padding="6,2"
+                                Margin="4,0,6,0"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource AppTerminalBgBrush}"
+                                BorderBrush="{DynamicResource AppBorderBrush}"
+                                BorderThickness="1">
+                            <TextBlock Text="{Binding StatusBadge}"
+                                       FontSize="10"
+                                       FontWeight="Medium"
+                                       Foreground="{DynamicResource AccentCyanBrush}" />
+                        </Border>
+
+                        <!-- 移除节点按钮 (SVG 叉号) -->
+                        <Button Grid.Column="3"
+                                Width="22" Height="22"
+                                Padding="0"
+                                Cursor="Hand"
+                                ToolTip="移除此蓝图节点并断开关联连线"
+                                Click="RemoveNodeBtn_Click"
+                                Style="{StaticResource NodeActionBtnStyle}">
+                            <Path Data="M0,0 L7,7 M7,0 L0,7"
+                                  Stroke="{DynamicResource AppTextMutedBrush}"
+                                  StrokeThickness="1.5"
+                                  Width="7" Height="7"
+                                  Stretch="Uniform" />
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- 3. Body 端口排列带：左侧 InputPins 彩色圆点，右侧 OutputPins 彩色圆点 -->
+                <Grid Margin="0,7,0,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 左侧 InputPins -->
+                    <ItemsControl Grid.Column="0" ItemsSource="{Binding InputPins}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type core:PinViewModel}">
+                                <StackPanel Orientation="Horizontal"
+                                            Margin="-9,2,4,2"
+                                            VerticalAlignment="Center">
+                                    <!-- 端口交互触控热区 (20x20) -->
+                                    <Border Width="20" Height="20"
+                                            Background="Transparent"
+                                            Cursor="Cross"
+                                            Tag="{Binding}"
+                                            ToolTip="左键拖拽连线 · 右键解绑该输入端口"
+                                            Loaded="PinSocket_Loaded"
+                                            Unloaded="PinSocket_Unloaded"
+                                            MouseLeftButtonDown="PinSocket_MouseLeftButtonDown"
+                                            MouseRightButtonDown="PinSocket_MouseRightButtonDown">
+                                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <!-- 磁吸高亮外环 -->
+                                            <Ellipse Width="18" Height="18"
+                                                     Stroke="{Binding PinBrush}"
+                                                     StrokeThickness="1.6"
+                                                     Visibility="{Binding IsSnapHighlighted, Converter={StaticResource BoolToVis}}" />
+                                            <!-- 端口主圆环 -->
+                                            <Ellipse Width="11.5" Height="11.5"
+                                                     Fill="{DynamicResource AppTerminalBgBrush}"
+                                                     Stroke="{Binding PinBrush}"
+                                                     StrokeThickness="2.2"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center" />
+                                            <!-- 已连接实心内核 -->
+                                            <Ellipse Width="5.5" Height="5.5"
+                                                     Fill="{Binding PinBrush}"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center"
+                                                     Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}" />
+                                        </Grid>
+                                    </Border>
+                                    <TextBlock Text="{Binding Name}"
+                                               FontSize="11"
+                                               Margin="4,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- 右侧 OutputPins -->
+                    <ItemsControl Grid.Column="1" ItemsSource="{Binding OutputPins}" HorizontalAlignment="Right">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type core:PinViewModel}">
+                                <StackPanel Orientation="Horizontal"
+                                            HorizontalAlignment="Right"
+                                            Margin="4,2,-9,2"
+                                            VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}"
+                                               FontSize="11"
+                                               Margin="0,0,4,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                                    <!-- 端口交互触控热区 (20x20) -->
+                                    <Border Width="20" Height="20"
+                                            Background="Transparent"
+                                            Cursor="Cross"
+                                            Tag="{Binding}"
+                                            ToolTip="按住左键拉出三阶贝塞尔连线 · 右键解绑该输出端口"
+                                            Loaded="PinSocket_Loaded"
+                                            Unloaded="PinSocket_Unloaded"
+                                            MouseLeftButtonDown="PinSocket_MouseLeftButtonDown"
+                                            MouseRightButtonDown="PinSocket_MouseRightButtonDown">
+                                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Ellipse Width="18" Height="18"
+                                                     Stroke="{Binding PinBrush}"
+                                                     StrokeThickness="1.6"
+                                                     Visibility="{Binding IsSnapHighlighted, Converter={StaticResource BoolToVis}}" />
+                                            <Ellipse Width="11.5" Height="11.5"
+                                                     Fill="{DynamicResource AppTerminalBgBrush}"
+                                                     Stroke="{Binding PinBrush}"
+                                                     StrokeThickness="2.2"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center" />
+                                            <Ellipse Width="5.5" Height="5.5"
+                                                     Fill="{Binding PinBrush}"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center"
+                                                     Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}" />
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+
+                <!-- 4. 中间可视化与动态 NodeParameter 渲染区 -->
+                <StackPanel Margin="11,3,11,10">
+
+                    <!-- 4A. VOFA+ 实时多通道示波器视窗 (仅 VofaPlotNode 激活渲染) -->
+                    <Border Visibility="{Binding HasVofaPlotPreview, Converter={StaticResource BoolToVis}}"
+                            Background="#111722"
+                            BorderBrush="{DynamicResource AppBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="4"
+                            Margin="0,2,0,7">
+                        <StackPanel>
+                            <Grid Margin="3,1,3,3">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="6" Height="6" Fill="#38BDF8" Margin="0,0,3,0" />
+                                    <Ellipse Width="6" Height="6" Fill="#34D399" Margin="0,0,3,0" />
+                                    <Ellipse Width="6" Height="6" Fill="#FBBF24" Margin="0,0,3,0" />
+                                    <Ellipse Width="6" Height="6" Fill="#A78BFA" Margin="0,0,6,0" />
+                                    <TextBlock Text="VOFA+ WAVEFORM"
+                                               FontFamily="Consolas"
+                                               FontSize="9.5"
+                                               Foreground="#94A3B8" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding YRangeSummary, FallbackValue=''}"
+                                           HorizontalAlignment="Right"
+                                           FontFamily="Consolas"
+                                           FontSize="9.5"
+                                           Foreground="#38BDF8" />
+                            </Grid>
+
+                            <Image Source="{Binding PlotImage, FallbackValue={x:Null}}"
+                                   Height="146"
+                                   Stretch="Fill"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+
+                            <TextBlock Text="{Binding ChannelReadoutSummary, FallbackValue=''}"
+                                       Margin="3,4,3,1"
+                                       FontFamily="Consolas"
+                                       FontSize="10.5"
+                                       Foreground="#F1F5F9"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 4B. IMU 三维姿态 Viewport3D 实时视窗 (仅 Imu3DPlotNode 激活渲染) -->
+                    <Border Visibility="{Binding HasImu3DPreview, Converter={StaticResource BoolToVis}}"
+                            Background="#111722"
+                            BorderBrush="{DynamicResource AppBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="5"
+                            Margin="0,2,0,7">
+                        <StackPanel>
+                            <Grid Height="156" ClipToBounds="True">
+                                <Viewport3D IsHitTestVisible="False">
+                                    <Viewport3D.Camera>
+                                        <PerspectiveCamera Position="2.5, 2.1, 4.1"
+                                                           LookDirection="-2.5, -2.1, -4.1"
+                                                           UpDirection="0, 1, 0"
+                                                           FieldOfView="40" />
+                                    </Viewport3D.Camera>
+
+                                    <ModelVisual3D>
+                                        <ModelVisual3D.Content>
+                                            <Model3DGroup>
+                                                <AmbientLight Color="#6B7280" />
+                                                <DirectionalLight Color="#FFFFFF" Direction="-0.5, -1.0, -0.7" />
+                                                <DirectionalLight Color="#38BDF8" Direction="0.8, 0.4, 0.3" />
+
+                                                <!-- 受四元数实时旋转驱动的 IMU 三维载板与三轴姿态架 -->
+                                                <Model3DGroup>
+                                                    <Model3DGroup.Transform>
+                                                        <RotateTransform3D>
+                                                            <RotateTransform3D.Rotation>
+                                                                <QuaternionRotation3D Quaternion="{Binding AttitudeQuaternion, FallbackValue='0,0,0,1'}" />
+                                                            </RotateTransform3D.Rotation>
+                                                        </RotateTransform3D>
+                                                    </Model3DGroup.Transform>
+
+                                                    <!-- 机体主 PCB 板 [-1.25..1.25] x [-0.11..0.11] x [-0.85..0.85] -->
+                                                    <GeometryModel3D>
+                                                        <GeometryModel3D.Geometry>
+                                                            <MeshGeometry3D Positions="-1.25,-0.11,0.85  1.25,-0.11,0.85  1.25,0.11,0.85  -1.25,0.11,0.85  -1.25,-0.11,-0.85  1.25,-0.11,-0.85  1.25,0.11,-0.85  -1.25,0.11,-0.85"
+                                                                            TriangleIndices="0 1 2 0 2 3  5 4 7 5 7 6  3 2 6 3 6 7  4 5 1 4 1 0  1 5 6 1 6 2  4 0 3 4 3 7" />
+                                                        </GeometryModel3D.Geometry>
+                                                        <GeometryModel3D.Material>
+                                                            <MaterialGroup>
+                                                                <DiffuseMaterial Brush="#0284C7" />
+                                                                <SpecularMaterial Brush="#93C5FD" SpecularPower="36" />
+                                                            </MaterialGroup>
+                                                        </GeometryModel3D.Material>
+                                                        <GeometryModel3D.BackMaterial>
+                                                            <DiffuseMaterial Brush="#0369A1" />
+                                                        </GeometryModel3D.BackMaterial>
+                                                    </GeometryModel3D>
+
+                                                    <!-- 顶部中心 MEMS IMU 芯片封装 [-0.34..0.34] x [0.11..0.22] x [-0.34..0.34] -->
+                                                    <GeometryModel3D>
+                                                        <GeometryModel3D.Geometry>
+                                                            <MeshGeometry3D Positions="-0.34,0.11,0.34  0.34,0.11,0.34  0.34,0.22,0.34  -0.34,0.22,0.34  -0.34,0.11,-0.34  0.34,0.11,-0.34  0.34,0.22,-0.34  -0.34,0.22,-0.34"
+                                                                            TriangleIndices="0 1 2 0 2 3  5 4 7 5 7 6  3 2 6 3 6 7  4 5 1 4 1 0  1 5 6 1 6 2  4 0 3 4 3 7" />
+                                                        </GeometryModel3D.Geometry>
+                                                        <GeometryModel3D.Material>
+                                                            <DiffuseMaterial Brush="#1E293B" />
+                                                        </GeometryModel3D.Material>
+                                                    </GeometryModel3D>
+
+                                                    <!-- 机头朝向指示标 (+Z 前向翡翠绿楔块) [-0.26..0.26] x [0.11..0.19] x [0.46..0.82] -->
+                                                    <GeometryModel3D>
+                                                        <GeometryModel3D.Geometry>
+                                                            <MeshGeometry3D Positions="-0.26,0.11,0.82  0.26,0.11,0.82  0.26,0.19,0.82  -0.26,0.19,0.82  -0.26,0.11,0.46  0.26,0.11,0.46  0.26,0.19,0.46  -0.26,0.19,0.46"
+                                                                            TriangleIndices="0 1 2 0 2 3  5 4 7 5 7 6  3 2 6 3 6 7  4 5 1 4 1 0  1 5 6 1 6 2  4 0 3 4 3 7" />
+                                                        </GeometryModel3D.Geometry>
+                                                        <GeometryModel3D.Material>
+                                                            <DiffuseMaterial Brush="#34D399" />
+                                                        </GeometryModel3D.Material>
+                                                    </GeometryModel3D>
+
+                                                    <!-- +X 轴 (右翼横滚轴 - 珊瑚红) -->
+                                                    <GeometryModel3D>
+                                                        <GeometryModel3D.Geometry>
+                                                            <MeshGeometry3D Positions="0,-0.03,0.03  1.75,-0.03,0.03  1.75,0.03,0.03  0,0.03,0.03  0,-0.03,-0.03  1.75,-0.03,-0.03  1.75,0.03,-0.03  0,0.03,-0.03"
+                                                                            TriangleIndices="0 1 2 0 2 3  5 4 7 5 7 6  3 2 6 3 6 7  4 5 1 4 1 0  1 5 6 1 6 2  4 0 3 4 3 7" />
+                                                        </GeometryModel3D.Geometry>
+                                                        <GeometryModel3D.Material>
+                                                            <DiffuseMaterial Brush="#FB7185" />
+                                                        </GeometryModel3D.Material>
+                                                    </GeometryModel3D>
+
+                                                    <!-- +Y 轴 (垂直偏航轴 - 翡翠绿) -->
+                                                    <GeometryModel3D>
+                                                        <GeometryModel3D.Geometry>
+                                                            <MeshGeometry3D Positions="-0.03,0,0.03  0.03,0,0.03  0.03,1.35,0.03  -0.03,1.35,0.03  -0.03,0,-0.03  0.03,0,-0.03  0.03,1.35,-0.03  -0.03,1.35,-0.03"
+                                                                            TriangleIndices="0 1 2 0 2 3  5 4 7 5 7 6  3 2 6 3 6 7  4 5 1 4 1 0  1 5 6 1 6 2  4 0 3 4 3 7" />
+                                                        </GeometryModel3D.Geometry>
+                                                        <GeometryModel3D.Material>
+                                                            <DiffuseMaterial Brush="#34D399" />
+                                                        </GeometryModel3D.Material>
+                                                    </GeometryModel3D>
+
+                                                    <!-- +Z 轴 (机头前向轴 - 电光青) -->
+                                                    <GeometryModel3D>
+                                                        <GeometryModel3D.Geometry>
+                                                            <MeshGeometry3D Positions="-0.03,-0.03,1.65  0.03,-0.03,1.65  0.03,0.03,1.65  -0.03,0.03,1.65  -0.03,-0.03,0  0.03,-0.03,0  0.03,0.03,0  -0.03,0.03,0"
+                                                                            TriangleIndices="0 1 2 0 2 3  5 4 7 5 7 6  3 2 6 3 6 7  4 5 1 4 1 0  1 5 6 1 6 2  4 0 3 4 3 7" />
+                                                        </GeometryModel3D.Geometry>
+                                                        <GeometryModel3D.Material>
+                                                            <DiffuseMaterial Brush="#38BDF8" />
+                                                        </GeometryModel3D.Material>
+                                                    </GeometryModel3D>
+                                                </Model3DGroup>
+                                            </Model3DGroup>
+                                        </ModelVisual3D.Content>
+                                    </ModelVisual3D>
+                                </Viewport3D>
+
+                                <!-- 左上角坐标系图例 -->
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="4,2">
+                                    <TextBlock Text="X:Pitch " Foreground="#FB7185" FontFamily="Consolas" FontSize="9.5" />
+                                    <TextBlock Text="Y:Yaw " Foreground="#34D399" FontFamily="Consolas" FontSize="9.5" />
+                                    <TextBlock Text="Z:Roll" Foreground="#38BDF8" FontFamily="Consolas" FontSize="9.5" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- 底部三轴实时姿态读数栏 -->
+                            <UniformGrid Columns="3" Margin="2,4,2,1">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="R " Foreground="#38BDF8" FontFamily="Consolas" FontSize="11" FontWeight="Bold" />
+                                    <TextBlock Text="{Binding RollDisplay, FallbackValue='0.0°'}" Foreground="#F8FAFC" FontFamily="Consolas" FontSize="11" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <TextBlock Text="P " Foreground="#FB7185" FontFamily="Consolas" FontSize="11" FontWeight="Bold" />
+                                    <TextBlock Text="{Binding PitchDisplay, FallbackValue='0.0°'}" Foreground="#F8FAFC" FontFamily="Consolas" FontSize="11" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBlock Text="Y " Foreground="#34D399" FontFamily="Consolas" FontSize="11" FontWeight="Bold" />
+                                    <TextBlock Text="{Binding YawDisplay, FallbackValue='0.0°'}" Foreground="#F8FAFC" FontFamily="Consolas" FontSize="11" />
+                                </StackPanel>
+                            </UniformGrid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 4C. 动态 NodeParameter 列表 -->
+                    <ItemsControl ItemsSource="{Binding Parameters}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type core:NodeParameter}">
+                                <StackPanel Margin="0,3">
+                                    <!-- Combo 参数 -->
+                                    <Grid Visibility="{Binding IsCombo, Converter={StaticResource BoolToVis}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="68" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Label}"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource AppTextMutedBrush}" />
+                                        <ComboBox Grid.Column="1"
+                                                  ItemsSource="{Binding Options}"
+                                                  SelectedItem="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  Style="{StaticResource NodeComboStyle}" />
+                                    </Grid>
+
+                                    <!-- Text 参数 -->
+                                    <Grid Visibility="{Binding IsText, Converter={StaticResource BoolToVis}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="68" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Label}"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource AppTextMutedBrush}" />
+                                        <TextBox Grid.Column="1"
+                                                 Text="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 Background="{DynamicResource AppTerminalBgBrush}"
+                                                 Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                                 CaretBrush="{DynamicResource AccentCyanBrush}"
+                                                 BorderBrush="{DynamicResource AppBorderBrush}"
+                                                 BorderThickness="1"
+                                                 Padding="6,4"
+                                                 FontFamily="Consolas"
+                                                 FontSize="11.5" />
+                                    </Grid>
+
+                                    <!-- Toggle 开关参数 -->
+                                    <Grid Visibility="{Binding IsToggle, Converter={StaticResource BoolToVis}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="68" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Label}"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource AppTextMutedBrush}" />
+                                        <ToggleButton Grid.Column="1"
+                                                      IsChecked="{Binding BoolValue, Mode=TwoWay}"
+                                                      Height="27"
+                                                      Cursor="Hand">
+                                            <ToggleButton.Template>
+                                                <ControlTemplate TargetType="ToggleButton">
+                                                    <Border x:Name="TgBd"
+                                                            Background="{DynamicResource AppTerminalBgBrush}"
+                                                            BorderBrush="{DynamicResource AppBorderBrush}"
+                                                            BorderThickness="1"
+                                                            CornerRadius="5"
+                                                            Padding="8,3">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Ellipse x:Name="Dot"
+                                                                     Width="7.5" Height="7.5"
+                                                                     Fill="{DynamicResource AppTextMutedBrush}"
+                                                                     Margin="0,0,6,0"
+                                                                     VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding ToggleStateLabel}"
+                                                                       FontSize="11"
+                                                                       Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                                                       VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter TargetName="TgBd" Property="BorderBrush" Value="{DynamicResource SuccessGreenBrush}" />
+                                                            <Setter TargetName="TgBd" Property="Background" Value="{DynamicResource CardSelectedBgBrush}" />
+                                                            <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource SuccessGreenBrush}" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="TgBd" Property="BorderBrush" Value="{DynamicResource AccentCyanBrush}" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </ToggleButton.Template>
+                                        </ToggleButton>
+                                    </Grid>
+
+                                    <!-- Python CodeScript 参数 -->
+                                    <StackPanel Visibility="{Binding IsCodeScript, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="{Binding Label}"
+                                                   FontSize="10.5"
+                                                   Margin="0,0,0,3"
+                                                   Foreground="{DynamicResource AppTextMutedBrush}" />
+                                        <TextBox Text="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 AcceptsReturn="True"
+                                                 TextWrapping="NoWrap"
+                                                 Height="62"
+                                                 VerticalScrollBarVisibility="Auto"
+                                                 HorizontalScrollBarVisibility="Auto"
+                                                 Background="#111722"
+                                                 Foreground="#E2E8F0"
+                                                 CaretBrush="#38BDF8"
+                                                 BorderBrush="{DynamicResource AppBorderBrush}"
+                                                 BorderThickness="1"
+                                                 Padding="6,4"
+                                                 FontFamily="Consolas"
+                                                 FontSize="11" />
+                                    </StackPanel>
+
+                                    <!-- ActionButton 参数 -->
+                                    <Button Visibility="{Binding IsActionButton, Converter={StaticResource BoolToVis}}"
+                                            Command="{Binding ActionCommand}"
+                                            Content="{Binding ButtonText}"
+                                            Height="27"
+                                            Style="{StaticResource NodeActionBtnStyle}" />
+
+                                    <!-- ReadOnlyBadge 遥测状态栏 -->
+                                    <Border Visibility="{Binding IsReadOnlyBadge, Converter={StaticResource BoolToVis}}"
+                                            Background="{DynamicResource AppTerminalBgBrush}"
+                                            BorderBrush="{DynamicResource AppBorderSubtleBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="7,4"
+                                            Margin="0,1,0,0">
+                                        <TextBlock Text="{Binding Value}"
+                                                   FontFamily="Consolas"
+                                                   FontSize="10.5"
+                                                   Foreground="{DynamicResource AccentCyanBrush}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </Border>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

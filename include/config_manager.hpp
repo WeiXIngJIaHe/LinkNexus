@@ -9,15 +9,15 @@
 namespace LinkNexus {
 
 /**
- * @brief 运行时默认配置管理与 NVS 闪存持久化模块 (方案 B 架构)
- * 允许在现有 CLI 命令下附加 save 参数进行固化，开机自动从 NVS 闪存加载
+ * @brief 运行时 Wi-Fi 配置管理与 NVS 闪存持久化模块
+ * 允许在 CLI 命令下附加 save 参数进行固化，开机自动从 NVS 闪存加载
  */
 class ConfigManager {
 public:
     static ConfigManager& Instance();
 
     /**
-     * @brief 初始化并从 NVS 闪存读取所有已保存的配置项
+     * @brief 初始化并从 NVS 闪存读取所有已保存的 Wi-Fi 配置项
      */
     void Init();
 
@@ -46,18 +46,8 @@ public:
     bool GetStaAuto() const { return m_sta_auto; }
     bool SaveSta(const char *ssid, const char *pwd, bool auto_conn = true);
 
-    // 6 路 MOS 供电开机默认掩码 (0x3F 为全开)
-    uint8_t GetMosMask() const { return m_mos_mask; }
-    void SetMosMask(uint8_t mask) { m_mos_mask = mask; }
-    bool SaveMosMask(uint8_t mask);
-
-    // 遥测广播流开机默认开关
-    bool GetTelemetryStream() const { return m_tel_stream; }
-    void SetTelemetryStream(bool en) { m_tel_stream = en; }
-    bool SaveTelemetryStream(bool en);
-
     /**
-     * @brief 一键将当前 Wi-Fi、MOS 与遥测参数固化保存至 NVS
+     * @brief 一键将当前 Wi-Fi 参数固化保存至 NVS
      */
     bool SaveAllCurrent();
 
@@ -90,9 +80,6 @@ private:
     char m_sta_ssid[33]{""};
     char m_sta_pwd[65]{""};
     bool m_sta_auto{false};
-    uint8_t m_mos_mask{0x3F};                                  // 默认 6 通道全开
-    bool m_tel_stream{false};                                  // 默认静音保护终端
 };
 
 } // namespace LinkNexus
-

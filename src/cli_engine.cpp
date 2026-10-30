@@ -1,8 +1,6 @@
 #include "cli_engine.hpp"
 #include "esp_console.h"
 #include "wifi_manager.hpp"
-#include "power_manager.hpp"
-#include "telemetry_manager.hpp"
 #include "app_coordinator.hpp"
 #include "config_manager.hpp"
 #include "linknexus_config.hpp"
@@ -88,13 +86,7 @@ static int cmd_help(int argc, char **argv)
         "  wifi save                          - 将当前所有 Wi-Fi 运行时参数固化至 NVS\r\n"
         "  wifi reset                         - 清除 NVS 自定义配置并恢复出厂默认值\r\n"
         "  wifi config                        - 查看当前 NVS 持久化参数配置表\r\n"
-        "  power <ch 0-5|all> <true|false> [save] - 控制指定通道/所有通道 MOS 开通/隔离\r\n"
-        "  power save                         - 将当前 6 通道 MOS 状态固化为开机默认配置\r\n"
-        "  power status                       - 显示 6 通道当前供电状态与 NVS 开机默认 Mask\r\n"
         "  status                             - 查询 ESP32-S3 双核系统资源与运行状态\r\n"
-        "  telemetry [true|false] [save]      - 查询遥测数据或控制二进制广播流 (可选 [save])\r\n"
-        "  telemetry vofa <true|false|multi>  - 启闭 VOFA+ 9通道单流或 BUS/XDS/DAP 多数据流 (供蓝图右键拆分CH)\r\n"
-        "  imu [true|false]                   - 启闭 6 轴 IMU 空间动捕姿态流 (对接 HelixToolkit 3D 与相空间)\r\n"
         "  whoami                             - 查询设备身份标识与主控角色确认\r\n"
         "  reboot                             - 软复位重启 ESP32-S3\r\n"
         "  clear                              - 清空当前终端屏幕\r\n"
@@ -404,75 +396,6 @@ static int cmd_wifi(int argc, char **argv)
     }
 }
 
-static int cmd_power(int argc, char **argv)
-{
-    if (argc < 2) {
-        CliEngine::PrintResponse(
-            "语法: power <通道 0-5 | all> <true | false> [save]\r\n"
-            "      power save    - 固化当前 6 通道 MOS 状态为开机默认 Mask\r\n"
-            "      power status  - 查看 6 通道当前状态及 NVS 默认 Mask\r\n");
-        return 1;
-    }
-
-    if (strcasecmp(argv[1], "save") == 0) {
-        uint8_t cur_mask = PowerManager::Instance().GetPowerMask();
-        ConfigManager::Instance().SaveMosMask(cur_mask);
-        CliEngine::PrintResponse("[NVS] 6 通道 MOS 开机默认供电状态已固化 (Mask: 0x%02X)。\r\n", cur_mask);
-        return 0;
-    }
-
-    if (strcasecmp(argv[1], "status") == 0 || strcasecmp(argv[1], "show") == 0 || strcasecmp(argv[1], "list") == 0) {
-        uint8_t cur_mask = PowerManager::Instance().GetPowerMask();
-        uint8_t nvs_mask = ConfigManager::Instance().GetMosMask();
-        CliEngine::PrintResponse("6 通道 MOS 供电状态 (当前 Mask: 0x%02X, NVS 默认: 0x%02X):\r\n", cur_mask, nvs_mask);
-        for (uint8_t i = 0; i < 6; ++i) {
-            bool on = (cur_mask & (1 << i)) != 0;
-            CliEngine::PrintResponse("  CH%u: %s\r\n", i, on ? "导通 (ON/true)" : "隔离 (OFF/false)");
-        }
-        return 0;
-    }
-
-    if (argc < 3) {
-        CliEngine::PrintResponse("语法: power <通道 0-5 | all> <true | false> [save]\r\n");
-        return 1;
-    }
-
-    bool en = false;
-    if (!ParseBoolCli(argv[2], en)) {
-        CliEngine::PrintResponse("参数错误: 开关状态请使用 'true' 或 'false' (亦兼容 1/0, on/off)。\r\n");
-        return 1;
-    }
-
-    bool do_save = (argc > 3 && strcasecmp(argv[3], "save") == 0);
-
-    if (strcasecmp(argv[1], "all") == 0) {
-        PowerManager::Instance().SetAllPower(en);
-        if (do_save) {
-            ConfigManager::Instance().SaveMosMask(PowerManager::Instance().GetPowerMask());
-        }
-        CliEngine::PrintResponse("[MOS] 所有通道 (CH0~5) 供电状态已更新为: %s%s\r\n",
-                                 en ? "导通 (true/ON)" : "隔离 (false/OFF)",
-                                 do_save ? " [已固化至 NVS]" : "");
-        return 0;
-    }
-
-    int ch_val = atoi(argv[1]);
-    if (ch_val < 0 || ch_val > 5) {
-        CliEngine::PrintResponse("参数错误: MOS 通道编号仅支持 0~5 或 'all'。\r\n");
-        return 1;
-    }
-    uint8_t ch = static_cast<uint8_t>(ch_val);
-    bool ok = PowerManager::Instance().SetPower(ch, en);
-    if (do_save && ok) {
-        ConfigManager::Instance().SaveMosMask(PowerManager::Instance().GetPowerMask());
-    }
-    CliEngine::PrintResponse("[MOS] 通道 %u 供电状态已更新为: %s (%s)%s\r\n",
-                             ch, en ? "导通 (true)" : "隔离 (false)",
-                             ok ? "OK" : "FAILED",
-                             do_save ? " [已固化至 NVS]" : "");
-    return ok ? 0 : 1;
-}
-
 static int cmd_status(int argc, char **argv)
 {
     (void)argc;
@@ -497,140 +420,6 @@ static int cmd_status(int argc, char **argv)
         (st.mode == WifiWorkMode::SoftAP) ? "主动 AP" : (st.mode == WifiWorkMode::Station) ? "从 AP (STA)" : "OFF",
         st.is_wireless_debug_active ? "TCP :8266 监听中" : "未启动",
         host_active ? "在线 (C# Heartbeat 活跃)" : "离线 (CLI独立终端模式)",
-        host_active ? "广播中 (Active)" : "已静音 (保护终端杜绝乱码)");
-    return 0;
-}
-
-static int cmd_imu(int argc, char **argv)
-{
-    if (argc > 1) {
-        bool en = false;
-        if (ParseBoolCli(argv[1], en)) {
-            AppCoordinator::Instance().SetImuStream(en);
-            CliEngine::PrintResponse("[IMU动捕] IMU 6轴空间姿态动捕流已%s (IMU:roll,pitch,yaw,ax,ay,az 格式，支持 HelixToolkit 3D 渲染与相空间绘制)。\r\n",
-                                     en ? "开启" : "关闭");
-            return 0;
-        }
-    }
-    ImuMotionData imu;
-    TelemetryManager::Instance().ReadImuMotion(imu);
-    CliEngine::PrintResponse(
-        "IMU 空间动捕姿态状态:\r\n"
-        "  动捕数据流  : %s\r\n"
-        "  硬件接入状态: %s\r\n"
-        "  姿态欧拉角  : Roll: %+.2f°, Pitch: %+.2f°, Yaw: %+.2f°\r\n"
-        "  加速度向量  : Ax: %+.2fg, Ay: %+.2fg, Az: %+.2fg\r\n"
-        "  指令用法    : imu <true|false> 或 telemetry imu <true|false>\r\n",
-        AppCoordinator::Instance().IsImuStream() ? "开启" : "关闭",
-        imu.is_hardware_present ? "物理 I2C 传感器 (0x68/0x69 响应)" : "动态实物旋转动捕仿真模式 (就绪)",
-        imu.roll_deg, imu.pitch_deg, imu.yaw_deg,
-        imu.accel_x, imu.accel_y, imu.accel_z);
-    return 0;
-}
-
-static int cmd_telemetry(int argc, char **argv)
-{
-    if (argc > 1 && strcasecmp(argv[1], "imu") == 0) {
-        if (argc < 3) {
-            CliEngine::PrintResponse("IMU 动捕流状态: %s\r\n用法: telemetry imu <true|false>\r\n",
-                AppCoordinator::Instance().IsImuStream() ? "开启" : "关闭");
-            return 0;
-        }
-        bool en = false;
-        if (!ParseBoolCli(argv[2], en)) {
-            CliEngine::PrintResponse("错误: 参数应为 true 或 false。\r\n");
-            return 1;
-        }
-        AppCoordinator::Instance().SetImuStream(en);
-        CliEngine::PrintResponse("[遥测控制] IMU 空间动捕流已%s。\r\n", en ? "开启" : "关闭");
-        return 0;
-    }
-
-    if (argc > 1 && strcasecmp(argv[1], "vofa") == 0) {
-        if (argc < 3) {
-            const char *mode_desc = !AppCoordinator::Instance().IsVofaStream()
-                ? "关闭"
-                : (AppCoordinator::Instance().IsVofaMultiStream()
-                    ? "开启 (多数据流 BUS/XDS/DAP 分帧打印, 250ms)"
-                    : "开启 (单流 9通道 CH0~CH8, 250ms)");
-            CliEngine::PrintResponse(
-                "VOFA+ FireWater 文本流状态: %s\r\n"
-                "  单流映射 (true) : CH0=bus_v, CH1=bus_ma, CH2=bus_w, CH3=xds_v, CH4=xds_ma, CH5=xds_w, CH6=dap_v, CH7=dap_ma, CH8=dap_w\r\n"
-                "  多流打印 (multi): BUS:v,ma,w / XDS:v,ma,w / DAP:v,ma,w (供上位机蓝图右键按需拆分 CH 通道)\r\n"
-                "  用法: telemetry vofa <true|false|multi>\r\n",
-                mode_desc);
-            return 0;
-        }
-        if (strcasecmp(argv[2], "multi") == 0 || strcasecmp(argv[2], "split") == 0) {
-            AppCoordinator::Instance().SetVofaMultiStream(true);
-            CliEngine::PrintResponse(
-                "[遥测控制] 已开启 VOFA+ 多数据流分帧打印 (BUS / XDS / DAP 三路独立流，250ms 周期，可在上位机 COM 输入节点右键拆分 CH 通道)。\r\n");
-            return 0;
-        }
-        bool vofa_en = false;
-        if (!ParseBoolCli(argv[2], vofa_en)) {
-            CliEngine::PrintResponse("错误: 参数应为 true、false 或 multi。\r\n");
-            return 1;
-        }
-        AppCoordinator::Instance().SetVofaStream(vofa_en);
-        CliEngine::PrintResponse(vofa_en
-            ? "[遥测控制] 已开启 VOFA+ FireWater 9通道文本遥测流 (250ms 周期)。\r\n"
-            : "[遥测控制] 已关闭 VOFA+ FireWater 文本遥测流。\r\n");
-        return 0;
-    }
-
-    if (argc > 1) {
-        const char *arg = argv[1];
-        if (strcasecmp(arg, "save") == 0) {
-            bool cur = AppCoordinator::Instance().IsManualTelemetryStream();
-            ConfigManager::Instance().SaveTelemetryStream(cur);
-            CliEngine::PrintResponse("[NVS] 遥测广播流配置已固化至 NVS: %s\r\n", cur ? "true (开启)" : "false (关闭/静音)");
-            return 0;
-        }
-
-        bool en = false;
-        if (ParseBoolCli(arg, en)) {
-            bool do_save = (argc > 2 && strcasecmp(argv[2], "save") == 0);
-            AppCoordinator::Instance().SetManualTelemetryStream(en);
-            if (do_save) {
-                ConfigManager::Instance().SaveTelemetryStream(en);
-            }
-            if (en) {
-                CliEngine::PrintResponse(
-                    "[遥测控制] 已手动强制开启 250ms 二进制遥测广播流%s。\r\n"
-                    "  提示: 纯文本终端将开始接收二进制原始数据帧并显示字符。\r\n"
-                    "  输入 'telemetry false' 可随时关闭并恢复智能静音模式。\r\n",
-                    do_save ? " [已固化至 NVS]" : "");
-            } else {
-                CliEngine::PrintResponse("[遥测控制] 已关闭手动遥测流，恢复智能静音保护模式 (杜绝终端乱码)%s。\r\n",
-                                         do_save ? " [已固化至 NVS]" : "");
-            }
-            return 0;
-        }
-    }
-
-    TelemetryPayload tel;
-    TelemetryManager::Instance().ReadTelemetry(tel, PowerManager::Instance());
-
-    bool host_active = AppCoordinator::Instance().IsHostActive();
-    bool manual = AppCoordinator::Instance().IsManualTelemetryStream();
-
-    CliEngine::PrintResponse(
-        "================ INA236 硬件传感器实时遥测采样 ================\r\n"
-        "  母线总线   (Bus)   : %5.2f V, %5.0f mA  (%5.2f W)\r\n"
-        "  XDS110通道 (Port 1): %5.2f V, %5.0f mA  (%5.2f W)\r\n"
-        "  DAPLink通道(Port 2): %5.2f V, %5.0f mA  (%5.2f W)\r\n"
-        "----------------------------------------------------------------\r\n"
-        "  上位机连接状态     : %s\r\n"
-        "  二进制广播流模式   : %s\r\n"
-        "================================================================\r\n",
-        tel.bus_voltage_mv / 1000.0f, static_cast<float>(tel.bus_current_ma),
-        (tel.bus_voltage_mv / 1000.0f) * (tel.bus_current_ma / 1000.0f),
-        tel.xds_voltage_mv / 1000.0f, static_cast<float>(tel.xds_current_ma),
-        (tel.xds_voltage_mv / 1000.0f) * (tel.xds_current_ma / 1000.0f),
-        tel.dap_voltage_mv / 1000.0f, static_cast<float>(tel.dap_current_ma),
-        (tel.dap_voltage_mv / 1000.0f) * (tel.dap_current_ma / 1000.0f),
-        host_active ? (manual ? "手动开启 (CLI Override)" : "在线 (C# Heartbeat 活跃)") : "离线 (CLI 独立终端模式)",
         host_active ? "广播中 (Active)" : "已静音 (保护终端杜绝乱码)");
     return 0;
 }
@@ -689,17 +478,6 @@ void CliEngine::RegisterCommands()
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&wifi_cmd));
 
-    const esp_console_cmd_t power_cmd = {
-        .command = "power",
-        .help = "控制 6 路 MOS 供电开通/隔离 (true|false, all, status, save)",
-        .hint = "<ch 0-5|all> <true|false> [save]",
-        .func = &cmd_power,
-        .argtable = NULL,
-        .func_w_context = NULL,
-        .context = NULL
-    };
-    ESP_ERROR_CHECK(esp_console_cmd_register(&power_cmd));
-
     const esp_console_cmd_t status_cmd = {
         .command = "status",
         .help = "查询 ESP32-S3 双核系统资源与运行状态",
@@ -710,28 +488,6 @@ void CliEngine::RegisterCommands()
         .context = NULL
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&status_cmd));
-
-    const esp_console_cmd_t telemetry_cmd = {
-        .command = "telemetry",
-        .help = "查询 INA236 遥测、控制二进制广播流 (true/false) 或 VOFA+ 单流/多流打印 (vofa true/false/multi)",
-        .hint = "[true|false|vofa] [save|multi]",
-        .func = &cmd_telemetry,
-        .argtable = NULL,
-        .func_w_context = NULL,
-        .context = NULL
-    };
-    ESP_ERROR_CHECK(esp_console_cmd_register(&telemetry_cmd));
-
-    const esp_console_cmd_t imu_cmd = {
-        .command = "imu",
-        .help = "6轴 IMU 空间动捕姿态与实物旋转动捕流 (imu [true|false])",
-        .hint = "[true|false]",
-        .func = &cmd_imu,
-        .argtable = NULL,
-        .func_w_context = NULL,
-        .context = NULL
-    };
-    ESP_ERROR_CHECK(esp_console_cmd_register(&imu_cmd));
 
     const esp_console_cmd_t reboot_cmd = {
         .command = "reboot",
@@ -790,7 +546,7 @@ size_t CliEngine::Execute(const char *cmd_line, char *out_response, size_t max_o
     if (!cmd_line || !out_response || max_out_len == 0) return 0;
     if (!m_initialized) Init();
 
-    // 跳过前导空白符
+    // 跳过前导空白字符
     while (*cmd_line == ' ' || *cmd_line == '\t' || *cmd_line == '\r' || *cmd_line == '\n') {
         cmd_line++;
     }
@@ -810,22 +566,27 @@ size_t CliEngine::Execute(const char *cmd_line, char *out_response, size_t max_o
     }
 
     LockGuard lock(m_mutex);
+
     s_response_buf = out_response;
     s_response_max = max_out_len;
     s_response_len = 0;
-    out_response[0] = '\0';
+    s_response_buf[0] = '\0';
 
-    int cmd_ret = 0;
-    esp_err_t err = esp_console_run(clean_cmd, &cmd_ret);
+    int ret_code = 0;
+    esp_err_t err = esp_console_run(clean_cmd, &ret_code);
+
     if (err == ESP_ERR_NOT_FOUND) {
-        PrintResponse("未识别指令 '%s'。输入 'help' 获取可用命令列表。\r\n", clean_cmd);
-    } else if (err != ESP_OK && s_response_len == 0) {
-        PrintResponse("指令执行错误 (0x%X)\r\n", err);
+        PrintResponse("未知指令: \"%s\"。输入 'help' 获取可用命令列表。\r\n", clean_cmd);
+    } else if (err != ESP_OK) {
+        PrintResponse("指令执行失败: %s (错误码: %d)\r\n", esp_err_to_name(err), err);
     }
 
+    size_t actual_len = s_response_len;
     s_response_buf = nullptr;
     s_response_max = 0;
-    return s_response_len;
+    s_response_len = 0;
+
+    return actual_len;
 }
 
 } // namespace LinkNexus

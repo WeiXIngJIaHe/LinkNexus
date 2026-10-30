@@ -388,23 +388,19 @@ LinkNexus (Firmware Workspace)
 
 ├── include/
 
-│   ├── linknexus_config.hpp         # 全局引脚映射、版本基线 (0.18-preview-2641) 与双核绑定常量
+│   ├── linknexus_config.hpp         # 全局引脚映射、版本基线 (0.36-preview-2641) 与双核绑定常量
 
 │   ├── freertos_mutex.hpp           # RAII 互斥锁核心类 (Mutex & LockGuard)，确保双核线程安全
 
 │   ├── protocol.hpp                 # 二进制帧结构、命令字枚举 (0x01~0x50) 与流式有限状态机声明
 
-│   ├── power_manager.hpp            # 6 路 MOS 电源控制管理器头文件 (单例模式)
-
-│   ├── telemetry_manager.hpp        # 3 路 INA236 I2C 采样与平滑仿真回退管理器头文件
-
 │   ├── wifi_manager.hpp             # Wi-Fi 主动 AP/从 AP 射频驱动与 TCP 调试服务管理器头文件
 
 │   ├── cli_engine.hpp               # 基于 esp_console 的原生命令行解析引擎头文件
 
-│   ├── display_manager.hpp          # 屏幕状态同步模型与 LVGL UI 架构头文件
+│   ├── comm_manager.hpp             # 原生 USB CDC / UART0 通信驱动与线程安全发送管理器头文件
 
-│   ├── comm_manager.hpp             # UART 通信驱动接管与线程安全发送管理器头文件
+│   ├── config_manager.hpp           # NVS 掉电非易失性配置存储管理器头文件
 
 │   └── app_coordinator.hpp         # 系统顶层生命周期调度中枢与双核任务协调器头文件
 
@@ -416,23 +412,19 @@ LinkNexus (Firmware Workspace)
 
 │   ├── app_coordinator.cpp         # 双核任务编排实现与 0x01~0x50 协议帧派发中心
 
-│   ├── comm_manager.cpp             # 串口硬件驱动接管与带 Mutex 保护的原子性数据帧发送
+│   ├── comm_manager.cpp             # 原生 USB CDC / UART0 通信驱动与带 Mutex 保护的原子性数据帧发送
 
 │   ├── protocol.cpp                 # 协议帧组装、校验和计算与对齐 C# 的 PackWifiStatus 实现
-
-│   ├── power_manager.cpp            # 6 路 MOS GPIO 硬件驱动与带锁状态切换实现
-
-│   ├── telemetry_manager.cpp        # INA236 物理寄存器读写与微扰仿真平滑算法实现
 
 │   ├── wifi_manager.cpp             # Wi-Fi NVS/Netif 初始化、SoftAP/STA 切换与 TCP:8266 监听服务
 
 │   ├── cli_engine.cpp               # 基于 esp_console 的指令注册、分词解析与执行实现
 
-│   └── display_manager.cpp          # 屏幕状态模型缓存与 LVGL 刷新管线预留实现
+│   └── config_manager.cpp           # NVS 参数持久化与快速恢复实现
 
 ├── platformio.ini                   # PlatformIO 编译环境配置 (esp32-s3-devkitm-1 / espidf 框架)
 
-├── CMakeLists.txt                   # 顶层 CMake 工程配置 (固化 PROJECT_VER 为 0.18-preview-2641)
+├── CMakeLists.txt                   # 顶层 CMake 工程配置 (固化 PROJECT_VER 为 0.36-preview-2641)
 
 ├── sdkconfig.esp32-s3-devkitm-1     # ESP32-S3 专用 Kconfig 固化配置
 
@@ -526,17 +518,21 @@ LinkNexus (Firmware Workspace)
 
 ---
 
-# 七、 最新提交记录与演进状态 (v0.35-preview.2641)
+| **30** | **修改：<br/>1. 硬件部分目前只需要 CDC 串口和 CLI 与上位机通信，还有 WIFI 功能，其他功能直接删掉，等按需要在修改。<br/>2. 软件修复 Bug `System.InvalidOperationException: "Cannot apply backdrop effect if ExtendsContentIntoTitleBar is false."`<br/>3. 明确修改范围边界隔离原则：对硬件和软件修改专门标注，如果是仅对软件修改，不需要修改和添加硬件的内容；如果是硬件修改，也是不需要和添加软件的内容。<br/>全栈升级至 v0.36-preview.2641。** | 1. **固件端极简通信中心重构（仅保留 CDC 串口、CLI 与 Wi-Fi）**：<br/>• **彻底剔除非必要外设驱动**：物理删除 `PowerManager`（6路 MOS 限流）、`TelemetryManager`（3路 INA236 / 6轴 IMU 空间动捕）、`DisplayManager` / `ui_main`（屏幕模型与 LVGL 刷新）、`CAP1208`（电容滑条），共计清理 14 个源文件与头文件；<br/>• **任务管线极限轻量化**：移除 Core 0 `TelemetryTask` 与 `UiTask`，系统仅保留 `CommRxTask`（处理 USB CDC / UART0 接收与双模 CLI）及 Wi-Fi 射频扫描驱动；开机资源消耗降至 RAM 13.1%、Flash 9.9%（节省 ~40KB Flash）；<br/>• **CLI 精简聚焦**：移除 `power`、`telemetry`、`imu` 指令，保留 `help`、`wifi`、`status`、`whoami`、`clear`、`reboot` 纯净通信指令集；<br/>2. **上位机 WPF FluentWindow Mica 异常根治**：<br/>• 在 `MainWindow.xaml` 的 `ui:FluentWindow` 根节点上声明 `ExtendsContentIntoTitleBar="True"`，满足 Windows DWM 与 Wpf.Ui 4.3 对 Mica 亚克力背景渲染的硬性窗口扩展要求，彻底消除启动时的 `InvalidOperationException`；<br/>3. **软硬件单向独立修改原则确立**：<br/>• 在开发与交付流程中确立严格的边界隔离：仅软件任务仅改动上位机，不侵入下位机；仅硬件任务仅改动固件，不侵入上位机；<br/>4. **全站版本号统一递增至 `v0.36-preview.2641`**。 | ✅ **已完全落地** |
+
+---
+
+# 七、 最新提交记录与演进状态 (v0.36-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **版本号统一推进并锁定为 `v0.35-preview.2641`**：
+> 1. **版本号统一推进并锁定为 `v0.36-preview.2641`**：
 >    - 全量同步至 [`include/linknexus_config.hpp`](include/linknexus_config.hpp)、[`CMakeLists.txt`](CMakeLists.txt)、[`README.md`](README.md)、[`simulator/index.html`](simulator/index.html) 与本备忘录；
-> 2. **固件 6 轴 IMU 空间动捕流与动力学遥测**：
->    - 支持 I2C 硬件自动探测与六自由度平滑物理姿态解算，支持 `IMU:roll,pitch,yaw,ax,ay,az` 流式广播与 `telemetry imu` 交互指令；
-> 3. **上位机八大开源技术栈深度协同**：
->    - 融合 Nodify、ScottPlot、HelixToolkit、Wpf.Ui、AvalonDock、NWaves、ModelContextProtocol、pythonnet，实现 VS / Blender 式自由拖拽分屏底座、实物旋转 3D 动捕、相空间动态轨道与进程内零拷贝算法直传；
-> 4. **全量构建验证 0 警告、0 错误**：
->    - 固件 PlatformIO 构建成功（RAM 13.3%, Flash 10.4%），上位机 .NET 10 Release & Debug 构建成功，MCP JSON-RPC 2.0 协议实测 100% 通过。
+> 2. **硬件固件极简化（通信核心枢纽）**：
+>    - 彻底移除 MOS 电源管理、INA236/IMU 遥测与屏幕 UI 渲染驱动，仅保留 Native USB CDC 串口、原生 CLI（`esp_console`）与 Wi-Fi 射频通信；PlatformIO 编译 0 警告 0 错误；
+> 3. **上位机 WPF FluentWindow Mica 背景修复**：
+>    - 声明 `ExtendsContentIntoTitleBar="True"`，根除 `System.InvalidOperationException`；.NET 10 Release & Debug 构建 0 警告 0 错误，Git 追踪 0 个 `.py` 文件；
+> 4. **确立软硬件变更边界隔离标准**：
+>    - 硬件任务与软件任务互不污染，按标注独立推进。
 
 ---
 
@@ -544,9 +540,8 @@ LinkNexus (Firmware Workspace)
 
 > 💡 **使用指南**：  
 > 当您对硬件固件或上位机有新的功能诉求、外设变更或协议调整时，**无需编写代码，直接在下方空白处追加您的自然语言想法**。例如：
-> - *“修改：在 CLI 中增加一条 i2c scan 指令，用来扫描当前总线挂载的传感器从机地址”*
-> - *“修改：把 SoftAP 的默认热点名称改为 LinkNexus-Lab-Pro，密码默认为 88888888”*
-> - *“修改：当上位机断开连接超过 3 秒时，自动关闭所有 MOS 通道供电，做安全离线保护”*
+> - *“硬件修改：在 CLI 中增加一条 i2c scan 指令，用来扫描当前总线挂载的传感器从机地址”*
+> - *“软件修改：在上位机界面增加暗黑模式与明亮模式的一键切换开关”*
 >
 > 随时在此下方直接书写，保存后呼叫我，我将立即严格按照本 DESIGN 备忘录规范为您推进落地并步进版本号！
 

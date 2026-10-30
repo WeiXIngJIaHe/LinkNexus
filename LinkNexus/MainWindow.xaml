@@ -7,6 +7,7 @@
         xmlns:bpCtrl="clr-namespace:LinkNexus.Blueprint.Controls"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:dock="https://github.com/Dirkster99/AvalonDock"
+        ExtendsContentIntoTitleBar="True"
         WindowBackdropType="Mica"
         mc:Ignorable="d"
         Title="LinkNexus - 多协议桌面硬件调试站"

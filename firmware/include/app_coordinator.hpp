@@ -4,9 +4,6 @@
 #include <stdbool.h>
 #include <atomic>
 #include "protocol.hpp"
-#include "power_manager.hpp"
-#include "telemetry_manager.hpp"
-#include "display_manager.hpp"
 #include "comm_manager.hpp"
 #include "wifi_manager.hpp"
 #include "cli_engine.hpp"
@@ -15,24 +12,24 @@
 namespace LinkNexus {
 
 /**
- * @brief 系统主控中枢与 FreeRTOS 双核任务调度协调器
- * 负责各子系统单例生命周期管理、协议分发回调以及双核任务调度编排
+ * @brief 系统主控中枢与 FreeRTOS 任务协调器
+ * 精简架构：仅保留 CDC 串口、CLI 与上位机通信以及 Wi-Fi 功能
  *
  * 核心调度设计：
- * - Core 1: comm_rx 任务 (高速串口帧解包、低时延响应与协议分发)
- * - Core 0: telemetry 任务 (250ms INA236 I2C 采样与上报) + ui_task 任务 (LVGL/屏幕刷新循环)
+ * - Core 1: comm_rx 任务 (高速 USB CDC / UART0 串口帧解包、低时延响应与协议分发)
+ * - Core 0: Wi-Fi 任务与后台 TCP CLI 服务
  */
 class AppCoordinator {
 public:
     static AppCoordinator& Instance();
 
     /**
-     * @brief 初始化所有硬件模块与通信引擎
+     * @brief 初始化通信硬件层、Wi-Fi 与 CLI 引擎
      */
     void Init();
 
     /**
-     * @brief 创建并启动 FreeRTOS 双核并发任务
+     * @brief 创建并启动 FreeRTOS 任务
      */
     void Start();
 
@@ -46,28 +43,7 @@ public:
      */
     void TouchHostActivity();
 
-    /**
-     * @brief 设置/查询是否强制手动开启二进制遥测流 (供 CLI 调试使用)
-     */
-    void SetManualTelemetryStream(bool enable);
-    bool IsManualTelemetryStream() const;
     uint32_t GetLastHostActivityTick() const;
-
-    /**
-     * @brief 设置/查询 VOFA+ FireWater 文本遥测流
-     * 开启后每 250ms 输出逗号分隔浮点帧（支持单行 9 通道或 BUS/XDS/DAP 多数据流分帧打印），直接对接上位机流式蓝图 COM 输入卡片右键 CH 拆分与 VOFA+ 波形绘制。
-     */
-    void SetVofaStream(bool enable);
-    bool IsVofaStream() const;
-    void SetVofaMultiStream(bool enable);
-    bool IsVofaMultiStream() const;
-
-    /**
-     * @brief 设置/查询 IMU 空间姿态动捕流
-     * 开启后每 50ms~100ms 输出 IMU:roll,pitch,yaw,ax,ay,az 帧，直接驱动上位机 3D 动捕与相空间轨迹卡片
-     */
-    void SetImuStream(bool enable);
-    bool IsImuStream() const;
 
 private:
     AppCoordinator();
@@ -80,16 +56,10 @@ private:
     void ExecuteSerialCli(const char *cmd);
 
     static void CommRxTaskEntry(void *pvParameters);
-    static void TelemetryTaskEntry(void *pvParameters);
-    static void UiTaskEntry(void *pvParameters);
 
     ProtocolParser m_parser;
     bool m_initialized{false};
     bool m_started{false};
-    std::atomic<bool> m_manual_telemetry_stream{false};
-    std::atomic<bool> m_vofa_stream{false};
-    std::atomic<bool> m_vofa_multistream{false};
-    std::atomic<bool> m_imu_stream{false};
     std::atomic<uint32_t> m_last_host_activity_tick{0};
 };
 

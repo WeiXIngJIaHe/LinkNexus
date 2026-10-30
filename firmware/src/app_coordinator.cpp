@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <string.h>
 
 namespace LinkNexus {
 
@@ -30,43 +31,28 @@ void AppCoordinator::Init()
     ESP_LOGI(TAG, "  LinkNexus Dual-Core Firmware [ESP32-S3 Core]");
     ESP_LOGI(TAG, "  Baseline Version : %s", LINKNEXUS_FIRMWARE_VERSION);
     ESP_LOGI(TAG, "  Hardware Model   : %s", LINKNEXUS_HARDWARE_MODEL);
-    ESP_LOGI(TAG, "  Architecture     : FreeRTOS SMP Dual-Core (C++17 Engine)");
+    ESP_LOGI(TAG, "  Modules          : USB CDC Serial | CLI Engine | Wi-Fi");
     ESP_LOGI(TAG, "==========================================================");
 
-    // 0. 初始化配置中心并从 NVS 闪存加载所有参数
+    // 0. 初始化配置中心并从 NVS 闪存加载 Wi-Fi 参数
     ConfigManager::Instance().Init();
 
-    // 1. 初始化供电管理模块 (6路 MOS)
-    PowerManager::Instance().Init();
-
-    // 2. 初始化高精度遥测模块 (INA236 I2C)
-    TelemetryManager::Instance().Init();
-
-    // 3. 初始化显示与 UI 管理模块 (ST7789 & LVGL 架构)
-    DisplayManager::Instance().Init();
-
-    // 4. 初始化全双工通信硬件层 (UART0)
+    // 1. 初始化全双工通信硬件层 (UART0 与原生 USB-Serial-JTAG CDC 双通道)
     CommManager::Instance().Init();
 
-    // 5. 初始化 Wi-Fi 与无线调试底层
+    // 2. 初始化 Wi-Fi 与无线调试底层
     WifiManager::Instance().Init();
 
-    // 6. 初始化基于 esp_console 的原生 CLI 引擎
+    // 3. 初始化基于 esp_console 的原生 CLI 引擎
     CliEngine::Instance().Init();
 
-    // 若 NVS 中配置了开机默认开启遥测广播流，则应用该配置
-    if (ConfigManager::Instance().GetTelemetryStream()) {
-        SetManualTelemetryStream(true);
-    }
-
     m_initialized = true;
-    ESP_LOGI(TAG, "Subsystems initialized. Ready to orchestrate dual-core tasks.");
+    ESP_LOGI(TAG, "Subsystems initialized. Ready to orchestrate communication tasks.");
 }
 
 void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_t len)
 {
     bool was_active = IsHostActive();
-    // 收到合法二进制协议帧，立刻标记上位机链路活跃 (保持 250ms 遥测上报流)
     TouchHostActivity();
 
     uint8_t tx_buf[512];
@@ -80,40 +66,6 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
             }
             tx_len = ProtocolUtils::PackHeartbeatAck(seq, tx_buf);
             CommManager::Instance().SendRawFrame(tx_buf, tx_len);
-            break;
-        }
-
-        case ProtocolCmd::TelemetryReport: {
-            CommManager::Instance().Printf("[指令] 刷新遥测数据 (0x10)\r\n");
-            TelemetryPayload telemetry;
-            TelemetryManager::Instance().ReadTelemetry(telemetry, PowerManager::Instance());
-            tx_len = ProtocolUtils::PackTelemetry(telemetry, tx_buf);
-            CommManager::Instance().SendRawFrame(tx_buf, tx_len);
-            break;
-        }
-
-        case ProtocolCmd::ScreenSync: {
-            ScreenSyncInfo sync_info;
-            if (ProtocolUtils::ParseScreenSync(payload, len, sync_info)) {
-                CommManager::Instance().Printf("[指令] 屏幕同步: 通道 #%u, 进度 %u%%, 设备: %s\r\n",
-                                               sync_info.active_channel, sync_info.flash_progress, sync_info.device_name);
-                DisplayManager::Instance().UpdateState(sync_info);
-            }
-            break;
-        }
-
-        case ProtocolCmd::PowerControl: {
-            if (len >= 2) {
-                uint8_t channel = payload[0];
-                bool enable = (payload[1] != 0x00);
-                CommManager::Instance().Printf("[供电] 通道 #%u MOS: %s\r\n",
-                                               channel, enable ? "导通 (ON)" : "隔离 (OFF)");
-                bool ok = PowerManager::Instance().SetPower(channel, enable);
-                if (ok) {
-                    tx_len = ProtocolUtils::PackPowerAck(channel, enable, tx_buf);
-                    CommManager::Instance().SendRawFrame(tx_buf, tx_len);
-                }
-            }
             break;
         }
 
@@ -152,17 +104,17 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
                 CommManager::Instance().Printf("[上位机指令] 收到 0x40 Wi-Fi控制 -> 动作: 0x%02X (%s), 信道: %u, SSID: '%s'\r\n",
                                                action, act_desc, channel, ssid);
 
-                if (action == 1) { // 启动 SoftAP (主动 AP)
+                if (action == 1) {
                     if (strlen(ssid) == 0) strcpy(ssid, "LinkNexus-ESP32-AP");
                     if (strlen(pwd) == 0) strcpy(pwd, "12345678");
                     WifiManager::Instance().StartAp(ssid, pwd, channel);
-                } else if (action == 2) { // 启动 Station (从 AP)
+                } else if (action == 2) {
                     if (strlen(ssid) > 0) {
                         WifiManager::Instance().ConnectSta(ssid, pwd);
                     }
-                } else if (action == 3) { // 断开 Wi-Fi
+                } else if (action == 3) {
                     WifiManager::Instance().Disconnect();
-                } else if (action == 4) { // 扫描周边真实 Wi-Fi 热点 (仅需执行一次与复用缓存)
+                } else if (action == 4) {
                     char scan_buf[1536];
                     size_t scan_len = WifiManager::Instance().ScanNetworks(scan_buf, sizeof(scan_buf));
                     if (scan_len > 0) {
@@ -183,7 +135,6 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
                     }
                 }
 
-                // 立即回复上位机当前 0x40 状态响应包 (完全对齐 ParseWifiStatusPayload)
                 WifiStatusInfo st = WifiManager::Instance().GetStatus();
                 tx_len = ProtocolUtils::PackWifiStatus(static_cast<uint8_t>(st.mode), st.channel, st.rssi,
                                                        st.connected_clients, st.wireless_debug_port,
@@ -194,7 +145,6 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
         }
 
         case ProtocolCmd::CliTransfer: {
-            // 0x50: 交互式 CLI 命令与应答 [Payload: 指令字符串]
             if (len > 0) {
                 char cmd_str[256];
                 uint8_t copy_len = (len < sizeof(cmd_str) - 1) ? len : sizeof(cmd_str) - 1;
@@ -226,7 +176,7 @@ void AppCoordinator::OnFrameReceived(uint8_t cmd, const uint8_t *payload, uint8_
         }
 
         default:
-            ESP_LOGW(TAG, "Received unknown command code: 0x%02X (Len: %u)", cmd, len);
+            ESP_LOGW(TAG, "Received unhandled command: 0x%02X (Len: %u)", cmd, len);
             break;
     }
 }
@@ -235,7 +185,6 @@ void AppCoordinator::ExecuteSerialCli(const char *cmd)
 {
     if (!cmd || strlen(cmd) == 0) return;
 
-    // 静态输出缓冲区，彻底避免在任务栈上分配 1.5KB 数组引发爆栈崩溃
     static char s_cli_response_str[2048];
 
     char header_buf[128];
@@ -262,7 +211,7 @@ void AppCoordinator::CommRxTaskEntry(void *pvParameters)
     size_t cli_len = 0;
     TickType_t last_char_tick = 0;
 
-    ESP_LOGI(TAG, "CommRxTask running on Core %d (Dual-Channel: UART0 & USB-Serial-JTAG).", xPortGetCoreID());
+    ESP_LOGI(TAG, "CommRxTask running on Core %d (Dual-Channel: UART0 & USB-Serial-JTAG CDC).", xPortGetCoreID());
 
     while (1) {
         int bytes_read = CommManager::Instance().ReadBytes(rx_buffer, sizeof(rx_buffer), pdMS_TO_TICKS(20));
@@ -303,7 +252,6 @@ void AppCoordinator::CommRxTaskEntry(void *pvParameters)
                             cli_line[cli_len++] = static_cast<char>(b);
                             last_char_tick = xTaskGetTickCount();
 
-                            // 终端字符本地回显 (Local Echo - 由 CommManager 统一发送，杜绝与 stdout 重复)
                             char echo[2] = { static_cast<char>(b), '\0' };
                             CommManager::Instance().Print(echo);
                         }
@@ -311,7 +259,6 @@ void AppCoordinator::CommRxTaskEntry(void *pvParameters)
                 }
             }
         } else {
-            // 超时自动提交执行机制 (防止部分串口工具/ESP Decoder 发送时未勾选“加回车换行符”)
             if (cli_len >= 3 && last_char_tick > 0 && (xTaskGetTickCount() - last_char_tick > pdMS_TO_TICKS(800))) {
                 cli_line[cli_len] = '\0';
                 self->ExecuteSerialCli(cli_line);
@@ -324,12 +271,8 @@ void AppCoordinator::CommRxTaskEntry(void *pvParameters)
 
 bool AppCoordinator::IsHostActive() const
 {
-    if (m_manual_telemetry_stream.load()) {
-        return true;
-    }
     uint32_t last_tick = m_last_host_activity_tick.load();
     if (last_tick == 0) return false;
-    // 上位机每 1000ms 发送一次心跳，若超过 3500ms 未收到任何协议包，则判定上位机离线
     return (xTaskGetTickCount() - last_tick) < pdMS_TO_TICKS(3500);
 }
 
@@ -338,132 +281,13 @@ void AppCoordinator::TouchHostActivity()
     bool was_active = IsHostActive();
     m_last_host_activity_tick.store(xTaskGetTickCount());
     if (!was_active) {
-        ESP_LOGI(TAG, "LinkNexus C# Host connected. Activated 250ms telemetry binary stream.");
+        ESP_LOGI(TAG, "LinkNexus C# Host connected.");
     }
-}
-
-void AppCoordinator::SetManualTelemetryStream(bool enable)
-{
-    m_manual_telemetry_stream.store(enable);
-    ESP_LOGI(TAG, "Manual telemetry stream set to: %s", enable ? "ON" : "OFF");
-}
-
-bool AppCoordinator::IsManualTelemetryStream() const
-{
-    return m_manual_telemetry_stream.load();
 }
 
 uint32_t AppCoordinator::GetLastHostActivityTick() const
 {
     return m_last_host_activity_tick.load();
-}
-
-void AppCoordinator::SetVofaStream(bool enable)
-{
-    m_vofa_stream.store(enable);
-    m_vofa_multistream.store(false);
-    ESP_LOGI(TAG, "VOFA+ FireWater stream set to: %s (Single 9CH)", enable ? "ON" : "OFF");
-}
-
-bool AppCoordinator::IsVofaStream() const
-{
-    return m_vofa_stream.load();
-}
-
-void AppCoordinator::SetVofaMultiStream(bool enable)
-{
-    m_vofa_multistream.store(enable);
-    if (enable) {
-        m_vofa_stream.store(true);
-    }
-    ESP_LOGI(TAG, "VOFA+ FireWater multi-stream mode set to: %s (BUS/XDS/DAP)", enable ? "ON" : "OFF");
-}
-
-bool AppCoordinator::IsVofaMultiStream() const
-{
-    return m_vofa_multistream.load();
-}
-
-void AppCoordinator::SetImuStream(bool enable)
-{
-    m_imu_stream.store(enable);
-    ESP_LOGI(TAG, "IMU motion capture stream set to: %s", enable ? "ON" : "OFF");
-}
-
-bool AppCoordinator::IsImuStream() const
-{
-    return m_imu_stream.load();
-}
-
-void AppCoordinator::TelemetryTaskEntry(void *pvParameters)
-{
-    auto *self = static_cast<AppCoordinator*>(pvParameters);
-    uint8_t tx_buf[32];
-    TelemetryPayload telemetry;
-    ESP_LOGI(TAG, "TelemetryTask running on Core %d (Priority: 5, Period: 250ms).", xPortGetCoreID());
-
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(250));
-
-        // 仅在上位机处于活跃握手状态 (已收到心跳且未超时) 或 开发者开启手动遥测流时才发送二进制帧
-        // 彻底杜绝纯文本终端 (ESP Decoder) 刷屏乱码，并节约双核 CPU 与总线资源
-        bool send_binary = self && self->IsHostActive();
-        bool send_vofa = self && self->IsVofaStream();
-        bool send_imu = self && self->IsImuStream();
-        if (!send_binary && !send_vofa && !send_imu) {
-            continue;
-        }
-
-        if (send_binary || send_vofa) {
-            TelemetryManager::Instance().ReadTelemetry(telemetry, PowerManager::Instance());
-        }
-
-        if (send_binary) {
-            size_t len = ProtocolUtils::PackTelemetry(telemetry, tx_buf);
-            CommManager::Instance().SendRawFrame(tx_buf, len);
-        }
-
-        if (send_vofa) {
-            const float bus_v = telemetry.bus_voltage_mv / 1000.0f;
-            const float bus_w = bus_v * telemetry.bus_current_ma / 1000.0f;
-            const float xds_v = telemetry.xds_voltage_mv / 1000.0f;
-            const float xds_w = xds_v * telemetry.xds_current_ma / 1000.0f;
-            const float dap_v = telemetry.dap_voltage_mv / 1000.0f;
-            const float dap_w = dap_v * telemetry.dap_current_ma / 1000.0f;
-            if (self->IsVofaMultiStream()) {
-                CommManager::Instance().Printf("BUS:%.3f,%d,%.3f\n",
-                    bus_v, (int)telemetry.bus_current_ma, bus_w);
-                CommManager::Instance().Printf("XDS:%.3f,%d,%.3f\n",
-                    xds_v, (int)telemetry.xds_current_ma, xds_w);
-                CommManager::Instance().Printf("DAP:%.3f,%d,%.3f\n",
-                    dap_v, (int)telemetry.dap_current_ma, dap_w);
-            } else {
-                CommManager::Instance().Printf("%.3f,%d,%.3f,%.3f,%d,%.3f,%.3f,%d,%.3f\n",
-                    bus_v, (int)telemetry.bus_current_ma, bus_w,
-                    xds_v, (int)telemetry.xds_current_ma, xds_w,
-                    dap_v, (int)telemetry.dap_current_ma, dap_w);
-            }
-        }
-
-        if (send_imu) {
-            ImuMotionData imu;
-            TelemetryManager::Instance().ReadImuMotion(imu);
-            CommManager::Instance().Printf("IMU:%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
-                imu.roll_deg, imu.pitch_deg, imu.yaw_deg,
-                imu.accel_x, imu.accel_y, imu.accel_z);
-        }
-    }
-}
-
-void AppCoordinator::UiTaskEntry(void *pvParameters)
-{
-    (void)pvParameters;
-    ESP_LOGI(TAG, "UiTask running on Core %d (Priority: 4).", xPortGetCoreID());
-
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(50));
-        DisplayManager::Instance().ProcessUi();
-    }
 }
 
 void AppCoordinator::Start()
@@ -473,7 +297,7 @@ void AppCoordinator::Start()
         Init();
     }
 
-    ESP_LOGI(TAG, "Pinning tasks across ESP32-S3 dual cores...");
+    ESP_LOGI(TAG, "Spawning communications and Wi-Fi services...");
 
     // 1. Core 1 专用于高速协议解析与串口收发 (实时性要求极高)
     xTaskCreatePinnedToCore(CommRxTaskEntry,
@@ -484,35 +308,16 @@ void AppCoordinator::Start()
                             nullptr,
                             Cores::COMMUNICATION_CORE);
 
-    // 2. Core 0 专用于传感器 I2C 遥测采集 (250ms 周期，仅在握手在线时上报)
-    xTaskCreatePinnedToCore(TelemetryTaskEntry,
-                            "telemetry",
-                            4096,
-                            this,
-                            5,
-                            nullptr,
-                            Cores::SYSTEM_CORE);
-
-    // 3. Core 0 运行 UI 刷新与 LVGL 任务循环
-    xTaskCreatePinnedToCore(UiTaskEntry,
-                            "ui_task",
-                            4096,
-                            nullptr,
-                            4,
-                            nullptr,
-                            Cores::SYSTEM_CORE);
-
-    // 4. Core 0 启动开机初始 Wi-Fi 扫描任务 (后台单次执行并串口打印 AP 列表，彻底避免阻塞)
+    // 2. Core 0 启动开机初始 Wi-Fi 扫描任务 (后台单次执行并串口打印 AP 列表)
     WifiManager::Instance().StartInitialScanTask();
 
     m_started = true;
-    ESP_LOGI(TAG, "All dual-core tasks spawned and running smoothly.");
+    ESP_LOGI(TAG, "Communication tasks spawned and running smoothly.");
 
-    // 5. 双核初始化完成：输出系统就绪通知
+    // 3. 输出系统就绪通知
     const char *ready_msg = "[LINKNEXUS] SYSTEM_READY (MAC: " LINKNEXUS_DEFAULT_MAC ").\r\n";
     CommManager::Instance().Print(ready_msg);
 
-    // 5.1 若上位机此时已连接，则补发二进制心跳响应与 CLI 激活通知
     if (IsHostActive()) {
         uint8_t ready_frame[16];
         size_t ready_len = ProtocolUtils::PackHeartbeatAck(0x00, ready_frame);
@@ -528,4 +333,3 @@ void AppCoordinator::Start()
 }
 
 } // namespace LinkNexus
-

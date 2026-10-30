@@ -358,6 +358,17 @@ uint32_t AppCoordinator::GetLastHostActivityTick() const
     return m_last_host_activity_tick.load();
 }
 
+void AppCoordinator::SetVofaStream(bool enable)
+{
+    m_vofa_stream.store(enable);
+    ESP_LOGI(TAG, "VOFA+ FireWater stream set to: %s", enable ? "ON" : "OFF");
+}
+
+bool AppCoordinator::IsVofaStream() const
+{
+    return m_vofa_stream.load();
+}
+
 void AppCoordinator::TelemetryTaskEntry(void *pvParameters)
 {
     auto *self = static_cast<AppCoordinator*>(pvParameters);
@@ -370,10 +381,27 @@ void AppCoordinator::TelemetryTaskEntry(void *pvParameters)
 
         // 仅在上位机处于活跃握手状态 (已收到心跳且未超时) 或 开发者开启手动遥测流时才发送二进制帧
         // 彻底杜绝纯文本终端 (ESP Decoder) 刷屏乱码，并节约双核 CPU 与总线资源
-        if (self && self->IsHostActive()) {
-            TelemetryManager::Instance().ReadTelemetry(telemetry, PowerManager::Instance());
+        bool send_binary = self && self->IsHostActive();
+        bool send_vofa = self && self->IsVofaStream();
+        if (!send_binary && !send_vofa) {
+            continue;
+        }
+
+        TelemetryManager::Instance().ReadTelemetry(telemetry, PowerManager::Instance());
+
+        if (send_binary) {
             size_t len = ProtocolUtils::PackTelemetry(telemetry, tx_buf);
             CommManager::Instance().SendRawFrame(tx_buf, len);
+        }
+
+        if (send_vofa) {
+            const float bus_v = telemetry.bus_voltage_mv / 1000.0f;
+            const float xds_v = telemetry.xds_voltage_mv / 1000.0f;
+            const float dap_v = telemetry.dap_voltage_mv / 1000.0f;
+            CommManager::Instance().Printf("%.3f,%d,%.3f,%.3f,%d,%.3f,%.3f,%d,%.3f\n",
+                bus_v, (int)telemetry.bus_current_ma, bus_v * telemetry.bus_current_ma / 1000.0f,
+                xds_v, (int)telemetry.xds_current_ma, xds_v * telemetry.xds_current_ma / 1000.0f,
+                dap_v, (int)telemetry.dap_current_ma, dap_v * telemetry.dap_current_ma / 1000.0f);
         }
     }
 }

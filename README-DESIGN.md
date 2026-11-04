@@ -52,7 +52,7 @@
 
 > **文档目的**：汇整当前 ESP32-S3 固件的完整架构设计、底层通信机制与功能实现逻辑（采用通俗严谨的自然语句表述）。**已根据您在备忘录下方提交的全部修改要求严格实施落地**。您可以随时通过自然语言在文档末尾继续审查或提出后续迭代意见。  
 
-> **当前工程基线版本**：`v0.35-preview.2641`  
+> **当前工程基线版本**：`v0.40-preview.2641`  
 
 > **技术栈**：ESP32-S3 (Xtensa LX7 240MHz 双核) | ESP-IDF v5.x | FreeRTOS SMP | C++17 | 全双工二进制防粘包协议 | INA236 I2C 采样 | 802.11 b/g/n Wi-Fi AP/STA | 原生 CLI 引擎 (esp_console) | PlatformIO
 
@@ -94,7 +94,7 @@
 
 - [六、 您的修改提交与落地状态对照表 (需求回顾与验证)](#六-您的修改提交与落地状态对照表-需求回顾与验证)
 
-- [七、 最新提交记录与演进状态 (v0.35-preview.2641)](#七-最新提交记录与演进状态-v035-preview2641)
+- [七、 最新提交记录与演进状态 (v0.40-preview.2641)](#七-最新提交记录与演进状态-v040-preview2641)
 
 - [八、 后续修改提交区（您可直接在此下方追加自然语言修改意见）](#八-后续修改提交区您可直接在此下方追加自然语言修改意见)
 
@@ -534,21 +534,29 @@ LinkNexus (Firmware Workspace)
 
 ---
 
-# 七、 最新提交记录与演进状态 (v0.39-preview.2641)
+| **34** | **修改：软件<br/>1. 对节点式蓝图设计器正上方的核心卡片、预设、启动、停止全部移除，保留正中央的画布足够宽裕。<br/>2. 放大、启动、停止放置画布于右下角。<br/>3. Part 1: 引入 MathNet.Numerics 并构建 4 张高阶数学算子卡片 (Category: Math & Calculus, Amber/Gold Gradient)：`ScalarMathNode`、`RealtimeCalculusNode`、`MatrixTransformNode`、`DataToFunctionFitNode`。<br/>4. Part 2: Blender 式 (Shift+A / 右键) 模糊搜索弹窗 (`NodeSearchPopup.xaml` & `NodeRegistry.cs`)、UE5 蓝图式拉线松手弹窗自适应连线 (Drop-Wire to Spawn)、Blender 式拖拽卡片切入现有连线 (Auto-Insert Node on Wire)。<br/>全栈升级至 `v0.40-preview.2641`。** | 1. **中央画布视野最大化与右下角悬浮 HUD 胶囊化**：<br/>• 彻底移除蓝图设计器正上方横跨视窗的 20+ 按钮顶栏，画布视口高度扩充至 100%；<br/>• 画布右下角引入悬浮 HUD 玻璃胶囊：集成画布缩放 (`-`/`100%`/`+`)、`▶ 启动全部源`、`■ 停止全部`、`自动排版`、`清空连线` 以及 `💡 Shift+A / 右键` 快捷徽章；<br/>2. **MathNet.Numerics 4 大高阶数学算子卡片库落地**：<br/>• 全量计算基于硬件微秒时间戳 `dt = (current.TimestampUs - prev.TimestampUs) * 1e-6`，双管线 (`Core/Pipeline/Nodes/` & `Blueprint/Nodes/`) 严格同步：<br/>  - `ScalarMathNode`：一卡多模标量运算 (Add, Subtract, Multiply, Divide, MapRange, Deadzone, Atan2)，动态切换引脚与内联控件；<br/>  - `RealtimeCalculusNode`：双模时序微积分 (带一阶低通滤波 Tau 的不完全微分 Dirty Derivative 与双精度防温漂梯形积分，带 AntiWindup、LeakyFactor 0.99999 与 ResetTrigger 清零引脚)；<br/>  - `MatrixTransformNode`：基于 MathNet 矩阵空间变换 ($\vec{Y} = M \cdot \vec{X} + \vec{B}$)，支持 3x3/4x4 编辑器与旋转/磁力计校准逆矩阵/麦轮底盘分配预设；<br/>  - `DataToFunctionFitNode`：实时最小二乘与三次样条拟合，卡片显示公式与残差曲线，提供 [生成 C 宏/函数] 一键复制霍纳法则 C 代码并实时对 Eval_X 求值；<br/>3. **Blender 与 UE5 神级画布交互引擎落成**：<br/>• `NodeRegistry.cs` 全局卡片注册表：统一管理 16+ 节点元数据、分类色阶与拼音缩写 (如 `jf` 积分、`km` 卡尔曼、`+` 加法)；<br/>• `NodeSearchPopup.xaml`：无边框暗黑毛玻璃浮窗，Shift+A 或右键即刻聚焦，↑↓ 切换与 Enter 实例化；<br/>• UE5 Drop-Wire to Spawn：从 Output/Input 引脚拖出贝塞尔线松手空白处自动弹窗并按数据类型过滤兼容算子，选定后自动建链；<br/>• Blender Auto-Insert on Wire：拖拽算子悬停在已有连线上释放，通过贝塞尔距离 HitTest 自动断开 `A -> B` 并重构为 `A -> 新卡片 -> B`；<br/>4. **全栈基线版本统一递增至 `v0.40-preview.2641`**：<br/>• 同步更新 `LinkNexus.csproj`、`VersionInfo.cs`、`README.md` 与本 DESIGN 备忘录；Release 与 Debug 构建实现 **0 警告、0 错误**，Git 追踪 0 个 `.py` 文件。 | ✅ **已完全落地** |
+
+---
+
+# 七、 最新提交记录与演进状态 (v0.40-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **版本号统一推进并锁定为 `v0.39-preview.2641`**：
+> 1. **版本号统一推进并锁定为 `v0.40-preview.2641`**：
 >    - 全量同步至上位机工程 [`LinkNexus.csproj`](../source/repos/LinkNexus/LinkNexus/LinkNexus.csproj)、[`VersionInfo.cs`](../source/repos/LinkNexus/LinkNexus/VersionInfo.cs)、[`README.md`](../source/repos/LinkNexus/README.md) 与本备忘录；
-> 2. **Blender/UE5 全栈 8 大核心硬件与算法卡片库落地**：
->    - 双层架构全面落成：`Core/Pipeline/Nodes/` (Nodify) 与 `Blueprint/Nodes/` (Canvas) 同步支持 8 大核心卡片；
->    - 严格遵循 Blender/UE5 Pin 内联规范：未连线显示输入控件 (`HasInlineWidget && !IsConnected`)，连线后自动隐藏；
->    - UI 三层渐变色阶规范：Crimson Gradient (母舰硬件)、Cyan/Amber Gradient (数据拆分与计算)、Purple Gradient (控制与 AI MCP)；
-> 3. **页面比例动态化与弹性响应式调优**：
->    - 工作台主页面添加 `MaxWidth="1420"` 居中流式容器，杜绝单页面横向占满 100% 窗口；
->    - 重新校准 AvalonDock 工具箱 (`270px`) 与示波器/3D视口 (`460px`) 停靠宽度，优化中央画布视觉占比；
-> 4. **构建与运行验证**：
+> 2. **蓝图设计器视野彻底最大化 & 悬浮 HUD 控件右下角化**：
+>    - 移除正上方全部核心卡片、预设、启动、停止顶栏，保留正中央画布最大化视野；
+>    - 在画布右下角构建精致悬浮 HUD 玻璃胶囊控制层：缩放 (`-`/`100%`/`+`)、启动全部源、停止全部、自动排版、清空连线与快捷键指引；
+> 3. **MathNet.Numerics 4 张高阶数学算子卡片库落地**：
+>    - 继承 `NodeBase`，基于硬件微秒级时间戳 `dt = (current.TimestampUs - prev.TimestampUs) * 1e-6` 实现高精度计算：
+>    - `ScalarMathNode`、`RealtimeCalculusNode`、`MatrixTransformNode`、`DataToFunctionFitNode`（霍纳法则 C 代码生成与残差显示）；
+>    - 双管线（`Core/Pipeline/Nodes/` 与 `Blueprint/Nodes/`）完全一致支持；
+> 4. **Blender 与 UE5 交互引擎落成**：
+>    - `NodeRegistry.cs` 与 `NodeSearchPopup.xaml`：Shift+A / 右键唤醒无边框暗黑毛玻璃搜索，支持中英文与拼音缩写（`jf`, `km`, `+`）；
+>    - UE5 Drop-Wire to Spawn：引脚拉线至空白处释放自动按引脚兼容性过滤弹窗并自动建链；
+>    - Blender Auto-Insert on Wire：拖拽算子悬停在连线上释放，通过贝塞尔距离检测自动断开原连线并切入；
+> 5. **构建与运行验证**：
 >    - .NET 10 Release & Debug 构建实现 **0 警告、0 错误**，Git 严格追踪 0 个 `.py` 文件；
-> 5. **软硬件单向隔离准则持续遵守**：
+> 6. **软硬件单向隔离准则持续遵守**：
 >    - 本次任务仅涉及上位机开发，下位机固件与硬件驱动保持零变更。
 
 ---

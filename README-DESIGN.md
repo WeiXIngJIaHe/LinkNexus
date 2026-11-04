@@ -530,22 +530,26 @@ LinkNexus (Firmware Workspace)
 
 ---
 
-# 七、 最新提交记录与演进状态 (v0.38-preview.2641)
+| **33** | **修改：<br/>1. 构建工业级 Blender/UE5 风格全栈硬件与算法卡片库 (Node Library)：<br/>• 第一组：母舰硬件与总线探针卡 (Crimson Gradient)：`MotherbaseHubSourceNode` (CH343P 6Mbps, FT2232, INA236, RawBytes/Vbus/Ibus/HardwareTickUs)、`SwdMemoryPeekerNode` (DAPLink/XDS110 无侵入内存读写卡，.map/.elf 符号解析与内联变量回写引脚)、`CapTouchSliderSourceNode` (CAP1208 电容滑条 0~1 亚毫米物理位置映射，阻尼平滑与手搓调参)；<br/>• 第二组：数据拆分、对齐与内联计算卡 (Cyan/Amber Gradient)：`ProtocolDemuxNode` (VOFA_FireWater / JustFloat / Custom_Hex_Struct 分流 CH0~3 与 Vector3Stream)、`MultiStreamTimeAlignerNode` (异构总线微秒时序对齐，实时线性插值重采样，SyncA/SyncB/DeltaT)、`InlineMathAndPythonNode` (UE5 表达式与 Python 热重载沙盒，CodingSeb 动态求值 + FileSystemWatcher 热重载 + [M] Bypass 直通对比)；<br/>• 第三组：控制辨识、保护与 AI MCP 闭环卡 (Purple Gradient)：`HardwareInterlockFuseNode` (微秒级软硬联锁保护断路器，过流/堵转触发白色 ExecTrigger 切断供电、冻结快照转储 CrashDump_{Timestamp}.csv)、`McpAgentProbeAndTunerNode` (AI MCP 断面探针与自动阶跃调参，4096点环形滑动窗口，NWaves FFT 主频与时域统计，反向通道闭环调参)；<br/>• 严格遵循 Blender/UE5 Pin 内联布局规范：未连线显示输入控件 (`HasInlineWidget && !IsConnected`)，连线后自动隐藏。<br/>2. 对页面的比例进行动态化调整，避免单页面占满窗口：<br/>• 在 `MainWindow.xaml` 与 `BlueprintWorkspaceControl.xaml` 实施弹性响应式调优，限制单页面过宽拉伸 (`MaxWidth="1420"` 居中流式布局)，调优 AvalonDock 工具箱与监控区停靠比例 (`DockWidth="270"`, `DockWidth="460"`)，防止单一工作台视图占满整个窗口。<br/>全栈升级至 `v0.39-preview.2641`。** | 1. **工业级 Blender/UE5 风格全栈硬件与算法卡片库双层架构落地**：<br/>• **底层管道层 (`Core/Pipeline/Nodes/`)** 与 **蓝图画布层 (`Blueprint/Nodes/`)** 同步交付 8 张核心卡片：`MotherbaseHubSourceNode/MotherbaseHubNode`、`SwdMemoryPeekerNode`、`CapTouchSliderSourceNode/CapTouchSliderNode`、`ProtocolDemuxNode`、`MultiStreamTimeAlignerNode`、`InlineMathAndPythonNode`、`HardwareInterlockFuseNode`、`McpAgentProbeAndTunerNode`；<br/>• **Blender/UE5 Pin 内联交互机制规范落地**：在 `ConnectorViewModel` 与 `PinViewModel` 中实现 `HasInlineWidget`、`InlineValue` 与 `ShowInlineWidget => HasInlineWidget && !IsConnected`，并在 `Themes/NodeTemplates.xaml` 与 `NodeCardControl.xaml` 中完成无缝数据绑定，引脚未连线时呈现内联编辑控件，连线后自动平滑隐藏；<br/>• **UI/UX 色谱三层渐变渲染**：`Motherbase & Hardware` 采用 Crimson Gradient (`#E11D48`/`#BE123C`/`#DC2626`)、`Converter & Math` 采用 Cyan/Amber Gradient (`#06B6D4`/`#0891B2`/`#F59E0B`)、`Control & AI MCP` 采用 Purple Gradient (`#9333EA`/`#7E22CE`)，并在工具箱与蓝图控制栏中挂载彩色徽标；<br/>2. **页面比例动态化与弹性响应式调优**：<br/>• 针对大屏与宽屏显示器，在固件烧录工作台与串口 CLI 终端中设置 `MaxWidth="1420"` 居中自适应容器约束，彻底杜绝单页面横向占满 100% 视窗引起的控件拉伸失真；<br/>• 优化 AvalonDock 工具箱停靠面板比例至 `270px`、示波器/3D 动捕面板至 `460px`，确保蓝图画布居中呈现黄金视觉比例；<br/>3. **全栈版本号统一递增至 `v0.39-preview.2641`**：<br/>• 全量同步推进上位机工程 `LinkNexus.csproj`、`VersionInfo.cs`、`README.md` 与本 DESIGN 备忘录；<br/>• .NET 10 Release & Debug 构建实现 **0 警告、0 错误**，Git 追踪 0 个 `.py` 文件，保持硬件固件干净隔离。 | ✅ **已完全落地** |
+
+---
+
+# 七、 最新提交记录与演进状态 (v0.39-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **版本号统一推进并锁定为 `v0.38-preview.2641`**：
+> 1. **版本号统一推进并锁定为 `v0.39-preview.2641`**：
 >    - 全量同步至上位机工程 [`LinkNexus.csproj`](../source/repos/LinkNexus/LinkNexus/LinkNexus.csproj)、[`VersionInfo.cs`](../source/repos/LinkNexus/LinkNexus/VersionInfo.cs)、[`README.md`](../source/repos/LinkNexus/README.md) 与本备忘录；
-> 2. **Nexus-HIL DAG 节点流编排大重构落地**：
->    - 零 GC `MetricSample` + Nodify `ConnectorViewModel` 异步通道管道 + AI GhostValue `NodeParameter` + DAG `NodeBase`；
->    - 硬件业务全面算子化（INA236、ESP32 协议底座、FT2232 烧录、NWaves 滤波、动态数学公式、示波终端）；
-> 3. **Blender/UE5 节点模板库与 ScottPlot 5 DataLogger 升级**：
->    - 挂载 `Themes/NodeTemplates.xaml` 流光卡片样式、Inline Widgets 与 60px 微波形；示波器接入 `Plot.Add.DataLogger()` 与全局 60Hz 渲染时钟；
-> 4. **官方 C# MCP SDK 标准工具集挂载**：
->    - 声明 `[McpServerToolType]` 与 `[McpServerTool]` 注解并对接 `McpBlueprintBus`；
-> 5. **构建与运行验证**：
+> 2. **Blender/UE5 全栈 8 大核心硬件与算法卡片库落地**：
+>    - 双层架构全面落成：`Core/Pipeline/Nodes/` (Nodify) 与 `Blueprint/Nodes/` (Canvas) 同步支持 8 大核心卡片；
+>    - 严格遵循 Blender/UE5 Pin 内联规范：未连线显示输入控件 (`HasInlineWidget && !IsConnected`)，连线后自动隐藏；
+>    - UI 三层渐变色阶规范：Crimson Gradient (母舰硬件)、Cyan/Amber Gradient (数据拆分与计算)、Purple Gradient (控制与 AI MCP)；
+> 3. **页面比例动态化与弹性响应式调优**：
+>    - 工作台主页面添加 `MaxWidth="1420"` 居中流式容器，杜绝单页面横向占满 100% 窗口；
+>    - 重新校准 AvalonDock 工具箱 (`270px`) 与示波器/3D视口 (`460px`) 停靠宽度，优化中央画布视觉占比；
+> 4. **构建与运行验证**：
 >    - .NET 10 Release & Debug 构建实现 **0 警告、0 错误**，Git 严格追踪 0 个 `.py` 文件；
-> 6. **软硬件单向隔离准则持续遵守**：
->    - 本次任务仅涉及上位机重构，下位机固件与硬件驱动保持干净隔离。
+> 5. **软硬件单向隔离准则持续遵守**：
+>    - 本次任务仅涉及上位机开发，下位机固件与硬件驱动保持零变更。
 
 ---
 

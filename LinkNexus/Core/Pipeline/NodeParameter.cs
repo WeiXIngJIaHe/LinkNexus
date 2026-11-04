@@ -28,6 +28,7 @@ namespace LinkNexus.Core.Pipeline
         private string _value = string.Empty;
         private double _doubleValue;
         private bool _boolValue;
+        private bool _isVisible = true;
         private string _buttonText = string.Empty;
         private string _emptyWatermark = "未枚举到端口";
         private bool _isUpdatingOptions;
@@ -63,6 +64,19 @@ namespace LinkNexus.Core.Pipeline
         public bool IsCodeScript => Kind == NodeParamKind.CodeScript;
         public bool IsReadOnlyBadge => Kind == NodeParamKind.ReadOnlyBadge;
         public bool IsExpression => Kind == NodeParamKind.Expression;
+
+        public bool IsVisible
+        {
+            get => _isVisible;
+            set
+            {
+                if (_isVisible != value)
+                {
+                    _isVisible = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
 
         public bool HasNoComboOptions => Kind == NodeParamKind.Combo && Options.Count == 0;
 

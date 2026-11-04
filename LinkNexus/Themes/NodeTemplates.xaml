@@ -148,7 +148,8 @@
                                       HorizontalAlignment="Left">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type pipeline:ConnectorViewModel}">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2"
+                                                Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
                                         <nodify:NodeInput Style="{StaticResource HilNodeInputStyle}"
                                                           Header="{Binding Title}"
                                                           Anchor="{Binding Anchor, Mode=OneWayToSource}"
@@ -185,7 +186,8 @@
                                     <nodify:NodeOutput Style="{StaticResource HilNodeOutputStyle}"
                                                        Header="{Binding Title}"
                                                        Anchor="{Binding Anchor, Mode=OneWayToSource}"
-                                                       IsConnected="{Binding IsConnected}" />
+                                                       IsConnected="{Binding IsConnected}"
+                                                       Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -198,6 +200,7 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type pipeline:NodeParameter}">
                                 <Border Margin="0,3"
+                                        Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}"
                                         Background="#181E29"
                                         BorderBrush="#334155"
                                         BorderThickness="1"

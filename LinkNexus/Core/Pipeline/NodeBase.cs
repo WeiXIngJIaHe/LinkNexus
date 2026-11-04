@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -86,6 +86,7 @@ namespace LinkNexus.Core.Pipeline
         public static LinearGradientBrush CrimsonGradient { get; }
         public static LinearGradientBrush CyanAmberGradient { get; }
         public static LinearGradientBrush PurpleGradient { get; }
+        public static LinearGradientBrush AmberGoldGradient { get; }
 
         static NodeBase()
         {
@@ -109,6 +110,13 @@ namespace LinkNexus.Core.Pipeline
                 new Point(0, 0), new Point(1, 0));
             purple.Freeze();
             PurpleGradient = purple;
+
+            var amberGold = new LinearGradientBrush(
+                Color.FromArgb(0x88, 0xD9, 0x77, 0x06),
+                Color.FromArgb(0x33, 0x2E, 0x1E, 0x0A),
+                new Point(0, 0), new Point(1, 0));
+            amberGold.Freeze();
+            AmberGoldGradient = amberGold;
         }
         public string IconGeometry { get; }
         public virtual double CardWidth => 284.0;

@@ -260,7 +260,8 @@
                             <DataTemplate DataType="{x:Type core:PinViewModel}">
                                 <StackPanel Orientation="Horizontal"
                                             Margin="-9,2,4,2"
-                                            VerticalAlignment="Center">
+                                            VerticalAlignment="Center"
+                                            Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
                                     <!-- 端口交互触控热区 (20x20) -->
                                     <Border Width="20" Height="20"
                                             Background="Transparent"
@@ -327,7 +328,8 @@
                                 <StackPanel Orientation="Horizontal"
                                             HorizontalAlignment="Right"
                                             Margin="4,2,-9,2"
-                                            VerticalAlignment="Center">
+                                            VerticalAlignment="Center"
+                                            Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
                                     <TextBlock Text="{Binding Name}"
                                                FontSize="11"
                                                Margin="0,0,4,0"
@@ -553,7 +555,7 @@
                     <ItemsControl ItemsSource="{Binding Parameters}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type core:NodeParameter}">
-                                <StackPanel Margin="0,3">
+                                <StackPanel Margin="0,3" Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
                                     <!-- Combo 参数 -->
                                     <Grid Visibility="{Binding IsCombo, Converter={StaticResource BoolToVis}}">
                                         <Grid.ColumnDefinitions>

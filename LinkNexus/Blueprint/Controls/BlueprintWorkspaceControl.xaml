@@ -4,7 +4,9 @@
              xmlns:ctrl="clr-namespace:LinkNexus.Blueprint.Controls"
              xmlns:core="clr-namespace:LinkNexus.Blueprint.Core"
              SnapsToDevicePixels="True"
-             UseLayoutRounding="True">
+             UseLayoutRounding="True"
+             Focusable="True"
+             PreviewKeyDown="Workspace_PreviewKeyDown">
     <UserControl.Resources>
         <Style x:Key="PaletteBtnStyle" TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource IndustrialBtnBgBrush}" />
@@ -49,275 +51,159 @@
 
     <Grid Background="{DynamicResource AppBgBrush}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
+            <!-- 0: 中央无遮挡全尺寸画布 (最大化视野，顶部工具栏已全量精简，控件悬浮右下角) -->
             <RowDefinition Height="*" />
+            <!-- 1: 底部流式管道遥测与图例栏 -->
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 1. 顶部节点组件仓库与画布缩放/编排工具栏 -->
-        <Border Grid.Row="0"
-                Background="{DynamicResource AppSurfaceBrush}"
-                BorderBrush="{DynamicResource AppBorderBrush}"
-                BorderThickness="0,0,0,1"
-                Padding="12,8">
-            <DockPanel LastChildFill="False">
-                <!-- 左侧：核心流式与硬件算法卡片生成器 (Blender/UE5 全栈卡片库) -->
-                <WrapPanel DockPanel.Dock="Left" VerticalAlignment="Center">
-                    <TextBlock Text="核心卡片"
-                               FontSize="11"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource AppTextMutedBrush}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,8,0" />
+        <!-- 0. 中部大尺寸三阶贝塞尔蓝图主画布 (4200x2800，鼠标滚轮自由缩放、空白区拖拽平移、磁吸连线、右下角悬浮 HUD) -->
+        <Grid Grid.Row="0">
+            <ScrollViewer x:Name="StageScrollViewer"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          PanningMode="Both"
+                          PreviewMouseWheel="StageScrollViewer_PreviewMouseWheel">
+                <Grid x:Name="BlueprintStageGrid"
+                      Width="4200"
+                      Height="2800"
+                      Background="Transparent"
+                      MouseMove="Stage_MouseMove"
+                      MouseLeftButtonUp="Stage_MouseLeftButtonUp"
+                      MouseLeftButtonDown="Stage_MouseLeftButtonDown"
+                      MouseRightButtonUp="Stage_MouseRightButtonUp">
+                    <Grid.LayoutTransform>
+                        <ScaleTransform x:Name="StageScaleTransform" ScaleX="1.0" ScaleY="1.0" />
+                    </Grid.LayoutTransform>
 
-                    <!-- 第一组: 母舰硬件与总线探针 (Crimson Gradient) -->
-                    <Button Command="{Binding AddMotherbaseHubNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建母舰全能源总线底座节点 (封装 CH343P 6Mbps UART、FT2232 与 INA236 功耗流)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#E11D48" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ 母舰底座" />
-                        </StackPanel>
-                    </Button>
+                    <!-- 底层：工程点阵底图 + 已绑定的三阶贝塞尔数据流连线 -->
+                    <ctrl:BezierWireCanvas x:Name="UnderlayWireCanvas"
+                                           Connections="{Binding Connections}"
+                                           ShowBackgroundGrid="True"
+                                           RenderEstablishedConnections="True" />
 
-                    <Button Command="{Binding AddSwdMemoryPeekerNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 SWD 变量内存读写器 (无侵入读取单片机 RAM 变量，具备内联回写引脚)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#BE123C" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ SWD 探针" />
-                        </StackPanel>
-                    </Button>
+                    <!-- 中层：自由坐标节点卡片容器 -->
+                    <ItemsControl x:Name="NodesItemsControl"
+                                  ItemsSource="{Binding Nodes}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Canvas IsItemsHost="True" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                                <Setter Property="Canvas.Left" Value="{Binding X, Mode=TwoWay}" />
+                                <Setter Property="Canvas.Top" Value="{Binding Y, Mode=TwoWay}" />
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type core:NodeBase}">
+                                <ctrl:NodeCardControl />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
-                    <Button Command="{Binding AddCapTouchSliderNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 CAP1208 物理滑条映射节点 (亚毫米级电容触摸映射，支持物理手搓调参)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#DC2626" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ 电容滑条" />
-                        </StackPanel>
-                    </Button>
+                    <!-- 顶层：跨卡片无遮挡实时拖拽贝塞尔预览曲线与磁吸光环 -->
+                    <ctrl:BezierWireCanvas x:Name="OverlayPreviewCanvas"
+                                           IsHitTestVisible="False"
+                                           ShowBackgroundGrid="False"
+                                           RenderEstablishedConnections="False" />
+                </Grid>
+            </ScrollViewer>
 
-                    <!-- 第二组: 数据拆分、对齐与内联计算 (Cyan/Amber Gradient) -->
-                    <Button Command="{Binding AddProtocolDemuxNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建多协议动态分流节点 (仿 Blender Separate XYZ，解包 CH0-3 与 Vector3Stream)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#06B6D4" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ 协议分流" />
-                        </StackPanel>
-                    </Button>
+            <!-- 右下角悬浮 HUD 快速控制胶囊 (放大/缩小/100%、启动全部源、停止全部、自动排版、清空连线与快捷键徽章) -->
+            <Border HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,24,24"
+                    Background="#D9181E29"
+                    BorderBrush="#38BDF8"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="8,5"
+                    SnapsToDevicePixels="True">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="18" ShadowDepth="3" Direction="270" Color="#000000" Opacity="0.55" />
+                </Border.Effect>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- 快捷操作徽章 -->
+                    <Border Background="#1E293B" CornerRadius="4" Padding="7,3" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="快捷键操作指引">
+                        <TextBlock FontSize="10.5" Foreground="#94A3B8" FontFamily="Consolas">
+                            <Run Text="💡" />
+                            <Run Text="Shift+A" FontWeight="Bold" Foreground="#38BDF8" />
+                            <Run Text=" / 右键 新建节点" />
+                        </TextBlock>
+                    </Border>
 
-                    <Button Command="{Binding AddTimeAlignerNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建异构总线微秒时序对齐节点 (实时线性插值重采样，输出同频同相数据元组)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#0891B2" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ 时序对齐" />
-                        </StackPanel>
-                    </Button>
+                    <Border Width="1" Height="14" Background="{DynamicResource AppBorderBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
 
-                    <Button Command="{Binding AddInlineMathPythonNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建表达式与 Python 沙盒节点 (支持单行公式编译与本地 .py 毫秒热重载，具备 [M] Bypass)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#F59E0B" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ 算子沙盒" />
-                        </StackPanel>
-                    </Button>
-
-                    <!-- 第三组: 控制辨识、保护与 AI MCP (Purple Gradient) -->
-                    <Button Command="{Binding AddInterlockFuseNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建软硬联锁断路保护器 (微秒级过流/堵转判定，触发 ExecTrigger 并转储 CrashDump CSV)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#9333EA" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ 联锁断路" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Command="{Binding AddMcpProbeTunerNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 AI MCP 断面探针与自动阶跃调参节点 (4096点环形窗口、NWaves FFT、反向通道闭环调参)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#7E22CE" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ AI 探针" />
-                        </StackPanel>
-                    </Button>
-
-                    <Border Width="1" Height="14" Background="{DynamicResource AppBorderBrush}" Margin="2,0,5,0" VerticalAlignment="Center" />
-
-                    <Button Command="{Binding AddComInputNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 COM 串口输入采集卡片 (必须指定 USB 枚举端口 · 右键卡片可按需拆分 CH 通道)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#0EA5E9" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ COM 输入" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Command="{Binding AddComOutputNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 COM 串口输出下发卡片 (严格绑定真实 USB 枚举端口)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#10B981" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ COM 输出" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Command="{Binding AddMcpInputNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 MCP 数据采样与共享节点 (连入指定数据流供 AI Agent 分析并联动调优 Python 算法参数)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#14B8A6" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ MCP 节点" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Command="{Binding AddPythonAlgoNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建外部隔离 Python 算法卡片 (独立于软件目录之外，支持 Agent 安全调优标量参数)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#8B5CF6" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ Python 算法" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Command="{Binding AddVofaPlotNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 VOFA+ 多通道实时波形示波卡片">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#06B6D4" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ VOFA+ 绘图" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Command="{Binding AddImu3DPlotNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 IMU 三维空间姿态视窗卡片">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#A855F7" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ 三维姿态" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Command="{Binding AddCsvSaveNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 CSV 高频刷盘存储卡片">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#F59E0B" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ CSV 保存" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Command="{Binding AddFlashPortNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建烧录端口卡片 (支持存放 .hex / .bin 固件，必须指定一个 USB 枚举端口执行烧录)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#34D399" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ 烧录端口" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Command="{Binding AddDspFilterNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 NWaves 信号处理卡片 (巴特沃斯低通/高通/带通、滑动均值、中值滤波与 FFT 频谱特征提取)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#06B6D4" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ DSP 滤波" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Command="{Binding AddPhaseSpaceNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 3D 相空间轨迹卡片 (提取三维相空间吸引子，驱动 HelixToolkit 实时构建非线性相平面)">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" Fill="#EC4899" Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock Text="+ 3D 相空间" />
-                        </StackPanel>
-                    </Button>
-                </WrapPanel>
-
-                <!-- 右侧：画布滚轮缩放指示、自动排版、全局流控与典型拓扑预设 -->
-                <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Center">
-                    <!-- 缩放控制胶囊 -->
+                    <!-- 画布缩放按钮 -->
                     <Button Click="ZoomOutBtn_Click"
                             Content="−"
-                            Padding="7,4"
+                            Padding="8,3"
                             Margin="0,0,3,0"
-                            ToolTip="缩小蓝图画布 (也可直接在画布上滚动鼠标滚轮)"
+                            ToolTip="缩小蓝图画布 (也可直接在画布上滚动滚轮)"
                             Style="{StaticResource PaletteBtnStyle}" />
                     <Button x:Name="ZoomResetBtn"
                             Click="ZoomResetBtn_Click"
                             Content="100%"
                             FontFamily="Consolas"
-                            Padding="7,4"
+                            Padding="8,3"
                             Margin="0,0,3,0"
                             ToolTip="重置画布缩放至 100% (鼠标滚轮可自由缩放 35% ~ 240%)"
                             Style="{StaticResource PaletteBtnStyle}" />
                     <Button Click="ZoomInBtn_Click"
                             Content="+"
-                            Padding="7,4"
-                            Margin="0,0,6,0"
-                            ToolTip="放大蓝图画布 (也可直接在画布上滚动鼠标滚轮)"
+                            Padding="8,3"
+                            Margin="0,0,8,0"
+                            ToolTip="放大蓝图画布 (也可直接在画布上滚动滚轮)"
                             Style="{StaticResource PaletteBtnStyle}" />
 
-                    <Button Command="{Binding AutoLayoutCommand}"
-                            Content="自动排版"
-                            ToolTip="按数据流拓扑层级自动摆放所有蓝图节点坐标"
-                            Style="{StaticResource PaletteBtnStyle}" />
+                    <Border Width="1" Height="14" Background="{DynamicResource AppBorderBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
 
+                    <!-- 启动全部源 -->
                     <Button Command="{Binding StartAllStreamsCommand}"
                             Style="{StaticResource RunPrimaryBtnStyle}"
-                            ToolTip="启动画布上已指定 USB 端口的采集源节点">
+                            Padding="10,4"
+                            Margin="0,0,4,0"
+                            ToolTip="启动画布上已指定真实 USB 端口的全部硬件流采集源">
                         <StackPanel Orientation="Horizontal">
                             <Path Data="M0,0 L8,5 L0,10 Z" Fill="{DynamicResource SuccessGreenBrush}" Width="8" Height="9" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center" />
                             <TextBlock Text="启动全部源" />
                         </StackPanel>
                     </Button>
 
+                    <!-- 停止全部 -->
                     <Button Command="{Binding StopAllStreamsCommand}"
                             Content="停止全部"
+                            Padding="9,4"
+                            Margin="0,0,4,0"
+                            ToolTip="停止画布上全部流式采集与下发通道"
                             Style="{StaticResource PaletteBtnStyle}" />
 
+                    <!-- 自动排版 -->
+                    <Button Command="{Binding AutoLayoutCommand}"
+                            Content="自动排版"
+                            Padding="8,4"
+                            Margin="0,0,4,0"
+                            ToolTip="按数据流拓扑层级自动重排画布所有节点"
+                            Style="{StaticResource PaletteBtnStyle}" />
+
+                    <!-- 清空连线 -->
                     <Button Command="{Binding ClearAllWiresCommand}"
                             Content="清空连线"
+                            Padding="8,4"
+                            Margin="0"
+                            ToolTip="清除画布上全部数据流连线"
                             Style="{StaticResource PaletteBtnStyle}" />
+                </StackPanel>
+            </Border>
 
-                    <Border Width="1" Height="16" Background="{DynamicResource AppBorderBrush}" Margin="3,0,8,0" />
+            <!-- Blender / UE5 风格无边框毛玻璃暗黑搜索与拉线建链弹窗 -->
+            <ctrl:NodeSearchPopup x:Name="SearchPopup" />
+        </Grid>
 
-                    <TextBlock Text="预设:"
-                               FontSize="11"
-                               Foreground="{DynamicResource AppTextMutedBrush}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,5,0" />
-                    <Button Command="{Binding LoadDualShowcasePresetCommand}" Content="双链全景" Style="{StaticResource PaletteBtnStyle}" ToolTip="载入 VOFA+ 外部卡尔曼算子、MCP 分析节点与 IMU 三维姿态拓扑" />
-                    <Button Command="{Binding LoadVofaFilterPresetCommand}" Content="VOFA+ 示波" Style="{StaticResource PaletteBtnStyle}" ToolTip="载入 COM 采集 -> MCP 分析 -> 外部 Python 滤波 -> VOFA+ 示波链路" />
-                    <Button Command="{Binding LoadImuAttitudePresetCommand}" Content="IMU 姿态" Style="{StaticResource PaletteBtnStyle}" ToolTip="载入 IMU 三维姿态与欧拉角同步示波链路" />
-                    <Button Command="{Binding LoadMcpTelemetryPresetCommand}" Content="MCP 遥测" Style="{StaticResource PaletteBtnStyle}" Margin="0" ToolTip="载入 MCP 数据分析节点与烧录端口协同链路" />
-                </WrapPanel>
-            </DockPanel>
-        </Border>
-
-        <!-- 2. 中部大尺寸三阶贝塞尔蓝图主画布 (4200x2800，鼠标滚轮以光标为中心自由缩放、空白区拖拽平移、磁吸连线) -->
-        <ScrollViewer x:Name="StageScrollViewer"
-                      Grid.Row="1"
-                      HorizontalScrollBarVisibility="Auto"
-                      VerticalScrollBarVisibility="Auto"
-                      PanningMode="Both"
-                      PreviewMouseWheel="StageScrollViewer_PreviewMouseWheel">
-            <Grid x:Name="BlueprintStageGrid"
-                  Width="4200"
-                  Height="2800"
-                  Background="Transparent"
-                  MouseMove="Stage_MouseMove"
-                  MouseLeftButtonUp="Stage_MouseLeftButtonUp"
-                  MouseLeftButtonDown="Stage_MouseLeftButtonDown">
-                <Grid.LayoutTransform>
-                    <ScaleTransform x:Name="StageScaleTransform" ScaleX="1.0" ScaleY="1.0" />
-                </Grid.LayoutTransform>
-
-                <!-- 底层：工程点阵底图 + 已绑定的三阶贝塞尔数据流连线 -->
-                <ctrl:BezierWireCanvas x:Name="UnderlayWireCanvas"
-                                       Connections="{Binding Connections}"
-                                       ShowBackgroundGrid="True"
-                                       RenderEstablishedConnections="True" />
-
-                <!-- 中层：自由坐标节点卡片容器 -->
-                <ItemsControl x:Name="NodesItemsControl"
-                              ItemsSource="{Binding Nodes}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <Canvas IsItemsHost="True" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemContainerStyle>
-                        <Style TargetType="ContentPresenter">
-                            <Setter Property="Canvas.Left" Value="{Binding X, Mode=TwoWay}" />
-                            <Setter Property="Canvas.Top" Value="{Binding Y, Mode=TwoWay}" />
-                        </Style>
-                    </ItemsControl.ItemContainerStyle>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="{x:Type core:NodeBase}">
-                            <ctrl:NodeCardControl />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <!-- 顶层：跨卡片无遮挡实时拖拽贝塞尔预览曲线与磁吸光环 -->
-                <ctrl:BezierWireCanvas x:Name="OverlayPreviewCanvas"
-                                       IsHitTestVisible="False"
-                                       ShowBackgroundGrid="False"
-                                       RenderEstablishedConnections="False" />
-            </Grid>
-        </ScrollViewer>
-
-        <!-- 3. 底部流式管道遥测与端口类型图例栏 -->
-        <Border Grid.Row="2"
+        <!-- 1. 底部流式管道遥测与端口类型图例栏 -->
+        <Border Grid.Row="1"
                 Background="{DynamicResource AppSurfaceBrush}"
                 BorderBrush="{DynamicResource AppBorderBrush}"
                 BorderThickness="0,1,0,0"

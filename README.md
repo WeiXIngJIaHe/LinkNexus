@@ -6,7 +6,7 @@
 ![.NET Version](https://img.shields.io/badge/.NET-10.0-512BD4?style=for-the-badge&logo=dotnet)
 ![Architecture](https://img.shields.io/badge/Architecture-WPF%20%7C%20MVVM%20%7C%20Win32%20PnP-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Version](https://img.shields.io/badge/Release-v0.39--preview.2641-38BDF8?style=for-the-badge)
+![Version](https://img.shields.io/badge/Release-v0.40--preview.2641-38BDF8?style=for-the-badge)
 
 **面向嵌入式软硬件调试的高质感桌面中枢，支持 Windows PnP 动态设备流、流式固件烧录、智能串口 CLI、节点式流式蓝图引擎、ScottPlot 高速示波器、Helix 3D 空间动捕、AvalonDock 多屏自由分屏与 MCP (Model Context Protocol) AI Agent 架构体系**
 
@@ -125,7 +125,7 @@ $$\mathbf{v[X].[xx]-[AAA].[YY][WW]}$$
 | `AAA` | 修订与发布阶段 (Stage) | 语义化阶段标识：`preview` / `beta` / `release` | `preview` |
 | `YYWW` | 年周数 (Year-Week) | 年份后两位 + ISO 8601 自然周数 (01 ~ 53) | `2641` (2026年第41周) |
 
-> 当前工程基线版本：**`v0.39-preview.2641`**
+> 当前工程基线版本：**`v0.40-preview.2641`**
 
 ---
 
@@ -215,9 +215,13 @@ LinkNexus/
 
 | 触发操作 | 目标动作 | 作用说明 |
 | :--- | :--- | :--- |
+| **Shift + A / 右键空白** | 节点模糊搜索弹窗 (Blender 风格) | 光标处弹出暗黑毛玻璃搜索，支持英文、中文与拼音缩写 (如 `jf` 积分、`km` 卡尔曼、`+` 加法)，Enter 键快速生成 |
+| **拉线至空白松手 (Drop-Wire)** | 算子生成与自动建链 (UE5 风格) | 从引脚拉出贝塞尔线在空白处释放，自动弹出兼容算子菜单，选择后立即实例化并建立连线 |
+| **拖拽算子悬停连线 (Auto-Insert)**| 算子无缝切入现有连线 (Blender 风格)| 拖动具备主输入/输出的算子卡片释放至连线上，自动打断 `A -> B` 并重构为 `A -> 新算子 -> B` |
+| **右下角悬浮控制胶囊** | 全局流控与画布编排 | 画布右下角提供无遮挡悬浮胶囊：缩放控制 (`-`/`100%`/`+`)、启动/停止全部采集源、拓扑自动排版与清空连线 |
 | **拖拽示波器 / 3D 视口标题** | 浮动独立视窗 / 跨屏展示 | 将 2D 示波器或 3D 视口拎出主界面，支持副屏全屏无缝观察 |
 | **鼠标滚轮** | 蓝图画布缩放 | 以当前鼠标光标所在点为中心，在 `0.35x ~ 2.40x` 平滑无级缩放 |
-| **画布中键 / 右键拖拽** | 蓝图画布平移 | 自由漫游大型蓝图设计拓扑图 |
+| **画布拖拽平移** | 蓝图画布平移 | 自由漫游大型蓝图设计拓扑图 |
 | **双击设备卡片就绪指示** | 唤醒 ESP32 终端 | 弹出 ESP32-S3 原生交互式悬浮 CLI 终端窗口 |
 | **全窗口拖拽文件** | 固件载入与架构识别 | 拖入 `.bin` / `.hex` 文件，自动激活固件烧录工作台并解析 CRC32 |
 | **命令行 `--mcp`** | 启动 MCP Stdio 模式 | 无头后台运行，供外部 AI Agent (Claude / Cursor) 自动化挂接与调度 |

@@ -47,6 +47,7 @@ namespace LinkNexus.Core.Pipeline
         private Point _anchor;
         private bool _isConnected;
         private bool _isSnapHighlighted;
+        private bool _isVisible = true;
         private int _pinIndex;
         private string _title;
         private bool _hasInlineWidget;
@@ -56,6 +57,19 @@ namespace LinkNexus.Core.Pipeline
 
         public string Id { get; } = Guid.NewGuid().ToString("N");
         public NodeBase? OwnerNode { get; internal set; }
+
+        public bool IsVisible
+        {
+            get => _isVisible;
+            set
+            {
+                if (_isVisible != value)
+                {
+                    _isVisible = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
 
         public int PinIndex
         {

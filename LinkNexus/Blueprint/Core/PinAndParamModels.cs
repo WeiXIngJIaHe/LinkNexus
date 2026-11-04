@@ -95,8 +95,22 @@ namespace LinkNexus.Blueprint.Core
         }
 
         private bool _hasInlineWidget;
+        private bool _isVisible = true;
         private string _inlineValue = "0.0";
         private double _inlineDoubleValue = 0.0;
+
+        public bool IsVisible
+        {
+            get => _isVisible;
+            set
+            {
+                if (_isVisible != value)
+                {
+                    _isVisible = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
 
         public bool HasInlineWidget
         {
@@ -233,6 +247,7 @@ namespace LinkNexus.Blueprint.Core
     {
         private string _value = string.Empty;
         private bool _boolValue;
+        private bool _isVisible = true;
         private string _buttonText = string.Empty;
         private string _emptyWatermark = "未枚举到 USB 端口";
         private bool _isUpdatingOptions;
@@ -254,6 +269,19 @@ namespace LinkNexus.Blueprint.Core
         public bool IsActionButton => Kind == NodeParamKind.ActionButton;
         public bool IsCodeScript => Kind == NodeParamKind.CodeScript;
         public bool IsReadOnlyBadge => Kind == NodeParamKind.ReadOnlyBadge;
+
+        public bool IsVisible
+        {
+            get => _isVisible;
+            set
+            {
+                if (_isVisible != value)
+                {
+                    _isVisible = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
 
         public double MinValue { get; set; } = 0.0;
         public double MaxValue { get; set; } = 100.0;

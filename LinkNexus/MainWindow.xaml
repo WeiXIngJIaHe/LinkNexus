@@ -1457,6 +1457,17 @@
                                                             <Button Content="+ AI 探针与阶跃调参器 (4096点FFT)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,6"
                                                                     Command="{Binding BlueprintVm.AddMcpProbeTunerNodeCommand}" />
 
+                                                            <!-- 第四组: 高阶数学与微积分矩阵算子 (Amber/Gold Gradient) -->
+                                                            <TextBlock Text="高阶数学、微积分与拟合 (MathNet)" FontSize="9.5" FontWeight="Bold" Foreground="#F59E0B" Margin="2,3,2,4" />
+                                                            <Button Content="+ 标量多模数学算子 (ScalarMath)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                                                                    Command="{Binding BlueprintVm.AddScalarMathNodeCommand}" />
+                                                            <Button Content="+ 硬件时序微积分算子 (积分/微分)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                                                                    Command="{Binding BlueprintVm.AddRealtimeCalculusNodeCommand}" />
+                                                            <Button Content="+ 矩阵与空间变换算子 (3x3/4x4)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                                                                    Command="{Binding BlueprintVm.AddMatrixTransformNodeCommand}" />
+                                                            <Button Content="+ 多项式拟合与代码生成 (霍纳 C)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,6"
+                                                                    Command="{Binding BlueprintVm.AddDataToFunctionFitNodeCommand}" />
+
                                                             <!-- 基础流式节点 -->
                                                             <TextBlock Text="流式示波与驱动节点" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource AppTextMutedBrush}" Margin="2,3,2,4" />
                                                             <Button Content="+ DSP 滤波节点 (NWaves)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"

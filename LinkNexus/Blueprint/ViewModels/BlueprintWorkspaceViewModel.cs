@@ -87,6 +87,12 @@ namespace LinkNexus.Blueprint.ViewModels
         public ICommand AddInterlockFuseNodeCommand { get; }
         public ICommand AddMcpProbeTunerNodeCommand { get; }
 
+        // 高阶数学、微积分、矩阵与拟合卡片库命令 (MathNet.Numerics)
+        public ICommand AddScalarMathNodeCommand { get; }
+        public ICommand AddRealtimeCalculusNodeCommand { get; }
+        public ICommand AddMatrixTransformNodeCommand { get; }
+        public ICommand AddDataToFunctionFitNodeCommand { get; }
+
         // 兼容别名与快速添加绑定
         public ICommand AddVofaScopeNodeCommand => AddVofaPlotNodeCommand;
         public ICommand AddImu3DNodeCommand => AddImu3DPlotNodeCommand;
@@ -225,6 +231,30 @@ namespace LinkNexus.Blueprint.ViewModels
             {
                 var (x, y) = NextSpawnPosition(700, 220);
                 RegisterNode(new McpAgentProbeAndTunerNode(x, y));
+            });
+
+            AddScalarMathNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(400, 200);
+                RegisterNode(new ScalarMathNode(x, y));
+            });
+
+            AddRealtimeCalculusNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(400, 360);
+                RegisterNode(new RealtimeCalculusNode(x, y));
+            });
+
+            AddMatrixTransformNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(700, 200);
+                RegisterNode(new MatrixTransformNode(x, y));
+            });
+
+            AddDataToFunctionFitNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(700, 360);
+                RegisterNode(new DataToFunctionFitNode(x, y));
             });
 
             AutoLayoutCommand = new RelayCommand(() =>
@@ -479,6 +509,10 @@ namespace LinkNexus.Blueprint.ViewModels
                 "inline_math_python" or "math_python" or "py_sandbox" => new InlineMathAndPythonNode(x, y),
                 "interlock_fuse" or "hardware_interlock_fuse" or "fuse" => new HardwareInterlockFuseNode(x, y),
                 "mcp_probe_tuner" or "mcp_agent_probe" or "mcp_tuner" => new McpAgentProbeAndTunerNode(x, y),
+                "scalar_math" or "scalar" or "math_scalar" => new ScalarMathNode(x, y),
+                "realtime_calculus" or "calculus" or "integral" or "derivative" => new RealtimeCalculusNode(x, y),
+                "matrix_transform" or "matrix" or "mat_transform" => new MatrixTransformNode(x, y),
+                "function_fit" or "data_to_function_fit" or "fit" or "poly_fit" => new DataToFunctionFitNode(x, y),
                 _ => null
             };
 

@@ -52,7 +52,7 @@
 
 > **文档目的**：汇整当前 ESP32-S3 固件的完整架构设计、底层通信机制与功能实现逻辑（采用通俗严谨的自然语句表述）。**已根据您在备忘录下方提交的全部修改要求严格实施落地**。您可以随时通过自然语言在文档末尾继续审查或提出后续迭代意见。  
 
-> **当前工程基线版本**：`v0.35-preview.2641`  
+> **当前工程基线版本**：`v0.40-preview.2641`  
 
 > **技术栈**：ESP32-S3 (Xtensa LX7 240MHz 双核) | ESP-IDF v5.x | FreeRTOS SMP | C++17 | 全双工二进制防粘包协议 | INA236 I2C 采样 | 802.11 b/g/n Wi-Fi AP/STA | 原生 CLI 引擎 (esp_console) | PlatformIO
 
@@ -94,7 +94,7 @@
 
 - [六、 您的修改提交与落地状态对照表 (需求回顾与验证)](#六-您的修改提交与落地状态对照表-需求回顾与验证)
 
-- [七、 最新提交记录与演进状态 (v0.35-preview.2641)](#七-最新提交记录与演进状态-v035-preview2641)
+- [七、 最新提交记录与演进状态 (v0.40-preview.2641)](#七-最新提交记录与演进状态-v040-preview2641)
 
 - [八、 后续修改提交区（您可直接在此下方追加自然语言修改意见）](#八-后续修改提交区您可直接在此下方追加自然语言修改意见)
 
@@ -526,19 +526,38 @@ LinkNexus (Firmware Workspace)
 
 ---
 
-# 七、 最新提交记录与演进状态 (v0.37-preview.2641)
+| **32** | **软件架构级大重构：升级为基于有向无环图（DAG）节点流编排 + 硬件母舰底座协同 + AI MCP 闭环的工业级软件 "Nexus-HIL"。<br/>1. 依赖升级与基础设施注入：引入 `CodingSeb.ExpressionEvaluator`、`Nodify (7.3.0)`、`NWaves`、`ScottPlot 5`、`AvalonDock`；构建 `Core/Pipeline/` 核心层，实现零 GC `readonly struct MetricSample` 高性能硬件指标传输、对齐 Nodify 的 `ConnectorViewModel`（内置 `Channel<MetricSample>` 与 `BoundedChannelFullMode.DropOldest`）、带 AI 幽灵值（GhostValue）与 Clamp 钳位的 `NodeParameter`，以及 DAG 节点抽象核心 `NodeBase`。<br/>2. 旧业务代码算子化剥离：将旧 UI 业务中耦合的 INA236 遥测（0x40/0x41/0x42）、ESP32 CDC-ACM 二进制协议栈（0x01/0x10/0x50）、FT2232/DAPLink 固件烧录、NWaves 数字信号滤波以及动态数学表达式计算全面解耦为独立的 `Source`/`Transform`/`Sink` 卡片类。<br/>3. Blender/UE5 风格节点字典与微波形：构建 `Themes/NodeTemplates.xaml` 节点模板库，实现流光分类 Header、内联 Widget 输入控件、AI GhostValue 一键采纳/拒绝按钮，以及 60px 内嵌微波形总线（`PushMicroSparklineSample`）；`ScottPlotOscilloscopeControl` 接入 `Plot.Add.DataLogger()` 高帧率波形滚动与单一 60Hz 刷新；主界面无缝整合 `AvalonDock + NodifyEditor`。<br/>4. 官方 C# MCP SDK 标准挂载：引入 `[McpServerToolType]` 与 `[McpServerTool]` 架构，挂载 `DagMcpServerTools`，暴露画布 JSON AST 增删改查、探针特征读取与节点动态参数调整。<br/>全栈版本号统一升级至 `v0.38-preview.2641`。** | 1. **依赖升级与零 GC 基础设施注入**：<br/>• 引入 `CodingSeb.ExpressionEvaluator (1.4.41)` 等顶流生态；在 `Core/Pipeline/` 下实现纳秒级零 GC `MetricSample` 硬件采样结构体（Sequence、TimestampTicks、Channel、Value、Aux1、Aux2）；<br/>• 打造对齐 Nodify MVVM 规范的 `ConnectorViewModel`，内置 `Channel<MetricSample>` 异步无阻塞数据管道（`BoundedChannelFullMode.DropOldest`）；<br/>• 打造具备 AI GhostValue（建议值预审、一键采纳/拒绝）与 Clamp 安全钳位范围的 `NodeParameter`；<br/>• 打造工业级 DAG 节点抽象核心 `NodeBase`，集成 48 点环形缓冲区 60px 内嵌微波形总线；<br/>2. **旧硬件业务代码全面算子化剥离**：<br/>• 封装 `Ina236TelemetryNode`：驱动总路(0x40)、XDS110(0x41)、DAPLink(0x42)三路母线电压/电流/功率零 GC 流式上报；<br/>• 封装 `Esp32ProtocolNode`：剥离 CDC-ACM 串口收发与 0xAA 0x55 二进制协议，自动处理 0x01 心跳鉴权、0x10 遥测与 0x50 CLI 穿透；<br/>• 封装 `FirmwareFlasherSinkNode`：解耦 FT2232 / DAPLink 固件烧录下发控制，支持进度流式回调；<br/>• 封装 `DspFilterNode`：基于 NWaves 提供 Butterworth 低通/高通/带通、滑动平均及 FFT 频谱特征提取；<br/>• 封装 `ExpressionMathNode`：基于 ExpressionEvaluator 运行时动态编译执行任意 C# 数学公式；<br/>• 封装 `OscilloscopeSinkNode`：作为汇聚终端对齐 ScottPlot 5；<br/>3. **Blender/UE5 风格节点字典与 ScottPlot 5 示波器现代化**：<br/>• 构建 `Themes/NodeTemplates.xaml`：实现流光分类 Header、Inline Widget、AI 幽灵值交互胶囊、60px 实时微波形折线以及 Nodify 端口锚点无损映射；<br/>• 示波器重构为 `Plot.Add.DataLogger()` 环形缓冲，统一由 60Hz `CompositionTarget.Rendering` 刷新脉冲驱动；<br/>• 修复 `ScottPlotOscilloscopeControl` 中 `TxtReadout` 与 `BtnAutoFit_Click` 命名对齐；<br/>4. **官方 C# MCP SDK 架构挂载**：<br/>• 落地 `[McpServerToolType]` 与 `[McpServerTool]` 特性注解，挂载 `DagMcpServerTools` 暴露画布 JSON AST 增删改查、探针特征与参数调优；<br/>5. **全站版本号统一递增至 `v0.38-preview.2641`**。 | ✅ **已完全落地** |
+
+---
+
+| **33** | **修改：<br/>1. 构建工业级 Blender/UE5 风格全栈硬件与算法卡片库 (Node Library)：<br/>• 第一组：母舰硬件与总线探针卡 (Crimson Gradient)：`MotherbaseHubSourceNode` (CH343P 6Mbps, FT2232, INA236, RawBytes/Vbus/Ibus/HardwareTickUs)、`SwdMemoryPeekerNode` (DAPLink/XDS110 无侵入内存读写卡，.map/.elf 符号解析与内联变量回写引脚)、`CapTouchSliderSourceNode` (CAP1208 电容滑条 0~1 亚毫米物理位置映射，阻尼平滑与手搓调参)；<br/>• 第二组：数据拆分、对齐与内联计算卡 (Cyan/Amber Gradient)：`ProtocolDemuxNode` (VOFA_FireWater / JustFloat / Custom_Hex_Struct 分流 CH0~3 与 Vector3Stream)、`MultiStreamTimeAlignerNode` (异构总线微秒时序对齐，实时线性插值重采样，SyncA/SyncB/DeltaT)、`InlineMathAndPythonNode` (UE5 表达式与 Python 热重载沙盒，CodingSeb 动态求值 + FileSystemWatcher 热重载 + [M] Bypass 直通对比)；<br/>• 第三组：控制辨识、保护与 AI MCP 闭环卡 (Purple Gradient)：`HardwareInterlockFuseNode` (微秒级软硬联锁保护断路器，过流/堵转触发白色 ExecTrigger 切断供电、冻结快照转储 CrashDump_{Timestamp}.csv)、`McpAgentProbeAndTunerNode` (AI MCP 断面探针与自动阶跃调参，4096点环形滑动窗口，NWaves FFT 主频与时域统计，反向通道闭环调参)；<br/>• 严格遵循 Blender/UE5 Pin 内联布局规范：未连线显示输入控件 (`HasInlineWidget && !IsConnected`)，连线后自动隐藏。<br/>2. 对页面的比例进行动态化调整，避免单页面占满窗口：<br/>• 在 `MainWindow.xaml` 与 `BlueprintWorkspaceControl.xaml` 实施弹性响应式调优，限制单页面过宽拉伸 (`MaxWidth="1420"` 居中流式布局)，调优 AvalonDock 工具箱与监控区停靠比例 (`DockWidth="270"`, `DockWidth="460"`)，防止单一工作台视图占满整个窗口。<br/>全栈升级至 `v0.39-preview.2641`。** | 1. **工业级 Blender/UE5 风格全栈硬件与算法卡片库双层架构落地**：<br/>• **底层管道层 (`Core/Pipeline/Nodes/`)** 与 **蓝图画布层 (`Blueprint/Nodes/`)** 同步交付 8 张核心卡片：`MotherbaseHubSourceNode/MotherbaseHubNode`、`SwdMemoryPeekerNode`、`CapTouchSliderSourceNode/CapTouchSliderNode`、`ProtocolDemuxNode`、`MultiStreamTimeAlignerNode`、`InlineMathAndPythonNode`、`HardwareInterlockFuseNode`、`McpAgentProbeAndTunerNode`；<br/>• **Blender/UE5 Pin 内联交互机制规范落地**：在 `ConnectorViewModel` 与 `PinViewModel` 中实现 `HasInlineWidget`、`InlineValue` 与 `ShowInlineWidget => HasInlineWidget && !IsConnected`，并在 `Themes/NodeTemplates.xaml` 与 `NodeCardControl.xaml` 中完成无缝数据绑定，引脚未连线时呈现内联编辑控件，连线后自动平滑隐藏；<br/>• **UI/UX 色谱三层渐变渲染**：`Motherbase & Hardware` 采用 Crimson Gradient (`#E11D48`/`#BE123C`/`#DC2626`)、`Converter & Math` 采用 Cyan/Amber Gradient (`#06B6D4`/`#0891B2`/`#F59E0B`)、`Control & AI MCP` 采用 Purple Gradient (`#9333EA`/`#7E22CE`)，并在工具箱与蓝图控制栏中挂载彩色徽标；<br/>2. **页面比例动态化与弹性响应式调优**：<br/>• 针对大屏与宽屏显示器，在固件烧录工作台与串口 CLI 终端中设置 `MaxWidth="1420"` 居中自适应容器约束，彻底杜绝单页面横向占满 100% 视窗引起的控件拉伸失真；<br/>• 优化 AvalonDock 工具箱停靠面板比例至 `270px`、示波器/3D 动捕面板至 `460px`，确保蓝图画布居中呈现黄金视觉比例；<br/>3. **全栈版本号统一递增至 `v0.39-preview.2641`**：<br/>• 全量同步推进上位机工程 `LinkNexus.csproj`、`VersionInfo.cs`、`README.md` 与本 DESIGN 备忘录；<br/>• .NET 10 Release & Debug 构建实现 **0 警告、0 错误**，Git 追踪 0 个 `.py` 文件，保持硬件固件干净隔离。 | ✅ **已完全落地** |
+
+---
+
+| **34** | **修改：软件<br/>1. 对节点式蓝图设计器正上方的核心卡片、预设、启动、停止全部移除，保留正中央的画布足够宽裕。<br/>2. 放大、启动、停止放置画布于右下角。<br/>3. Part 1: 引入 MathNet.Numerics 并构建 4 张高阶数学算子卡片 (Category: Math & Calculus, Amber/Gold Gradient)：`ScalarMathNode`、`RealtimeCalculusNode`、`MatrixTransformNode`、`DataToFunctionFitNode`。<br/>4. Part 2: Blender 式 (Shift+A / 右键) 模糊搜索弹窗 (`NodeSearchPopup.xaml` & `NodeRegistry.cs`)、UE5 蓝图式拉线松手弹窗自适应连线 (Drop-Wire to Spawn)、Blender 式拖拽卡片切入现有连线 (Auto-Insert Node on Wire)。<br/>全栈升级至 `v0.40-preview.2641`。** | 1. **中央画布视野最大化与右下角悬浮 HUD 胶囊化**：<br/>• 彻底移除蓝图设计器正上方横跨视窗的 20+ 按钮顶栏，画布视口高度扩充至 100%；<br/>• 画布右下角引入悬浮 HUD 玻璃胶囊：集成画布缩放 (`-`/`100%`/`+`)、`▶ 启动全部源`、`■ 停止全部`、`自动排版`、`清空连线` 以及 `💡 Shift+A / 右键` 快捷徽章；<br/>2. **MathNet.Numerics 4 大高阶数学算子卡片库落地**：<br/>• 全量计算基于硬件微秒时间戳 `dt = (current.TimestampUs - prev.TimestampUs) * 1e-6`，双管线 (`Core/Pipeline/Nodes/` & `Blueprint/Nodes/`) 严格同步：<br/>  - `ScalarMathNode`：一卡多模标量运算 (Add, Subtract, Multiply, Divide, MapRange, Deadzone, Atan2)，动态切换引脚与内联控件；<br/>  - `RealtimeCalculusNode`：双模时序微积分 (带一阶低通滤波 Tau 的不完全微分 Dirty Derivative 与双精度防温漂梯形积分，带 AntiWindup、LeakyFactor 0.99999 与 ResetTrigger 清零引脚)；<br/>  - `MatrixTransformNode`：基于 MathNet 矩阵空间变换 ($\vec{Y} = M \cdot \vec{X} + \vec{B}$)，支持 3x3/4x4 编辑器与旋转/磁力计校准逆矩阵/麦轮底盘分配预设；<br/>  - `DataToFunctionFitNode`：实时最小二乘与三次样条拟合，卡片显示公式与残差曲线，提供 [生成 C 宏/函数] 一键复制霍纳法则 C 代码并实时对 Eval_X 求值；<br/>3. **Blender 与 UE5 神级画布交互引擎落成**：<br/>• `NodeRegistry.cs` 全局卡片注册表：统一管理 16+ 节点元数据、分类色阶与拼音缩写 (如 `jf` 积分、`km` 卡尔曼、`+` 加法)；<br/>• `NodeSearchPopup.xaml`：无边框暗黑毛玻璃浮窗，Shift+A 或右键即刻聚焦，↑↓ 切换与 Enter 实例化；<br/>• UE5 Drop-Wire to Spawn：从 Output/Input 引脚拖出贝塞尔线松手空白处自动弹窗并按数据类型过滤兼容算子，选定后自动建链；<br/>• Blender Auto-Insert on Wire：拖拽算子悬停在已有连线上释放，通过贝塞尔距离 HitTest 自动断开 `A -> B` 并重构为 `A -> 新卡片 -> B`；<br/>4. **全栈基线版本统一递增至 `v0.40-preview.2641`**：<br/>• 同步更新 `LinkNexus.csproj`、`VersionInfo.cs`、`README.md` 与本 DESIGN 备忘录；Release 与 Debug 构建实现 **0 警告、0 错误**，Git 追踪 0 个 `.py` 文件。 | ✅ **已完全落地** |
+
+---
+
+# 七、 最新提交记录与演进状态 (v0.40-preview.2641)
 
 > **本次已严格按照全局设计审查准则完成全量技术落地与闭环验证**：
-> 1. **版本号统一推进并锁定为 `v0.37-preview.2641`**：
+> 1. **版本号统一推进并锁定为 `v0.40-preview.2641`**：
 >    - 全量同步至上位机工程 [`LinkNexus.csproj`](../source/repos/LinkNexus/LinkNexus/LinkNexus.csproj)、[`VersionInfo.cs`](../source/repos/LinkNexus/LinkNexus/VersionInfo.cs)、[`README.md`](../source/repos/LinkNexus/README.md) 与本备忘录；
-> 2. **上位机 WPF 启动全白故障根治**：
->    - 完整挂载 `Wpf.Ui.xaml` 控件总模板与 `Theme/Dark.xaml` 动态主题字典，消除双窗体竞争，VisualTree 渲染子节点恢复 100% 正常；
-> 3. **根治 8 项 XAML 数据绑定缺失警告**：
->    - 补齐蓝图节点快速添加命令别名（VOFA+、IMU 3D、Python、CSV、DSP 滤波、COM 输入、MCP 协议桥接）及 `IsVirtualDevicesDisabled` 响应式属性；
-> 4. **构建与运行验证**：
->    - .NET 10 Release & Debug 构建实现 **0 警告、0 错误**，DataBinding 零异常，Git 严格追踪 0 个 `.py` 文件；
-> 5. **软硬件单向隔离准则持续遵守**：
->    - 本次任务仅涉及上位机，下位机固件与引脚定义保持干净隔离。
+> 2. **蓝图设计器视野彻底最大化 & 悬浮 HUD 控件右下角化**：
+>    - 移除正上方全部核心卡片、预设、启动、停止顶栏，保留正中央画布最大化视野；
+>    - 在画布右下角构建精致悬浮 HUD 玻璃胶囊控制层：缩放 (`-`/`100%`/`+`)、启动全部源、停止全部、自动排版、清空连线与快捷键指引；
+> 3. **MathNet.Numerics 4 张高阶数学算子卡片库落地**：
+>    - 继承 `NodeBase`，基于硬件微秒级时间戳 `dt = (current.TimestampUs - prev.TimestampUs) * 1e-6` 实现高精度计算：
+>    - `ScalarMathNode`、`RealtimeCalculusNode`、`MatrixTransformNode`、`DataToFunctionFitNode`（霍纳法则 C 代码生成与残差显示）；
+>    - 双管线（`Core/Pipeline/Nodes/` 与 `Blueprint/Nodes/`）完全一致支持；
+> 4. **Blender 与 UE5 交互引擎落成**：
+>    - `NodeRegistry.cs` 与 `NodeSearchPopup.xaml`：Shift+A / 右键唤醒无边框暗黑毛玻璃搜索，支持中英文与拼音缩写（`jf`, `km`, `+`）；
+>    - UE5 Drop-Wire to Spawn：引脚拉线至空白处释放自动按引脚兼容性过滤弹窗并自动建链；
+>    - Blender Auto-Insert on Wire：拖拽算子悬停在连线上释放，通过贝塞尔距离检测自动断开原连线并切入；
+> 5. **构建与运行验证**：
+>    - .NET 10 Release & Debug 构建实现 **0 警告、0 错误**，Git 严格追踪 0 个 `.py` 文件；
+> 6. **软硬件单向隔离准则持续遵守**：
+>    - 本次任务仅涉及上位机开发，下位机固件与硬件驱动保持零变更。
 
 ---
 

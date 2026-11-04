@@ -250,6 +250,13 @@ namespace LinkNexus.Blueprint.Controls
             EndHeaderDrag();
             RequestAnchorSync();
             e.Handled = true;
+
+            var node = Node;
+            var ws = ResolveWorkspace();
+            if (node != null && ws != null)
+            {
+                ws.CheckAndPerformAutoInsert(node);
+            }
         }
 
         private void EndHeaderDrag()

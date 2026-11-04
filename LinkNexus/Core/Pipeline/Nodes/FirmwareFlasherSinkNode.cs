@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.IO.Ports;
 using System.Threading;
@@ -48,7 +48,7 @@ namespace LinkNexus.Core.Pipeline.Nodes
             _chipParam = AddComboParameter("目标芯片架构", new[] { "ESP32-S3 (ROM Bootloader)", "STM32F4/G4 (SWD)", "TI MSPM0 (DAPLink)", "NRF52840" }, "ESP32-S3 (ROM Bootloader)");
 
             _filePathParam = AddTextParameter("固件文件路径", "C:\\firmware\\app.bin");
-            _filePathParam.GhostValue = "C:\\LinkNexus\\firmware_v0.38.bin";
+            _filePathParam.GhostValue = "C:\\LinkNexus\\firmware_v0.39.bin";
             _filePathParam.GhostReason = "AI: 匹配本地最新生成的 Release 二进制镜像";
 
             _baudParam = AddSliderParameter("烧录波特率 (kbaud)", min: 115.2, max: 2000.0, step: 100.0, initialValue: 921.6);

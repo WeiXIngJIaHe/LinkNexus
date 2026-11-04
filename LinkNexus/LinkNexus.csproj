@@ -6,10 +6,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.38.2641</Version>
-    <AssemblyVersion>0.38.2641.0</AssemblyVersion>
-    <FileVersion>0.38.2641.0</FileVersion>
-    <InformationalVersion>0.38-preview.2641</InformationalVersion>
+    <Version>0.39.2641</Version>
+    <AssemblyVersion>0.39.2641.0</AssemblyVersion>
+    <FileVersion>0.39.2641.0</FileVersion>
+    <InformationalVersion>0.39-preview.2641</InformationalVersion>
     <ApplicationIcon>assets\app.ico</ApplicationIcon>
     <SatelliteResourceLanguages>zh-Hans;zh-CN;en;en-US</SatelliteResourceLanguages>
     <NoWarn>$(NoWarn);NU1701;CS8618;CS8600;CS8602;CS8603;CS8604</NoWarn>
@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <PackageReference Include="CodingSeb.ExpressionEvaluator" Version="1.4.41" />
+    <PackageReference Include="SerialPortStream" Version="2.4.2" />
     <PackageReference Include="System.IO.Ports" Version="10.0.12" />
     <PackageReference Include="System.Management" Version="10.0.12" />
     <PackageReference Include="Nodify" Version="7.3.0" />

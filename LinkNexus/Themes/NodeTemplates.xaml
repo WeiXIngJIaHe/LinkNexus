@@ -76,7 +76,7 @@
 
                 <!-- 0. Header (带流光色标、矢量图标、标题与角色徽章) -->
                 <Border Grid.Row="0"
-                        Background="#252D3D"
+                        Background="{Binding HeaderGradientBrush}"
                         BorderBrush="{DynamicResource AppBorderSubtleBrush}"
                         BorderThickness="0,0,0,1"
                         CornerRadius="7,7,0,0"
@@ -148,10 +148,30 @@
                                       HorizontalAlignment="Left">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type pipeline:ConnectorViewModel}">
-                                    <nodify:NodeInput Style="{StaticResource HilNodeInputStyle}"
-                                                      Header="{Binding Title}"
-                                                      Anchor="{Binding Anchor, Mode=OneWayToSource}"
-                                                      IsConnected="{Binding IsConnected}" />
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2">
+                                        <nodify:NodeInput Style="{StaticResource HilNodeInputStyle}"
+                                                          Header="{Binding Title}"
+                                                          Anchor="{Binding Anchor, Mode=OneWayToSource}"
+                                                          IsConnected="{Binding IsConnected}" />
+                                        <!-- Blender/UE5 风格: 未连线且配置了 HasInlineWidget 时显示内联输入框，连线后自动折叠 -->
+                                        <Border Visibility="{Binding ShowInlineWidget, Converter={StaticResource BoolToVis}}"
+                                                Margin="6,0,0,0"
+                                                Background="#111622"
+                                                BorderBrush="#334155"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
+                                                Padding="4,1"
+                                                VerticalAlignment="Center">
+                                            <TextBox Text="{Binding InlineValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     Foreground="#38BDF8"
+                                                     FontFamily="Consolas, monospace"
+                                                     FontSize="10"
+                                                     MinWidth="44"
+                                                     BorderThickness="0"
+                                                     Background="Transparent"
+                                                     VerticalAlignment="Center" />
+                                        </Border>
+                                    </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

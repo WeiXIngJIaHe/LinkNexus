@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -76,6 +76,16 @@ namespace LinkNexus.Blueprint.ViewModels
         public ICommand AddPhaseSpaceNodeCommand { get; }
         public ICommand AddExpressionMathNodeCommand { get; }
         public ICommand AddIna236TelemetryNodeCommand { get; }
+
+        // 8 大工业级 Blender/UE5 全栈核心卡片库命令
+        public ICommand AddMotherbaseHubNodeCommand { get; }
+        public ICommand AddSwdMemoryPeekerNodeCommand { get; }
+        public ICommand AddCapTouchSliderNodeCommand { get; }
+        public ICommand AddProtocolDemuxNodeCommand { get; }
+        public ICommand AddTimeAlignerNodeCommand { get; }
+        public ICommand AddInlineMathPythonNodeCommand { get; }
+        public ICommand AddInterlockFuseNodeCommand { get; }
+        public ICommand AddMcpProbeTunerNodeCommand { get; }
 
         // 兼容别名与快速添加绑定
         public ICommand AddVofaScopeNodeCommand => AddVofaPlotNodeCommand;
@@ -166,6 +176,55 @@ namespace LinkNexus.Blueprint.ViewModels
             {
                 var (x, y) = NextSpawnPosition(740, 460);
                 RegisterNode(new PhaseSpace3DPlotNode(x, y));
+            });
+
+            // 8 大工业级核心卡片命令实现
+            AddMotherbaseHubNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(40, 50);
+                RegisterNode(new MotherbaseHubNode(x, y));
+            });
+
+            AddSwdMemoryPeekerNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(40, 200);
+                RegisterNode(new SwdMemoryPeekerNode(x, y));
+            });
+
+            AddCapTouchSliderNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(40, 360);
+                RegisterNode(new CapTouchSliderNode(x, y));
+            });
+
+            AddProtocolDemuxNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(360, 50);
+                RegisterNode(new ProtocolDemuxNode(x, y));
+            });
+
+            AddTimeAlignerNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(360, 220);
+                RegisterNode(new MultiStreamTimeAlignerNode(x, y));
+            });
+
+            AddInlineMathPythonNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(360, 390);
+                RegisterNode(new InlineMathAndPythonNode(x, y));
+            });
+
+            AddInterlockFuseNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(700, 50);
+                RegisterNode(new HardwareInterlockFuseNode(x, y));
+            });
+
+            AddMcpProbeTunerNodeCommand = new RelayCommand(() =>
+            {
+                var (x, y) = NextSpawnPosition(700, 220);
+                RegisterNode(new McpAgentProbeAndTunerNode(x, y));
             });
 
             AutoLayoutCommand = new RelayCommand(() =>
@@ -412,6 +471,14 @@ namespace LinkNexus.Blueprint.ViewModels
                                 "phase_space_3d" or "phase_space" or "phase3d" => new PhaseSpace3DPlotNode(x, y),
                 "expression_math" or "expr" or "math" => new ExpressionMathNode(x, y),
                 "ina236" or "ina236_telemetry" => new Ina236TelemetryNode(x, y),
+                "motherbase_hub" or "motherbase" => new MotherbaseHubNode(x, y),
+                "swd_memory_peeker" or "swd_peeker" or "swd" => new SwdMemoryPeekerNode(x, y),
+                "captouch_slider" or "captouch" or "touch_slider" => new CapTouchSliderNode(x, y),
+                "protocol_demux" or "demux" or "separate" => new ProtocolDemuxNode(x, y),
+                "time_aligner" or "multi_stream_time_aligner" or "time_sync" => new MultiStreamTimeAlignerNode(x, y),
+                "inline_math_python" or "math_python" or "py_sandbox" => new InlineMathAndPythonNode(x, y),
+                "interlock_fuse" or "hardware_interlock_fuse" or "fuse" => new HardwareInterlockFuseNode(x, y),
+                "mcp_probe_tuner" or "mcp_agent_probe" or "mcp_tuner" => new McpAgentProbeAndTunerNode(x, y),
                 _ => null
             };
 

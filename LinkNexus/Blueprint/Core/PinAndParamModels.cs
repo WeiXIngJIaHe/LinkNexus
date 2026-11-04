@@ -18,8 +18,12 @@ namespace LinkNexus.Blueprint.Core
     public enum PinDataType
     {
         ChannelStream, // 多通道浮点数据流 (VOFA+ / 传感器 / 算法) - 电光青 #38BDF8
+        FloatStream,   // 单路浮点连续控制量 - 电光青 #38BDF8
+        Vector3Stream, // 三维向量坐标/姿态 (X, Y, Z) - 矢量紫 #A78BFA
         ImuAttitude,   // 三维姿态欧拉角/四元数流 - 矢量紫 #A78BFA
         RawFrame,      // 原始文本/字节流 - 翡翠绿 #34D399
+        ByteStream,    // 高速二进制字节流 (CH343P / FT2232) - 翡翠绿 #10B981
+        Trigger,       // 微秒级软硬联锁触发脉冲 (ExecTrigger) - 珍珠白 #F8FAFC
         Any            // 通用流端口 - 琥珀金 #FBBF24
     }
 
@@ -68,9 +72,10 @@ namespace LinkNexus.Blueprint.Core
 
         public string ColorHex => DataType switch
         {
-            PinDataType.ChannelStream => "#38BDF8",
-            PinDataType.ImuAttitude => "#A78BFA",
-            PinDataType.RawFrame => "#34D399",
+            PinDataType.Trigger => "#F8FAFC",
+            PinDataType.Vector3Stream or PinDataType.ImuAttitude => "#A78BFA",
+            PinDataType.ByteStream or PinDataType.RawFrame => "#10B981",
+            PinDataType.ChannelStream or PinDataType.FloatStream => "#38BDF8",
             _ => "#FBBF24"
         };
 
@@ -89,6 +94,65 @@ namespace LinkNexus.Blueprint.Core
             }
         }
 
+        private bool _hasInlineWidget;
+        private string _inlineValue = "0.0";
+        private double _inlineDoubleValue = 0.0;
+
+        public bool HasInlineWidget
+        {
+            get => _hasInlineWidget;
+            set
+            {
+                if (_hasInlineWidget != value)
+                {
+                    _hasInlineWidget = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(ShowInlineWidget));
+                }
+            }
+        }
+
+        public bool ShowInlineWidget => _hasInlineWidget && !_isConnected;
+
+        public string InlineValue
+        {
+            get => _inlineValue;
+            set
+            {
+                if (_inlineValue != value)
+                {
+                    _inlineValue = value ?? string.Empty;
+                    if (double.TryParse(_inlineValue, out double d))
+                    {
+                        _inlineDoubleValue = d;
+                        InlineDoubleChangedCallback?.Invoke(d);
+                    }
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(InlineDoubleValue));
+                    InlineValueChangedCallback?.Invoke(_inlineValue);
+                }
+            }
+        }
+
+        public double InlineDoubleValue
+        {
+            get => _inlineDoubleValue;
+            set
+            {
+                if (!_inlineDoubleValue.Equals(value))
+                {
+                    _inlineDoubleValue = value;
+                    _inlineValue = value.ToString("G");
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(InlineValue));
+                    InlineDoubleChangedCallback?.Invoke(_inlineDoubleValue);
+                }
+            }
+        }
+
+        public Action<double>? InlineDoubleChangedCallback { get; set; }
+        public Action<string>? InlineValueChangedCallback { get; set; }
+
         public bool IsConnected
         {
             get => _isConnected;
@@ -98,6 +162,7 @@ namespace LinkNexus.Blueprint.Core
                 {
                     _isConnected = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(ShowInlineWidget));
                 }
             }
         }
@@ -153,6 +218,8 @@ namespace LinkNexus.Blueprint.Core
     {
         Combo,
         Text,
+        Number,
+        Slider,
         Toggle,
         ActionButton,
         CodeScript,
@@ -181,10 +248,26 @@ namespace LinkNexus.Blueprint.Core
 
         public bool IsCombo => Kind == NodeParamKind.Combo;
         public bool IsText => Kind == NodeParamKind.Text;
+        public bool IsNumber => Kind == NodeParamKind.Number;
+        public bool IsSlider => Kind == NodeParamKind.Slider;
         public bool IsToggle => Kind == NodeParamKind.Toggle;
         public bool IsActionButton => Kind == NodeParamKind.ActionButton;
         public bool IsCodeScript => Kind == NodeParamKind.CodeScript;
         public bool IsReadOnlyBadge => Kind == NodeParamKind.ReadOnlyBadge;
+
+        public double MinValue { get; set; } = 0.0;
+        public double MaxValue { get; set; } = 100.0;
+        public double Step { get; set; } = 1.0;
+
+        public double DoubleValue
+        {
+            get => double.TryParse(_value, out double v) ? v : 0.0;
+            set
+            {
+                Value = value.ToString("G");
+                OnPropertyChanged();
+            }
+        }
 
         public bool HasNoComboOptions => Kind == NodeParamKind.Combo && Options.Count == 0;
 

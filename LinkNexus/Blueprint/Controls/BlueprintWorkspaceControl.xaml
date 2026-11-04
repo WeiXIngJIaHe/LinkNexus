@@ -61,14 +61,75 @@
                 BorderThickness="0,0,0,1"
                 Padding="12,8">
             <DockPanel LastChildFill="False">
-                <!-- 左侧：八大核心流式与烧录卡片生成器 -->
+                <!-- 左侧：核心流式与硬件算法卡片生成器 (Blender/UE5 全栈卡片库) -->
                 <WrapPanel DockPanel.Dock="Left" VerticalAlignment="Center">
-                    <TextBlock Text="添加节点"
+                    <TextBlock Text="核心卡片"
                                FontSize="11"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource AppTextMutedBrush}"
                                VerticalAlignment="Center"
                                Margin="0,0,8,0" />
+
+                    <!-- 第一组: 母舰硬件与总线探针 (Crimson Gradient) -->
+                    <Button Command="{Binding AddMotherbaseHubNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建母舰全能源总线底座节点 (封装 CH343P 6Mbps UART、FT2232 与 INA236 功耗流)">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="#E11D48" Margin="0,0,5,0" VerticalAlignment="Center" />
+                            <TextBlock Text="+ 母舰底座" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding AddSwdMemoryPeekerNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 SWD 变量内存读写器 (无侵入读取单片机 RAM 变量，具备内联回写引脚)">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="#BE123C" Margin="0,0,5,0" VerticalAlignment="Center" />
+                            <TextBlock Text="+ SWD 探针" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding AddCapTouchSliderNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 CAP1208 物理滑条映射节点 (亚毫米级电容触摸映射，支持物理手搓调参)">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="#DC2626" Margin="0,0,5,0" VerticalAlignment="Center" />
+                            <TextBlock Text="+ 电容滑条" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- 第二组: 数据拆分、对齐与内联计算 (Cyan/Amber Gradient) -->
+                    <Button Command="{Binding AddProtocolDemuxNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建多协议动态分流节点 (仿 Blender Separate XYZ，解包 CH0-3 与 Vector3Stream)">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="#06B6D4" Margin="0,0,5,0" VerticalAlignment="Center" />
+                            <TextBlock Text="+ 协议分流" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding AddTimeAlignerNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建异构总线微秒时序对齐节点 (实时线性插值重采样，输出同频同相数据元组)">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="#0891B2" Margin="0,0,5,0" VerticalAlignment="Center" />
+                            <TextBlock Text="+ 时序对齐" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding AddInlineMathPythonNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建表达式与 Python 沙盒节点 (支持单行公式编译与本地 .py 毫秒热重载，具备 [M] Bypass)">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="#F59E0B" Margin="0,0,5,0" VerticalAlignment="Center" />
+                            <TextBlock Text="+ 算子沙盒" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- 第三组: 控制辨识、保护与 AI MCP (Purple Gradient) -->
+                    <Button Command="{Binding AddInterlockFuseNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建软硬联锁断路保护器 (微秒级过流/堵转判定，触发 ExecTrigger 并转储 CrashDump CSV)">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="#9333EA" Margin="0,0,5,0" VerticalAlignment="Center" />
+                            <TextBlock Text="+ 联锁断路" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding AddMcpProbeTunerNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 AI MCP 断面探针与自动阶跃调参节点 (4096点环形窗口、NWaves FFT、反向通道闭环调参)">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="#7E22CE" Margin="0,0,5,0" VerticalAlignment="Center" />
+                            <TextBlock Text="+ AI 探针" />
+                        </StackPanel>
+                    </Button>
+
+                    <Border Width="1" Height="14" Background="{DynamicResource AppBorderBrush}" Margin="2,0,5,0" VerticalAlignment="Center" />
 
                     <Button Command="{Binding AddComInputNodeCommand}" Style="{StaticResource PaletteBtnStyle}" ToolTip="新建 COM 串口输入采集卡片 (必须指定 USB 枚举端口 · 右键卡片可按需拆分 CH 通道)">
                         <StackPanel Orientation="Horizontal">

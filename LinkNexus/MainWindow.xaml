@@ -1422,7 +1422,7 @@
                                 <dock:LayoutRoot>
                                     <dock:LayoutPanel Orientation="Horizontal">
                                         <!-- 左侧停靠栏: 蓝图节点工具箱与通道总览 -->
-                                        <dock:LayoutAnchorablePane DockWidth="230">
+                                        <dock:LayoutAnchorablePane DockWidth="270">
                                             <dock:LayoutAnchorable Title="蓝图工具箱与通道" CanClose="False" CanFloat="True" CanAutoHide="True">
                                                 <Grid Background="{DynamicResource AppSurfaceSubtleBrush}" Margin="6">
                                                     <Grid.RowDefinitions>
@@ -1432,23 +1432,48 @@
                                                     <TextBlock Grid.Row="0" Text="算子与流式节点快速添加" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" Margin="4,4,4,8" />
                                                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                                         <StackPanel>
-                                                            <Button Content="+ DSP 滤波节点 (NWaves)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                            <!-- 第一组: 母舰硬件与总线探针 (Crimson Gradient) -->
+                                                            <TextBlock Text="母舰硬件与总线探针" FontSize="9.5" FontWeight="Bold" Foreground="#FB7185" Margin="2,3,2,4" />
+                                                            <Button Content="+ 母舰全能源底座 (CH343/FT2232)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                                                                    Command="{Binding BlueprintVm.AddMotherbaseHubNodeCommand}" />
+                                                            <Button Content="+ SWD 变量内存读写器 (DAP/XDS)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                                                                    Command="{Binding BlueprintVm.AddSwdMemoryPeekerNodeCommand}" />
+                                                            <Button Content="+ CAP1208 物理滑条映射 (手搓调参)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,6"
+                                                                    Command="{Binding BlueprintVm.AddCapTouchSliderNodeCommand}" />
+
+                                                            <!-- 第二组: 数据拆分、对齐与内联计算 (Cyan/Amber Gradient) -->
+                                                            <TextBlock Text="数据拆分、对齐与计算" FontSize="9.5" FontWeight="Bold" Foreground="#38BDF8" Margin="2,3,2,4" />
+                                                            <Button Content="+ 协议分流解包器 (CH0-3/Vec3)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                                                                    Command="{Binding BlueprintVm.AddProtocolDemuxNodeCommand}" />
+                                                            <Button Content="+ 多总线微秒时序对齐器" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                                                                    Command="{Binding BlueprintVm.AddTimeAlignerNodeCommand}" />
+                                                            <Button Content="+ 表达式与 Python 沙盒 ([M]直通)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,6"
+                                                                    Command="{Binding BlueprintVm.AddInlineMathPythonNodeCommand}" />
+
+                                                            <!-- 第三组: 控制辨识、保护与 AI MCP (Purple Gradient) -->
+                                                            <TextBlock Text="控制辨识、保护与 AI MCP" FontSize="9.5" FontWeight="Bold" Foreground="#C084FC" Margin="2,3,2,4" />
+                                                            <Button Content="+ 软硬联锁断路保护器 (微秒熔断)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                                                                    Command="{Binding BlueprintVm.AddInterlockFuseNodeCommand}" />
+                                                            <Button Content="+ AI 探针与阶跃调参器 (4096点FFT)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,6"
+                                                                    Command="{Binding BlueprintVm.AddMcpProbeTunerNodeCommand}" />
+
+                                                            <!-- 基础流式节点 -->
+                                                            <TextBlock Text="流式示波与驱动节点" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource AppTextMutedBrush}" Margin="2,3,2,4" />
+                                                            <Button Content="+ DSP 滤波节点 (NWaves)" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
                                                                     Command="{Binding BlueprintVm.AddDspFilterNodeCommand}" />
-                                                            <Button Content="+ 3D 相空间轨迹节点" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                            <Button Content="+ 3D 相空间轨迹节点" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
                                                                     Command="{Binding BlueprintVm.AddPhaseSpaceNodeCommand}" />
-                                                            <Button Content="+ VOFA+ 实时示波卡片" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                            <Button Content="+ VOFA+ 实时示波卡片" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
                                                                     Command="{Binding BlueprintVm.AddVofaPlotNodeCommand}" />
-                                                            <Button Content="+ IMU 三维姿态视窗" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                            <Button Content="+ IMU 三维姿态视窗" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
                                                                     Command="{Binding BlueprintVm.AddImu3DPlotNodeCommand}" />
-                                                            <Button Content="+ Python 算法算子" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                            <Button Content="+ Python 算法算子" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
                                                                     Command="{Binding BlueprintVm.AddPythonAlgoNodeCommand}" />
-                                                            <Button Content="+ CSV 数据流落盘" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                            <Button Content="+ CSV 数据流落盘" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
                                                                     Command="{Binding BlueprintVm.AddCsvSaveNodeCommand}" />
-                                                            <Button Content="+ 数学算子计算" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
-                                                                    Command="{Binding BlueprintVm.AddDspFilterNodeCommand}" />
-                                                            <Button Content="+ ESP32 串口输入" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                            <Button Content="+ ESP32 串口输入" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
                                                                     Command="{Binding BlueprintVm.AddComInputNodeCommand}" />
-                                                            <Button Content="+ MCP 智能体协议桥接" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,5"
+                                                            <Button Content="+ MCP 智能体协议桥接" Style="{StaticResource IndustrialBtnStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
                                                                     Command="{Binding BlueprintVm.AddMcpInputNodeCommand}" />
                                                         </StackPanel>
                                                     </ScrollViewer>
@@ -1464,7 +1489,7 @@
                                         </dock:LayoutDocumentPane>
 
                                         <!-- 右侧停靠栏: ScottPlot 2D 示波器与 Helix 3D 空间动捕视口 (支持拖出至副屏全屏、分屏布局) -->
-                                        <dock:LayoutAnchorablePane DockWidth="440">
+                                        <dock:LayoutAnchorablePane DockWidth="460">
                                             <dock:LayoutAnchorable Title="ScottPlot 实时 2D 示波器 (副屏支持)" CanClose="False" CanFloat="True" CanAutoHide="True">
                                                 <bpCtrl:ScottPlotOscilloscopeControl x:Name="MainScopeControl" />
                                             </dock:LayoutAnchorable>
@@ -1482,7 +1507,7 @@
                         <!-- ========================================================= -->
                         <ScrollViewer Visibility="{Binding IsBurnerWorkspaceVisible, Converter={StaticResource BoolToVisConverter}}"
                                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-                            <Grid Margin="0,0,6,0">
+                            <Grid MaxWidth="1420" HorizontalAlignment="Center" Margin="12,0,12,12">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
@@ -2526,7 +2551,7 @@
                             <!-- A. 虚拟烧录设备测试 (FT2232 / DAPLink / XDS110，带垂直滚动支持) -->
                             <ScrollViewer Visibility="{Binding IsBurnerWorkspaceVisible, Converter={StaticResource BoolToVisConverter}}"
                                           VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-                                <Grid Margin="0,0,6,0">
+                                <Grid MaxWidth="1420" HorizontalAlignment="Center" Margin="12,0,12,12">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />

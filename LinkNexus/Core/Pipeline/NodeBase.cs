@@ -81,6 +81,35 @@ namespace LinkNexus.Core.Pipeline
         public NodeRole Role { get; }
         public string HeaderAccentHex { get; }
         public Brush HeaderAccentBrush { get; }
+        public Brush HeaderGradientBrush { get; }
+
+        public static LinearGradientBrush CrimsonGradient { get; }
+        public static LinearGradientBrush CyanAmberGradient { get; }
+        public static LinearGradientBrush PurpleGradient { get; }
+
+        static NodeBase()
+        {
+            var crimson = new LinearGradientBrush(
+                Color.FromArgb(0x88, 0xE1, 0x1D, 0x48),
+                Color.FromArgb(0x33, 0x1E, 0x15, 0x20),
+                new Point(0, 0), new Point(1, 0));
+            crimson.Freeze();
+            CrimsonGradient = crimson;
+
+            var cyanAmber = new LinearGradientBrush(
+                Color.FromArgb(0x77, 0x06, 0xB6, 0xD4),
+                Color.FromArgb(0x44, 0xD9, 0x77, 0x06),
+                new Point(0, 0), new Point(1, 0));
+            cyanAmber.Freeze();
+            CyanAmberGradient = cyanAmber;
+
+            var purple = new LinearGradientBrush(
+                Color.FromArgb(0x88, 0x93, 0x33, 0xEA),
+                Color.FromArgb(0x33, 0x22, 0x10, 0x38),
+                new Point(0, 0), new Point(1, 0));
+            purple.Freeze();
+            PurpleGradient = purple;
+        }
         public string IconGeometry { get; }
         public virtual double CardWidth => 284.0;
 
@@ -206,7 +235,7 @@ namespace LinkNexus.Core.Pipeline
         public event Action<NodeBase, int, MetricSample>? SampleEmitted;
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected NodeBase(string title, string categoryName, NodeRole role, string headerAccentHex, string iconGeometry)
+        protected NodeBase(string title, string categoryName, NodeRole role, string headerAccentHex, string iconGeometry, Brush? customHeaderGradient = null)
         {
             Title = title;
             CategoryName = categoryName;
@@ -217,6 +246,19 @@ namespace LinkNexus.Core.Pipeline
             var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(headerAccentHex));
             brush.Freeze();
             HeaderAccentBrush = brush;
+
+            if (customHeaderGradient != null)
+            {
+                HeaderGradientBrush = customHeaderGradient;
+            }
+            else
+            {
+                var c1 = (Color)ColorConverter.ConvertFromString(headerAccentHex);
+                var c2 = Color.FromArgb(0x55, c1.R, c1.G, c1.B);
+                var grad = new LinearGradientBrush(c2, Color.FromRgb(0x1E, 0x24, 0x30), new Point(0, 0), new Point(1, 0));
+                grad.Freeze();
+                HeaderGradientBrush = grad;
+            }
 
             var channelOptions = new BoundedChannelOptions(2048)
             {

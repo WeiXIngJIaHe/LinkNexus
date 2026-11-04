@@ -297,6 +297,24 @@
                                                Margin="4,0,0,0"
                                                VerticalAlignment="Center"
                                                Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                                    <!-- Blender/UE5 风格: 未连线且配置了 HasInlineWidget 时显示内联输入框，连线后自动折叠 -->
+                                    <Border Visibility="{Binding ShowInlineWidget, Converter={StaticResource BoolToVis}}"
+                                            Margin="6,0,0,0"
+                                            Background="#111622"
+                                            BorderBrush="#334155"
+                                            BorderThickness="1"
+                                            CornerRadius="3"
+                                            Padding="4,1"
+                                            VerticalAlignment="Center">
+                                        <TextBox Text="{Binding InlineValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 Foreground="#38BDF8"
+                                                 FontFamily="Consolas, monospace"
+                                                 FontSize="10"
+                                                 MinWidth="40"
+                                                 BorderThickness="0"
+                                                 Background="Transparent"
+                                                 VerticalAlignment="Center" />
+                                    </Border>
                                 </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -574,6 +592,60 @@
                                                  Padding="6,4"
                                                  FontFamily="Consolas"
                                                  FontSize="11.5" />
+                                    </Grid>
+
+                                    <!-- Number 参数 -->
+                                    <Grid Visibility="{Binding IsNumber, Converter={StaticResource BoolToVis}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="68" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Label}"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource AppTextMutedBrush}" />
+                                        <TextBox Grid.Column="1"
+                                                 Text="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 Background="{DynamicResource AppTerminalBgBrush}"
+                                                 Foreground="{DynamicResource AccentCyanBrush}"
+                                                 CaretBrush="{DynamicResource AccentCyanBrush}"
+                                                 BorderBrush="{DynamicResource AppBorderBrush}"
+                                                 BorderThickness="1"
+                                                 Padding="6,4"
+                                                 FontFamily="Consolas"
+                                                 FontSize="11.5" />
+                                    </Grid>
+
+                                    <!-- Slider 滑块参数 (Blender/UE5 风格带有数值指示) -->
+                                    <Grid Visibility="{Binding IsSlider, Converter={StaticResource BoolToVis}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="68" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="46" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Label}"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource AppTextMutedBrush}" />
+                                        <Slider Grid.Column="1"
+                                                Minimum="{Binding MinValue}"
+                                                Maximum="{Binding MaxValue}"
+                                                SmallChange="{Binding Step}"
+                                                Value="{Binding DoubleValue, Mode=TwoWay}"
+                                                VerticalAlignment="Center"
+                                                Margin="0,0,6,0" />
+                                        <TextBox Grid.Column="2"
+                                                 Text="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 Background="{DynamicResource AppTerminalBgBrush}"
+                                                 Foreground="{DynamicResource AccentCyanBrush}"
+                                                 BorderBrush="{DynamicResource AppBorderBrush}"
+                                                 BorderThickness="1"
+                                                 Padding="3,2"
+                                                 FontFamily="Consolas"
+                                                 FontSize="10.5"
+                                                 TextAlignment="Right" />
                                     </Grid>
 
                                     <!-- Toggle 开关参数 -->

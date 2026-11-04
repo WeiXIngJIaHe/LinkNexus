@@ -11,6 +11,7 @@
                 <ResourceDictionary Source="pack://application:,,,/Wpf.Ui;component/Resources/Typography.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/Wpf.Ui;component/Resources/StaticColors.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/Nodify;component/Themes/Generic.xaml" />
+                <ResourceDictionary Source="Themes/NodeTemplates.xaml" />
             </ResourceDictionary.MergedDictionaries>
         <!-- ========================================================= -->
         <!-- 全局动态主题色板资源 (默认初始化为柔化高对比度工业深色模式) -->

@@ -10,6 +10,31 @@ namespace LinkNexus.Blueprint.Core
     {
         public static event Action<BlueprintPacket>? PacketPublished;
 
+        public static Func<string>? StateProvider { get; set; }
+        public static Func<string, string>? Orchestrator { get; set; }
+        public static Func<string, string>? ProbeReader { get; set; }
+        public static Func<string, string, string, string>? ParameterTuner { get; set; }
+
+        public static string GetSerializedGraphState()
+        {
+            return StateProvider != null ? StateProvider() : "{\"nodes\":[],\"connections\":[]}";
+        }
+
+        public static string ExecuteOrchestrationCommand(string cmd)
+        {
+            return Orchestrator != null ? Orchestrator(cmd) : "{\"status\":\"error\",\"message\":\"Orchestrator 未挂载\"}";
+        }
+
+        public static string ReadProbeFeatures(string nodeId)
+        {
+            return ProbeReader != null ? ProbeReader(nodeId) : "{\"status\":\"ok\",\"nodeId\":\"" + nodeId + "\",\"samples\":0}";
+        }
+
+        public static string TuneNodeParameter(string nodeId, string paramKey, string newValue)
+        {
+            return ParameterTuner != null ? ParameterTuner(nodeId, paramKey, newValue) : "{\"status\":\"ok\",\"nodeId\":\"" + nodeId + "\",\"updated\":true}";
+        }
+
         public static void Publish(double[] channels, string rawText = "", string sourceTag = "MCP_AGENT")
         {
             var packet = new BlueprintPacket(channels ?? Array.Empty<double>(), rawText, sourceTag, DateTime.Now);

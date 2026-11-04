@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -74,6 +74,8 @@ namespace LinkNexus.Blueprint.ViewModels
         public ICommand AddFlashPortNodeCommand { get; }
         public ICommand AddDspFilterNodeCommand { get; }
         public ICommand AddPhaseSpaceNodeCommand { get; }
+        public ICommand AddExpressionMathNodeCommand { get; }
+        public ICommand AddIna236TelemetryNodeCommand { get; }
 
         // 兼容别名与快速添加绑定
         public ICommand AddVofaScopeNodeCommand => AddVofaPlotNodeCommand;
@@ -407,7 +409,9 @@ namespace LinkNexus.Blueprint.ViewModels
                 "csv_save" or "csv" => new CsvSaveNode(x, y),
                 "flash_port" or "flash" or "burner_port" => new FlashPortNode(defaultBurner, x, y),
                 "dsp_filter" or "dsp" or "nwaves" => new DspFilterNode(x, y),
-                "phase_space_3d" or "phase_space" or "phase3d" => new PhaseSpace3DPlotNode(x, y),
+                                "phase_space_3d" or "phase_space" or "phase3d" => new PhaseSpace3DPlotNode(x, y),
+                "expression_math" or "expr" or "math" => new ExpressionMathNode(x, y),
+                "ina236" or "ina236_telemetry" => new Ina236TelemetryNode(x, y),
                 _ => null
             };
 

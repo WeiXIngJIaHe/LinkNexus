@@ -1,19 +1,23 @@
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Threading;
+using System.Windows.Media;
 using LinkNexus.Blueprint.Core;
+using LinkNexus.Core.Pipeline;
 using ScottPlot;
 
 namespace LinkNexus.Blueprint.Controls
 {
+    /// <summary>
+    /// 基于 ScottPlot 5 官方高帧率流式 DataLogger 的工业级示波器 (ScottPlotOscilloscopeControl)
+    /// 严禁每次 Clear 后重绘 Scatter；统一由 60Hz CompositionTarget.Rendering 驱动 Refresh()
+    /// </summary>
     public partial class ScottPlotOscilloscopeControl : UserControl
     {
         private const int MaxChannels = 6;
-        private const int BufferCapacity = 600;
+        private const int BufferCapacity = 800;
 
         private static readonly ScottPlot.Color[] ChannelColors =
         {
@@ -25,31 +29,37 @@ namespace LinkNexus.Blueprint.Controls
             ScottPlot.Color.FromHex("#2DD4BF")  // CH5 极光青绿
         };
 
-        private readonly double[][] _channelBuffers = new double[MaxChannels][];
-        private readonly ScottPlot.Plottables.Signal[] _signals = new ScottPlot.Plottables.Signal[MaxChannels];
-        private readonly int[] _bufferHead = new int[MaxChannels];
+        private readonly ScottPlot.Plottables.DataLogger[] _loggers = new ScottPlot.Plottables.DataLogger[MaxChannels];
         private readonly double[] _latestValues = new double[MaxChannels];
         private int _activeChannels = 0;
         private bool _isPaused = false;
-        private readonly DispatcherTimer _renderTimer;
+        private bool _isHookedRendering = false;
 
         public ScottPlotOscilloscopeControl()
         {
             InitializeComponent();
-
-            for (int ch = 0; ch < MaxChannels; ch++)
-            {
-                _channelBuffers[ch] = new double[BufferCapacity];
-            }
-
             InitScottPlotStyle();
 
-            _renderTimer = new DispatcherTimer(DispatcherPriority.Render)
+            Loaded += ScottPlotOscilloscopeControl_Loaded;
+            Unloaded += ScottPlotOscilloscopeControl_Unloaded;
+        }
+
+        private void ScottPlotOscilloscopeControl_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (!_isHookedRendering)
             {
-                Interval = TimeSpan.FromMilliseconds(33) // ~30 FPS 平滑刷新
-            };
-            _renderTimer.Tick += OnRenderTimerTick;
-            _renderTimer.Start();
+                CompositionTarget.Rendering += OnCompositionRendering;
+                _isHookedRendering = true;
+            }
+        }
+
+        private void ScottPlotOscilloscopeControl_Unloaded(object sender, RoutedEventArgs e)
+        {
+            if (_isHookedRendering)
+            {
+                CompositionTarget.Rendering -= OnCompositionRendering;
+                _isHookedRendering = false;
+            }
         }
 
         private void InitScottPlotStyle()
@@ -63,19 +73,29 @@ namespace LinkNexus.Blueprint.Controls
 
             for (int ch = 0; ch < MaxChannels; ch++)
             {
-                var sig = plot.Add.Signal(_channelBuffers[ch]);
-                sig.Color = ChannelColors[ch];
-                sig.LineWidth = 2.0f;
-                sig.LegendText = $"CH{ch}";
-                _signals[ch] = sig;
+                var logger = plot.Add.DataLogger();
+                logger.Color = ChannelColors[ch];
+                logger.LineWidth = 2.0f;
+                logger.LegendText = $"CH{ch}";
+                logger.ViewSlide(BufferCapacity);
+                _loggers[ch] = logger;
             }
 
             plot.ShowLegend(Edge.Top);
             plot.Legend.BackgroundColor = ScottPlot.Color.FromHex("#1E293B").WithAlpha(0.85f);
             plot.Legend.FontColor = ScottPlot.Color.FromHex("#F1F5F9");
-            plot.Axes.SetLimitsX(0, BufferCapacity);
             plot.Axes.SetLimitsY(-10, 10);
             ScopePlot.Refresh();
+        }
+
+        public void PushSample(in MetricSample sample, int channelIndex = 0)
+        {
+            if (_isPaused) return;
+            int ch = Math.Clamp(channelIndex, 0, MaxChannels - 1);
+            _activeChannels = Math.Max(_activeChannels, ch + 1);
+
+            _latestValues[ch] = sample.Value;
+            _loggers[ch].Add(sample.Value);
         }
 
         public void PushPacket(BlueprintPacket packet)
@@ -83,57 +103,41 @@ namespace LinkNexus.Blueprint.Controls
             if (_isPaused) return;
             if (packet.Channels.Length == 0) return;
 
-            lock (_channelBuffers)
+            int count = Math.Min(packet.Channels.Length, MaxChannels);
+            _activeChannels = Math.Max(_activeChannels, count);
+
+            for (int ch = 0; ch < count; ch++)
             {
-                int count = Math.Min(packet.Channels.Length, MaxChannels);
-                _activeChannels = Math.Max(_activeChannels, count);
-
-                for (int ch = 0; ch < count; ch++)
-                {
-                    double val = packet.Channels[ch];
-                    _latestValues[ch] = val;
-
-                    int head = _bufferHead[ch];
-                    if (head < BufferCapacity)
-                    {
-                        _channelBuffers[ch][head] = val;
-                        _bufferHead[ch] = head + 1;
-                    }
-                    else
-                    {
-                        // 环形前移
-                        Array.Copy(_channelBuffers[ch], 1, _channelBuffers[ch], 0, BufferCapacity - 1);
-                        _channelBuffers[ch][BufferCapacity - 1] = val;
-                    }
-                }
+                double val = packet.Channels[ch];
+                _latestValues[ch] = val;
+                _loggers[ch].Add(val);
             }
         }
 
-        private void OnRenderTimerTick(object? sender, EventArgs e)
+        private void OnCompositionRendering(object? sender, EventArgs e)
         {
-            if (_isPaused) return;
+            if (_isPaused || !IsVisible) return;
 
             // 更新状态与读数栏
             var sb = new StringBuilder();
-            lock (_channelBuffers)
+            for (int ch = 0; ch < _activeChannels; ch++)
             {
-                for (int ch = 0; ch < _activeChannels; ch++)
-                {
-                    sb.Append(string.Create(CultureInfo.InvariantCulture, $"CH{ch}: {_latestValues[ch]:+0.00;-0.00;0.00}   "));
-                }
+                sb.Append($"CH{ch}: {_latestValues[ch]:+0.000;-0.000;0.000} | ");
             }
 
-            if (sb.Length > 0)
-            {
-                TxtReadout.Text = sb.ToString();
-            }
+            TxtReadout.Text = sb.Length > 0 ? sb.ToString(0, sb.Length - 3) : "示波通道等待信号...";
 
-            ScopePlot.Plot.Axes.AutoScaleY();
+            // 60Hz 全局渲染脉冲统一触发 Refresh()
             ScopePlot.Refresh();
         }
 
-        private void BtnAutoFit_Click(object sender, RoutedEventArgs e)
+        private void BtnClear_Click(object sender, RoutedEventArgs e)
         {
+            for (int ch = 0; ch < MaxChannels; ch++)
+            {
+                _loggers[ch].Clear();
+                _latestValues[ch] = 0.0;
+            }
             ScopePlot.Plot.Axes.AutoScale();
             ScopePlot.Refresh();
         }
@@ -141,26 +145,16 @@ namespace LinkNexus.Blueprint.Controls
         private void BtnPause_Click(object sender, RoutedEventArgs e)
         {
             _isPaused = !_isPaused;
-            BtnPause.Content = _isPaused ? "继续采样" : "冻结波形";
-            StatusBadge.Text = _isPaused ? "示波器已暂停" : "硬件加速 Skia 渲染 · 60 FPS";
+            BtnPause.Content = _isPaused ? "继续" : "冻结";
+            BtnPause.Foreground = _isPaused
+                ? (System.Windows.Media.Brush)FindResource("WarningAmberBrush")
+                : (System.Windows.Media.Brush)FindResource("AppTextPrimaryBrush");
         }
 
-        private void BtnClear_Click(object sender, RoutedEventArgs e)
+        private void BtnAutoFit_Click(object sender, RoutedEventArgs e)
         {
-            lock (_channelBuffers)
-            {
-                for (int ch = 0; ch < MaxChannels; ch++)
-                {
-                    Array.Clear(_channelBuffers[ch], 0, BufferCapacity);
-                    _bufferHead[ch] = 0;
-                    _latestValues[ch] = 0;
-                }
-                _activeChannels = 0;
-            }
             ScopePlot.Plot.Axes.AutoScale();
             ScopePlot.Refresh();
-            TxtReadout.Text = "缓存已清空，等待新数据流...";
         }
     }
 }
-

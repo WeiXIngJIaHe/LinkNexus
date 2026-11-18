@@ -6,10 +6,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.40.2641</Version>
-    <AssemblyVersion>0.40.2641.0</AssemblyVersion>
-    <FileVersion>0.40.2641.0</FileVersion>
-    <InformationalVersion>0.40-preview.2641</InformationalVersion>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>0.41.2641</Version>
+    <AssemblyVersion>0.41.2641.0</AssemblyVersion>
+    <FileVersion>0.41.2641.0</FileVersion>
+    <InformationalVersion>0.41-preview.2641</InformationalVersion>
     <ApplicationIcon>assets\app.ico</ApplicationIcon>
     <SatelliteResourceLanguages>zh-Hans;zh-CN;en;en-US</SatelliteResourceLanguages>
     <NoWarn>$(NoWarn);NU1701;CS8618;CS8600;CS8602;CS8603;CS8604</NoWarn>

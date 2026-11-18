@@ -41,6 +41,7 @@ namespace LinkNexus
             }
 
             base.OnStartup(e);
+            DisplayRefreshService.InitializeGlobalTimelineFrameRate();
             ThemeManager.ApplyTheme(true);
             new MainWindow().Show();
         }

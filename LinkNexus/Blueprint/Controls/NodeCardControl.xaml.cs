@@ -15,6 +15,7 @@ namespace LinkNexus.Blueprint.Controls
     public partial class NodeCardControl : UserControl
     {
         private readonly Dictionary<PinViewModel, FrameworkElement> _pinSockets = new();
+        private readonly Dictionary<PinViewModel, Point> _dragStartPinAnchors = new();
         private BlueprintWorkspaceControl? _parentWorkspace;
 
         private bool _isDraggingNode;
@@ -211,6 +212,14 @@ namespace LinkNexus.Blueprint.Controls
             if (node == null || ws == null) return;
 
             ws.BringCardToFront(this);
+            SyncPinAnchorsTo(ws.CoordinateStage);
+
+            _dragStartPinAnchors.Clear();
+            foreach (var pin in _pinSockets.Keys)
+            {
+                _dragStartPinAnchors[pin] = pin.CanvasAnchor;
+            }
+
             _isDraggingNode = true;
             _dragStartMouseInWorkspace = ws.GetPointerInStage(e);
             _dragStartNodeX = node.X;
@@ -239,8 +248,13 @@ namespace LinkNexus.Blueprint.Controls
             node.X = _dragStartNodeX + dx;
             node.Y = _dragStartNodeY + dy;
 
-            UpdateLayout();
-            ws.UpdateAnchorsForCard(this);
+            // 直接基于拖拽起始锚点进行 O(1) 平移计算，彻底免除 UpdateLayout() 与全树 TransformToVisual 开销
+            foreach (var kv in _dragStartPinAnchors)
+            {
+                kv.Key.CanvasAnchor = new Point(kv.Value.X + dx, kv.Value.Y + dy);
+            }
+
+            ws.RequestCoalescedWireRepaint();
             e.Handled = true;
         }
 

@@ -1,18 +1,18 @@
 using System;
-using System.Globalization;
+using System.Diagnostics;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using LinkNexus.Blueprint.Core;
-using LinkNexus.Core.Pipeline;
 using ScottPlot;
 
 namespace LinkNexus.Blueprint.Controls
 {
     /// <summary>
     /// 基于 ScottPlot 5 官方高帧率流式 DataLogger 的工业级示波器 (ScottPlotOscilloscopeControl)
-    /// 严禁每次 Clear 后重绘 Scatter；统一由 60Hz CompositionTarget.Rendering 驱动 Refresh()
+    /// 采用脏数据标记 (_hasDirtyData) + 显示器刷新率自适应节流 (60Hz ~ 240Hz+) + 单帧绘制耗时预算退避：
+    /// 静止无数据时 0 重绘零 CPU 占用；高频推流时满帧顺滑且绝不阻塞主界面交互。
     /// </summary>
     public partial class ScottPlotOscilloscopeControl : UserControl
     {
@@ -29,11 +29,19 @@ namespace LinkNexus.Blueprint.Controls
             ScottPlot.Color.FromHex("#2DD4BF")  // CH5 极光青绿
         };
 
+        private readonly object _dataLock = new();
         private readonly ScottPlot.Plottables.DataLogger[] _loggers = new ScottPlot.Plottables.DataLogger[MaxChannels];
         private readonly double[] _latestValues = new double[MaxChannels];
+        private readonly StringBuilder _readoutBuilder = new(128);
+
         private int _activeChannels = 0;
         private bool _isPaused = false;
         private bool _isHookedRendering = false;
+
+        // 脏数据标记与高刷屏自适应预算状态
+        private volatile bool _hasDirtyData = false;
+        private long _lastRenderTick = 0;
+        private double _smoothedRenderDurationMs = 1.5;
 
         public ScottPlotOscilloscopeControl()
         {
@@ -92,10 +100,14 @@ namespace LinkNexus.Blueprint.Controls
         {
             if (_isPaused) return;
             int ch = Math.Clamp(channelIndex, 0, MaxChannels - 1);
-            _activeChannels = Math.Max(_activeChannels, ch + 1);
 
-            _latestValues[ch] = sample.Value;
-            _loggers[ch].Add(sample.Value);
+            lock (_dataLock)
+            {
+                _activeChannels = Math.Max(_activeChannels, ch + 1);
+                _latestValues[ch] = sample.Value;
+                _loggers[ch].Add(sample.Value);
+                _hasDirtyData = true;
+            }
         }
 
         public void PushPacket(BlueprintPacket packet)
@@ -104,42 +116,74 @@ namespace LinkNexus.Blueprint.Controls
             if (packet.Channels.Length == 0) return;
 
             int count = Math.Min(packet.Channels.Length, MaxChannels);
-            _activeChannels = Math.Max(_activeChannels, count);
-
-            for (int ch = 0; ch < count; ch++)
+            lock (_dataLock)
             {
-                double val = packet.Channels[ch];
-                _latestValues[ch] = val;
-                _loggers[ch].Add(val);
+                _activeChannels = Math.Max(_activeChannels, count);
+                for (int ch = 0; ch < count; ch++)
+                {
+                    double val = packet.Channels[ch];
+                    _latestValues[ch] = val;
+                    _loggers[ch].Add(val);
+                }
+                _hasDirtyData = true;
             }
         }
 
         private void OnCompositionRendering(object? sender, EventArgs e)
         {
-            if (_isPaused || !IsVisible) return;
+            // 静止无数据、冻结或不可见时 0 重绘，彻底消除 60~240Hz 空转开销
+            if (_isPaused || !IsVisible || !_hasDirtyData) return;
 
-            // 更新状态与读数栏
-            var sb = new StringBuilder();
-            for (int ch = 0; ch < _activeChannels; ch++)
+            long nowTick = Stopwatch.GetTimestamp();
+            double elapsedMs = (nowTick - _lastRenderTick) * (1000.0 / Stopwatch.Frequency);
+
+            // 按当前显示器周期 (1000 / TargetHz) 与单帧绘制耗时预算动态节流，防止高刷屏过载掉帧
+            double targetIntervalMs = DisplayRefreshService.TargetFrameIntervalMs * 0.90;
+            double budgetBackoffMs = _smoothedRenderDurationMs * 1.65;
+            double requiredIntervalMs = Math.Max(targetIntervalMs, budgetBackoffMs);
+
+            if (elapsedMs < requiredIntervalMs)
             {
-                sb.Append($"CH{ch}: {_latestValues[ch]:+0.000;-0.000;0.000} | ");
+                return;
             }
 
-            TxtReadout.Text = sb.Length > 0 ? sb.ToString(0, sb.Length - 3) : "示波通道等待信号...";
+            _lastRenderTick = nowTick;
 
-            // 60Hz 全局渲染脉冲统一触发 Refresh()
-            ScopePlot.Refresh();
+            long t0 = Stopwatch.GetTimestamp();
+            lock (_dataLock)
+            {
+                _hasDirtyData = false;
+                _readoutBuilder.Clear();
+                for (int ch = 0; ch < _activeChannels; ch++)
+                {
+                    _readoutBuilder.Append($"CH{ch}: {_latestValues[ch]:+0.000;-0.000;0.000} | ");
+                }
+
+                TxtReadout.Text = _readoutBuilder.Length > 0
+                    ? _readoutBuilder.ToString(0, _readoutBuilder.Length - 3)
+                    : "示波通道等待信号...";
+
+                ScopePlot.Refresh();
+            }
+            long t1 = Stopwatch.GetTimestamp();
+
+            double renderMs = (t1 - t0) * (1000.0 / Stopwatch.Frequency);
+            _smoothedRenderDurationMs = _smoothedRenderDurationMs * 0.80 + renderMs * 0.20;
         }
 
         private void BtnClear_Click(object sender, RoutedEventArgs e)
         {
-            for (int ch = 0; ch < MaxChannels; ch++)
+            lock (_dataLock)
             {
-                _loggers[ch].Clear();
-                _latestValues[ch] = 0.0;
+                for (int ch = 0; ch < MaxChannels; ch++)
+                {
+                    _loggers[ch].Clear();
+                    _latestValues[ch] = 0.0;
+                }
+                _hasDirtyData = false;
+                ScopePlot.Plot.Axes.AutoScale();
+                ScopePlot.Refresh();
             }
-            ScopePlot.Plot.Axes.AutoScale();
-            ScopePlot.Refresh();
         }
 
         private void BtnPause_Click(object sender, RoutedEventArgs e)

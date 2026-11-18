@@ -2,11 +2,11 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 
-namespace LinkNexus.Core.Pipeline
+namespace LinkNexus.Blueprint.Core
 {
     /// <summary>
     /// 零 GC 内存分配的强类型硬件指标采样单元 (MetricSample)
-    /// 借鉴 Bonsai-RX 高性能响应式流设计，支持标量、三维姿态、多通道电气遥测的纳秒级极速流转
+    /// 支持标量、三维姿态、多通道电气遥测的纳秒级流转
     /// </summary>
     public readonly struct MetricSample : IEquatable<MetricSample>
     {
@@ -86,3 +86,4 @@ namespace LinkNexus.Core.Pipeline
         }
     }
 }
+

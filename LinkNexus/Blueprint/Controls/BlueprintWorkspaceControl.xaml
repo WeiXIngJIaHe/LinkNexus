@@ -76,7 +76,7 @@
                         <ScaleTransform x:Name="StageScaleTransform" ScaleX="1.0" ScaleY="1.0" />
                     </Grid.LayoutTransform>
 
-                    <!-- 底层：工程点阵底图 + 已绑定的三阶贝塞尔数据流连线 -->
+                    <!-- 底层：工程点阵底图 (静态平铺 DrawingBrush) + 已绑定的三阶贝塞尔数据流连线 -->
                     <ctrl:BezierWireCanvas x:Name="UnderlayWireCanvas"
                                            Connections="{Binding Connections}"
                                            ShowBackgroundGrid="True"
@@ -111,27 +111,38 @@
                 </Grid>
             </ScrollViewer>
 
-            <!-- 右下角悬浮 HUD 快速控制胶囊 (放大/缩小/100%、启动全部源、停止全部、自动排版、清空连线与快捷键徽章) -->
+            <!-- 右下角悬浮 HUD 快速控制胶囊 (轻量 1px 描边，无软件 DropShadowEffect) -->
             <Border HorizontalAlignment="Right"
                     VerticalAlignment="Bottom"
                     Margin="0,0,24,24"
-                    Background="#D9181E29"
-                    BorderBrush="#38BDF8"
+                    Background="{DynamicResource AppSurfaceBrush}"
+                    BorderBrush="{DynamicResource AccentCyanBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
                     Padding="8,5"
                     SnapsToDevicePixels="True">
-                <Border.Effect>
-                    <DropShadowEffect BlurRadius="18" ShadowDepth="3" Direction="270" Color="#000000" Opacity="0.55" />
-                </Border.Effect>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- 快捷操作徽章 -->
-                    <Border Background="#1E293B" CornerRadius="4" Padding="7,3" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="快捷键操作指引">
-                        <TextBlock FontSize="10.5" Foreground="#94A3B8" FontFamily="Consolas">
-                            <Run Text="💡" />
-                            <Run Text="Shift+A" FontWeight="Bold" Foreground="#38BDF8" />
-                            <Run Text=" / 右键 新建节点" />
-                        </TextBlock>
+                    <!-- 快捷操作徽章 (使用专业几何 SVG 图标，严禁 Emoji) -->
+                    <Border Background="{DynamicResource AppSurfaceSubtleBrush}"
+                            BorderBrush="{DynamicResource AppBorderSubtleBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="7,3"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            ToolTip="快捷键操作指引：按 Shift+A 或在画布空白处右键点击，即可秒开节点模糊搜索">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Path Data="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"
+                                  Fill="{DynamicResource AccentCyanBrush}"
+                                  Width="11" Height="11"
+                                  Stretch="Uniform"
+                                  Margin="0,0,5,0"
+                                  VerticalAlignment="Center" />
+                            <TextBlock FontSize="10.5" Foreground="{DynamicResource AppTextSecondaryBrush}" FontFamily="Consolas">
+                                <Run Text="Shift+A" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" />
+                                <Run Text=" / 右键 新建节点" />
+                            </TextBlock>
+                        </StackPanel>
                     </Border>
 
                     <Border Width="1" Height="14" Background="{DynamicResource AppBorderBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
@@ -198,7 +209,7 @@
                 </StackPanel>
             </Border>
 
-            <!-- Blender / UE5 风格无边框毛玻璃暗黑搜索与拉线建链弹窗 -->
+            <!-- Blender / UE5 风格内嵌画布硬件加速搜索与拉线建链浮层 -->
             <ctrl:NodeSearchPopup x:Name="SearchPopup" />
         </Grid>
 

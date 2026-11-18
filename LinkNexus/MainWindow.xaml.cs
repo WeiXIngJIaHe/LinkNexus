@@ -11,14 +11,15 @@ namespace LinkNexus
 {
     /// <summary>
     /// MainWindow.xaml 的交互与系统底层控制接入
-    /// 接管 Windows Win32 消息泵 WndProc，监听 USB PnP 热插拔并挂载 MVVM 架构
-    /// 包含文件拖拽载入与 Linux CLI 键盘回车交互
+    /// 接管 Windows Win32 消息泵 WndProc，监听 USB PnP 热插拔、主窗口四边磁吸贴合 (WM_WINDOWPOSCHANGING)
+    /// 以及多显示器刷新率动态感知 (60Hz ~ 240Hz+)
     /// </summary>
     public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         private readonly UsbMonitorService _usbMonitorService;
         private readonly MainViewModel _viewModel;
         private HwndSource? _hwndSource;
+        private bool _isInteractiveMove = false;
 
         public MainWindow()
         {
@@ -29,9 +30,10 @@ namespace LinkNexus
             _viewModel = new MainViewModel(_usbMonitorService);
             DataContext = _viewModel;
 
-            // 2. 窗口生命周期事件
+            // 2. 窗口生命周期事件与高刷屏同步
             StateChanged += MainWindow_StateChanged;
             Closed += MainWindow_Closed;
+            DisplayRefreshService.RefreshRateChanged += OnDisplayRefreshRateChanged;
 
             // 3. 监听 CLI 终端行输出自动滚动到底部
             ((System.Collections.Specialized.INotifyCollectionChanged)_viewModel.Esp32CliTerminalLines).CollectionChanged += (s, e) =>
@@ -61,19 +63,59 @@ namespace LinkNexus
             _hwndSource = PresentationSource.FromVisual(this) as HwndSource;
             if (_hwndSource != null)
             {
-                // 挂接 WndProc 钩子捕获 WM_DEVICECHANGE 广播
+                // 挂接 WndProc 钩子捕获 WM_DEVICECHANGE、WM_WINDOWPOSCHANGING 与跨屏刷新率变更
                 _hwndSource.AddHook(WndProc);
 
                 // 注册 USB 与 COM 端口设备广播监听
                 _usbMonitorService.Register(_hwndSource.Handle);
+
+                // 立即探测当前所在显示器物理刷新率并应用至动画时钟
+                DisplayRefreshService.UpdateRefreshRateForWindow(_hwndSource.Handle, forceNotify: true);
             }
         }
 
+        private void OnDisplayRefreshRateChanged(int hz)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                DisplayRefreshService.ApplyDesiredFrameRate(HallBtnGlowStoryboard);
+                DisplayRefreshService.ApplyDesiredFrameRate(HallFullWidthGlowStoryboard);
+                DisplayRefreshService.ApplyDesiredFrameRate(DaemonScanStoryboard);
+            });
+        }
+
         /// <summary>
-        /// 原生 Windows 消息泵过滤器
+        /// 原生 Windows 消息泵过滤器：处理窗口屏幕四边磁吸、跨显示器刷新率自适应与 USB 热插拔
         /// </summary>
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
+            switch (msg)
+            {
+                case DisplayRefreshService.WM_ENTERSIZEMOVE:
+                    _isInteractiveMove = true;
+                    break;
+
+                case DisplayRefreshService.WM_EXITSIZEMOVE:
+                    _isInteractiveMove = false;
+                    DisplayRefreshService.UpdateRefreshRateForWindow(hwnd);
+                    break;
+
+                case DisplayRefreshService.WM_WINDOWPOSCHANGING:
+                    DisplayRefreshService.HandleWindowPosChangingSnap(
+                        hwnd,
+                        lParam,
+                        this,
+                        _isInteractiveMove,
+                        snapThresholdDip: 14.0);
+                    break;
+
+                case DisplayRefreshService.WM_WINDOWPOSCHANGED:
+                case DisplayRefreshService.WM_DISPLAYCHANGE:
+                case DisplayRefreshService.WM_DPICHANGED:
+                    DisplayRefreshService.UpdateRefreshRateForWindow(hwnd);
+                    break;
+            }
+
             return _usbMonitorService.HwndHandler(hwnd, msg, wParam, lParam, ref handled);
         }
 
@@ -149,7 +191,7 @@ namespace LinkNexus
 
         #endregion
 
-        #region 串口与智能输入按键交互
+        #region 串口与智能输入按键交互 & 全局 Shift+A 蓝图快捷路由
 
         private void SmartInputTextBox_KeyDown(object sender, KeyEventArgs e)
         {
@@ -179,7 +221,7 @@ namespace LinkNexus
         }
 
         /// <summary>
-        /// ESP32-S3 CLI 输入框键盘交互：Enter执行、Tab补全、↑/↓历史导航 (采用 PreviewKeyDown 彻底拦截 Tab 制表符)
+        /// ESP32-S3 CLI 输入框键盘交互：Enter执行、Tab补全、↑/↓历史导航
         /// </summary>
         private void Esp32CliInputTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
@@ -224,6 +266,24 @@ namespace LinkNexus
         }
 
         /// <summary>
+        /// 隧道级快捷键路由：当处于蓝图工作区且焦点不在输入框内时，按 Shift+A 秒开节点搜索浮层
+        /// </summary>
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (!_viewModel.IsEsp32CliOpen &&
+                e.Key == Key.A &&
+                (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift &&
+                MainBlueprintControl != null &&
+                MainBlueprintControl.IsVisible)
+            {
+                if (MainBlueprintControl.TryHandleShiftAShortcut(e.OriginalSource as DependencyObject))
+                {
+                    e.Handled = true;
+                }
+            }
+        }
+
+        /// <summary>
         /// 全局 Esc 快捷键关闭 ESP32-S3 CLI 悬浮终端
         /// </summary>
         private void Window_KeyDown(object sender, KeyEventArgs e)
@@ -250,7 +310,6 @@ namespace LinkNexus
 
         private void CliHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // 排除点击右上角关闭按钮等子控件
             if (e.OriginalSource is DependencyObject dep && FindVisualParent<System.Windows.Controls.Button>(dep) != null)
             {
                 return;
@@ -285,37 +344,32 @@ namespace LinkNexus
 
             if (containerWidth > modalWidth && containerHeight > modalHeight)
             {
-                // 居中基准偏移量
                 double baseX = (containerWidth - modalWidth) / 2.0;
                 double baseY = (containerHeight - modalHeight) / 2.0;
 
-                // 当前距离四边边界的视觉绝对距离 (px)
                 double currentLeft = baseX + newX;
                 double currentRight = containerWidth - (currentLeft + modalWidth);
                 double currentTop = baseY + newY;
                 double currentBottom = containerHeight - (currentTop + modalHeight);
 
-                // 左/右边框磁吸贴合 (Snap to Left / Right Edge)
                 if (currentLeft >= -CliSnapThreshold && currentLeft <= CliSnapThreshold)
                 {
-                    newX = -baseX; // 吸附贴紧左边框
+                    newX = -baseX;
                 }
                 else if (currentRight >= -CliSnapThreshold && currentRight <= CliSnapThreshold)
                 {
-                    newX = containerWidth - modalWidth - baseX; // 吸附贴紧右边框
+                    newX = containerWidth - modalWidth - baseX;
                 }
 
-                // 上/下边框磁吸贴合 (Snap to Top / Bottom Edge)
                 if (currentTop >= -CliSnapThreshold && currentTop <= CliSnapThreshold)
                 {
-                    newY = -baseY; // 吸附贴紧上边框
+                    newY = -baseY;
                 }
                 else if (currentBottom >= -CliSnapThreshold && currentBottom <= CliSnapThreshold)
                 {
-                    newY = containerHeight - modalHeight - baseY; // 吸附贴紧下边框
+                    newY = containerHeight - modalHeight - baseY;
                 }
 
-                // 边界物理钳位 (Clamp: 确保无论如何拖动，面板绝不被拖拽到可视区域外)
                 double minX = -baseX;
                 double maxX = containerWidth - modalWidth - baseX;
                 double minY = -baseY;
@@ -350,7 +404,7 @@ namespace LinkNexus
 
         #endregion
 
-        #region 蓝图数据流与 ScottPlot 示波器 / Helix 3D 空间动捕联动
+        #region 蓝图数据流与 ScottPlot 示波器 / Helix 3D 空间动捕联动 (无锁合帧直通)
 
         private void BlueprintNodes_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
@@ -372,39 +426,38 @@ namespace LinkNexus
             {
                 imuNode.AttitudeUpdatedCallback = (r, p, y) =>
                 {
-                    Dispatcher.InvokeAsync(() => MainHelixControl?.UpdateAttitude(r, p, y));
+                    MainHelixControl?.UpdateAttitude(r, p, y);
                 };
             }
             else if (node is PhaseSpace3DPlotNode phaseNode)
             {
                 phaseNode.PhasePointCallback = (x, y, z) =>
                 {
-                    Dispatcher.InvokeAsync(() => MainHelixControl?.PushPhasePoint(x, y, z));
+                    MainHelixControl?.PushPhasePoint(x, y, z);
                 };
             }
         }
 
         private void OnGlobalBlueprintPacketEmitted(NodeBase sourceNode, int outputPinIndex, BlueprintPacket packet)
         {
-            Dispatcher.InvokeAsync(() =>
-            {
-                MainScopeControl?.PushPacket(packet);
+            MainScopeControl?.PushPacket(packet);
 
-                if (packet.Header == "PHASE_3D" && packet.Channels.Length >= 3)
-                {
-                    MainHelixControl?.PushPhasePoint(packet.Channels[0], packet.Channels[1], packet.Channels[2]);
-                }
-                else if ((packet.Header == "IMU" || packet.Header == "IMU_3D") && packet.Channels.Length >= 3)
-                {
-                    MainHelixControl?.UpdateAttitude(packet.Channels[0], packet.Channels[1], packet.Channels[2]);
-                }
-            });
+            if (packet.Header == "PHASE_3D" && packet.Channels.Length >= 3)
+            {
+                MainHelixControl?.PushPhasePoint(packet.Channels[0], packet.Channels[1], packet.Channels[2]);
+            }
+            else if ((packet.Header == "IMU" || packet.Header == "IMU_3D") && packet.Channels.Length >= 3)
+            {
+                MainHelixControl?.UpdateAttitude(packet.Channels[0], packet.Channels[1], packet.Channels[2]);
+            }
         }
 
         #endregion
 
         private void MainWindow_Closed(object? sender, EventArgs e)
         {
+            DisplayRefreshService.RefreshRateChanged -= OnDisplayRefreshRateChanged;
+
             if (_hwndSource != null)
             {
                 _hwndSource.RemoveHook(WndProc);
@@ -423,4 +476,3 @@ namespace LinkNexus
         }
     }
 }
-

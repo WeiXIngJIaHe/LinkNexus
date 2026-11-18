@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -14,7 +15,8 @@ namespace LinkNexus.Blueprint.Controls
     /// <summary>
     /// 流式卡片蓝图交互主画布控件 (BlueprintWorkspaceControl)
     /// 协调 NodeCardControl 节点拖拽、鼠标滚轮自由缩放 (35% ~ 240%)、三阶贝塞尔曲线磁吸建链、
-    /// Blender (Shift+A / 右键) 模糊搜索弹窗、UE5 (拉线松手弹窗自适应连线) 与 Blender (拖拽切线)
+    /// Blender (Shift+A / 右键) 零延迟搜索浮层、UE5 (拉线松手弹窗自适应连线) 与 Blender (拖拽切线)
+    /// 支持高刷屏 VSync 合帧调度 (60Hz ~ 240Hz+)
     /// </summary>
     public partial class BlueprintWorkspaceControl : UserControl
     {
@@ -37,6 +39,10 @@ namespace LinkNexus.Blueprint.Controls
         private Point _panStartViewportPoint;
         private double _panStartHOffset;
         private double _panStartVOffset;
+
+        // 高刷屏 VSync 合帧节流状态 (适配 1000Hz 鼠标回报率 + 60~240Hz 显示器)
+        private bool _wireRepaintPending;
+        private long _lastWirePreviewTick;
 
         public Visual CoordinateStage => UnderlayWireCanvas;
         public BlueprintWorkspaceViewModel? ViewModel => DataContext as BlueprintWorkspaceViewModel;
@@ -162,7 +168,7 @@ namespace LinkNexus.Blueprint.Controls
 
         #endregion
 
-        #region 卡片与连线生命周期
+        #region 卡片与连线生命周期 & VSync 合帧刷新
 
         public void RegisterNodeCard(NodeCardControl card)
         {
@@ -191,7 +197,22 @@ namespace LinkNexus.Blueprint.Controls
         public void UpdateAnchorsForCard(NodeCardControl card)
         {
             card.SyncPinAnchorsTo(UnderlayWireCanvas);
-            UnderlayWireCanvas.InvalidateVisual();
+            RequestCoalescedWireRepaint();
+        }
+
+        /// <summary>
+        /// 按屏幕物理刷新节拍合并连线重绘请求 (VSync Coalescing)，消除 1000Hz 鼠标高频事件造成的无效重绘
+        /// </summary>
+        public void RequestCoalescedWireRepaint()
+        {
+            if (_wireRepaintPending) return;
+            _wireRepaintPending = true;
+
+            Dispatcher.BeginInvoke(() =>
+            {
+                _wireRepaintPending = false;
+                UnderlayWireCanvas.InvalidateVisual();
+            }, DispatcherPriority.Render);
         }
 
         public void BringCardToFront(NodeCardControl card)
@@ -230,12 +251,52 @@ namespace LinkNexus.Blueprint.Controls
         {
             if (e.Key == Key.A && (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift)
             {
-                Point mouseInControl = Mouse.GetPosition(this);
-                Point mouseOnStage = Mouse.GetPosition(BlueprintStageGrid);
-                Point screenPt = PointToScreenSafe(mouseInControl);
-                OpenSearchPopup(mouseOnStage, screenPt, null);
+                if (TryHandleShiftAShortcut(e.OriginalSource as DependencyObject))
+                {
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Key.Escape && SearchPopup.IsOpen)
+            {
+                SearchPopup.Hide();
                 e.Handled = true;
             }
+        }
+
+        /// <summary>
+        /// 响应 Shift+A 快捷键：若当前焦点位于节点内部 TextBox 则放行正常输入，否则秒开搜索浮层
+        /// </summary>
+        public bool TryHandleShiftAShortcut(DependencyObject? focusSource = null)
+        {
+            if (!IsVisible) return false;
+
+            DependencyObject? target = focusSource ?? Keyboard.FocusedElement as DependencyObject;
+            if (target != null)
+            {
+                var activeTextBox = VisualTreeSafeHelper.FindAncestor<TextBox>(target, includeSelf: true);
+                if (activeTextBox != null && !SearchPopup.IsOpen)
+                {
+                    // 保护节点内嵌参数输入框正常输入大写字母 'A'
+                    return false;
+                }
+            }
+
+            Point viewportPt = Mouse.GetPosition(this);
+            if (viewportPt.X < 0 || viewportPt.Y < 0 || viewportPt.X > ActualWidth || viewportPt.Y > ActualHeight)
+            {
+                viewportPt = new Point(Math.Max(60, ActualWidth * 0.38), Math.Max(60, ActualHeight * 0.28));
+            }
+
+            Point stagePt = Mouse.GetPosition(BlueprintStageGrid);
+            if (stagePt.X < 0 || stagePt.Y < 0)
+            {
+                stagePt = new Point(
+                    (StageScrollViewer.HorizontalOffset + viewportPt.X) / _currentZoom,
+                    (StageScrollViewer.VerticalOffset + viewportPt.Y) / _currentZoom);
+            }
+
+            OpenSearchPopup(stagePt, viewportPt, null);
+            return true;
         }
 
         private void Stage_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
@@ -243,23 +304,23 @@ namespace LinkNexus.Blueprint.Controls
             if (ReferenceEquals(e.OriginalSource, UnderlayWireCanvas) || ReferenceEquals(e.OriginalSource, BlueprintStageGrid))
             {
                 Point mouseOnStage = e.GetPosition(BlueprintStageGrid);
-                Point screenPt = PointToScreenSafe(e.GetPosition(this));
-                OpenSearchPopup(mouseOnStage, screenPt, null);
+                Point viewportPt = e.GetPosition(this);
+                OpenSearchPopup(mouseOnStage, viewportPt, null);
                 e.Handled = true;
             }
         }
 
-        public void OpenSearchPopup(Point stagePt, Point screenPt, PinViewModel? dragOriginPin = null)
+        public void OpenSearchPopup(Point stagePt, Point viewportPt, PinViewModel? dragOriginPin = null)
         {
-            SearchPopup.ShowAt(screenPt, stagePt, dragOriginPin);
+            SearchPopup.ShowAt(viewportPt, stagePt, dragOriginPin);
         }
 
         private void OnSearchPopupNodeSelected(NodeRegistryItem item, Point canvasPt, PinViewModel? dragOriginPin)
         {
             if (ViewModel == null) return;
 
-            var newNode = item.Factory(canvasPt.X, canvasPt.Y);
-            ViewModel.RegisterNode(newNode);
+            var newNode = ViewModel.CreateAndRegisterNodeByType(item.Key, canvasPt.X, canvasPt.Y)
+                          ?? ViewModel.RegisterNode(item.Factory(canvasPt.X, canvasPt.Y));
 
             // UE5 蓝图式自动连线
             if (dragOriginPin != null)
@@ -313,27 +374,13 @@ namespace LinkNexus.Blueprint.Controls
             return inserted;
         }
 
-        private Point PointToScreenSafe(Point relativePt)
-        {
-            try
-            {
-                if (IsLoaded && PresentationSource.FromVisual(this) != null)
-                {
-                    return PointToScreen(relativePt);
-                }
-            }
-            catch
-            {
-            }
-            return relativePt;
-        }
-
         #endregion
 
         #region 拉线建链与画布交互
 
         public void BeginWireDrag(PinViewModel originPin, MouseButtonEventArgs e)
         {
+            if (SearchPopup.IsOpen) SearchPopup.Hide();
             SyncAllCardAnchorsImmediate();
 
             _dragOriginPin = originPin;
@@ -360,8 +407,14 @@ namespace LinkNexus.Blueprint.Controls
 
         private void Stage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            if (SearchPopup.IsOpen)
+            {
+                SearchPopup.Hide();
+            }
+
             if (ReferenceEquals(e.OriginalSource, UnderlayWireCanvas) || ReferenceEquals(e.OriginalSource, BlueprintStageGrid))
             {
+                Focus();
                 _isPanningStage = true;
                 _panStartViewportPoint = e.GetPosition(StageScrollViewer);
                 _panStartHOffset = StageScrollViewer.HorizontalOffset;
@@ -381,6 +434,17 @@ namespace LinkNexus.Blueprint.Controls
                     CancelWireDrag();
                     return;
                 }
+
+                // 按当前显示器物理刷新率周期合帧节流，防止 1000Hz 鼠标过度计算
+                long nowTick = Stopwatch.GetTimestamp();
+                double elapsedMs = (nowTick - _lastWirePreviewTick) * (1000.0 / Stopwatch.Frequency);
+                double minIntervalMs = DisplayRefreshService.TargetFrameIntervalMs * 0.45;
+                if (elapsedMs < minIntervalMs)
+                {
+                    e.Handled = true;
+                    return;
+                }
+                _lastWirePreviewTick = nowTick;
 
                 Point mousePt = e.GetPosition(UnderlayWireCanvas);
                 PinViewModel? nearest = FindNearestCompatiblePin(_dragOriginPin, mousePt, MagneticSnapRadius);
@@ -446,8 +510,8 @@ namespace LinkNexus.Blueprint.Controls
                 else
                 {
                     // UE5 蓝图式: 拉线至空白处松手自动弹窗并连线 (Drop-Wire to Spawn)
-                    Point screenPt = PointToScreenSafe(e.GetPosition(this));
-                    OpenSearchPopup(mousePt, screenPt, origin);
+                    Point viewportPt = e.GetPosition(this);
+                    OpenSearchPopup(mousePt, viewportPt, origin);
                 }
 
                 e.Handled = true;

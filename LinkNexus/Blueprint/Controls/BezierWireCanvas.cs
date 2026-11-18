@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Windows;
@@ -11,7 +10,9 @@ namespace LinkNexus.Blueprint.Controls
 {
     /// <summary>
     /// 三阶贝塞尔曲线交互连线画布 (BezierWireCanvas)
-    /// 负责渲染工业工程点阵底图、所有已绑定的 Cubic Bezier 数据流连线、实时拖拽预览曲线及磁吸光环，并支持右键点击曲线快速解绑
+    /// 1. 4200×2800 工程点阵底图采用静态冻结平铺 DrawingBrush (96×96 Tile)，单次 GPU 矩形绘制完成，彻底消除每帧数百次 DrawLine 开销；
+    /// 2. 已建立连线复用 ConnectionViewModel 冻结 Pen 与缓存 StreamGeometry，静态连线零 GC 零重算；
+    /// 3. 支持实时拖拽预览曲线、磁吸光环及右键点击曲线快速解绑。
     /// </summary>
     public sealed class BezierWireCanvas : FrameworkElement
     {
@@ -71,15 +72,23 @@ namespace LinkNexus.Blueprint.Controls
                 typeof(BezierWireCanvas),
                 new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
 
-        private static readonly Pen DarkMinorGridPen = CreateFrozenPen("#1F2A3C", 1.0);
-        private static readonly Pen DarkMajorGridPen = CreateFrozenPen("#29374E", 1.0);
-        private static readonly Brush DarkBgBrush = CreateFrozenBrush("#161C27");
+        private static readonly Brush DarkTiledGridBrush = CreateFrozenGridTileBrush(
+            bgHex: "#161C27",
+            minorHex: "#1F2A3C",
+            majorHex: "#29374E");
 
-        private static readonly Pen LightMinorGridPen = CreateFrozenPen("#E2E8F0", 1.0);
-        private static readonly Pen LightMajorGridPen = CreateFrozenPen("#CBD5E1", 1.0);
-        private static readonly Brush LightBgBrush = CreateFrozenBrush("#F1F5F9");
+        private static readonly Brush LightTiledGridBrush = CreateFrozenGridTileBrush(
+            bgHex: "#F1F5F9",
+            minorHex: "#E2E8F0",
+            majorHex: "#CBD5E1");
 
-        private static readonly Brush HoverDeleteHighlightBrush = CreateFrozenBrush("#F87171");
+        private static readonly DashStyle PreviewDashStyle = CreateFrozenDashStyle();
+
+        // 预览画笔复用缓存
+        private Brush? _cachedPreviewBrushSource;
+        private Pen? _cachedPreviewDashedPen;
+        private Pen? _cachedPreviewSnappedPen;
+        private Pen? _cachedSnapRingPen;
 
         public ObservableCollection<ConnectionViewModel>? Connections
         {
@@ -202,79 +211,40 @@ namespace LinkNexus.Blueprint.Controls
             double h = ActualHeight;
             if (w <= 1 || h <= 1) return;
 
+            // 1. 工程点阵底图：使用预冻结的 96×96 Tile DrawingBrush 单次硬件填充
             if (ShowBackgroundGrid)
             {
                 bool dark = ThemeManager.IsDarkMode;
-                dc.DrawRectangle(dark ? DarkBgBrush : LightBgBrush, null, new Rect(0, 0, w, h));
-
-                var minorPen = dark ? DarkMinorGridPen : LightMinorGridPen;
-                var majorPen = dark ? DarkMajorGridPen : LightMajorGridPen;
-
-                const double step = 24.0;
-                int indexX = 0;
-                for (double x = 0; x < w; x += step, indexX++)
-                {
-                    if (indexX % 4 != 0)
-                    {
-                        dc.DrawLine(minorPen, new Point(x, 0), new Point(x, h));
-                    }
-                }
-
-                int indexY = 0;
-                for (double y = 0; y < h; y += step, indexY++)
-                {
-                    if (indexY % 4 != 0)
-                    {
-                        dc.DrawLine(minorPen, new Point(0, y), new Point(w, y));
-                    }
-                }
-
-                for (double x = 0; x < w; x += step * 4)
-                {
-                    dc.DrawLine(majorPen, new Point(x, 0), new Point(x, h));
-                }
-
-                for (double y = 0; y < h; y += step * 4)
-                {
-                    dc.DrawLine(majorPen, new Point(0, y), new Point(w, y));
-                }
+                dc.DrawRectangle(dark ? DarkTiledGridBrush : LightTiledGridBrush, null, new Rect(0, 0, w, h));
             }
 
+            // 2. 已建立的三阶贝塞尔数据流连线：直接复用冻结画笔与缓存 StreamGeometry
             if (RenderEstablishedConnections && Connections != null)
             {
-                foreach (var conn in Connections)
+                int count = Connections.Count;
+                for (int i = 0; i < count; i++)
                 {
+                    var conn = Connections[i];
                     Point p0 = conn.StartPoint;
                     Point p3 = conn.EndPoint;
                     if (p0.X <= 0.1 && p0.Y <= 0.1 && p3.X <= 0.1 && p3.Y <= 0.1) continue;
 
-                    GetControlPoints(p0, p3, out Point c1, out Point c2);
-                    var geom = BuildBezierGeometry(p0, c1, c2, p3);
+                    var geom = conn.GetOrBuildGeometry(out Point mid);
+                    bool hovered = conn.IsHovered;
 
-                    double haloThickness = conn.IsHovered ? 8.0 : 5.5;
-                    double coreThickness = conn.IsHovered ? 3.2 : 2.3;
-                    Brush coreBrush = conn.IsHovered ? HoverDeleteHighlightBrush : conn.WireBrush;
-
-                    var haloPen = new Pen(conn.GlowBrush, haloThickness)
-                    {
-                        StartLineCap = PenLineCap.Round,
-                        EndLineCap = PenLineCap.Round
-                    };
-                    var corePen = new Pen(coreBrush, coreThickness)
-                    {
-                        StartLineCap = PenLineCap.Round,
-                        EndLineCap = PenLineCap.Round
-                    };
+                    Pen haloPen = hovered ? conn.HoveredHaloPen : conn.NormalHaloPen;
+                    Pen corePen = hovered ? conn.HoveredCorePen : conn.NormalCorePen;
+                    Brush coreBrush = hovered ? conn.HoverCoreBrush : conn.WireBrush;
 
                     dc.DrawGeometry(null, haloPen, geom);
                     dc.DrawGeometry(null, corePen, geom);
 
-                    // 中点流向节点微标
-                    Point mid = EvaluateCubicBezier(p0, c1, c2, p3, 0.5);
-                    dc.DrawEllipse(coreBrush, null, mid, conn.IsHovered ? 4.2 : 3.0, conn.IsHovered ? 4.2 : 3.0);
+                    double radius = hovered ? 4.2 : 3.0;
+                    dc.DrawEllipse(coreBrush, null, mid, radius, radius);
                 }
             }
 
+            // 3. 实时拖拽预览曲线
             if (IsDraggingPreview)
             {
                 Point p0 = PreviewStart;
@@ -283,23 +253,14 @@ namespace LinkNexus.Blueprint.Controls
                 var geom = BuildBezierGeometry(p0, c1, c2, p3);
 
                 Brush brush = PreviewBrush ?? Brushes.DeepSkyBlue;
-                var previewPen = new Pen(brush, IsPreviewSnapped ? 2.8 : 2.2)
-                {
-                    StartLineCap = PenLineCap.Round,
-                    EndLineCap = PenLineCap.Round
-                };
+                EnsurePreviewPens(brush);
 
-                if (!IsPreviewSnapped)
-                {
-                    previewPen.DashStyle = new DashStyle(new double[] { 4, 3 }, 0);
-                }
-
+                Pen previewPen = IsPreviewSnapped ? _cachedPreviewSnappedPen! : _cachedPreviewDashedPen!;
                 dc.DrawGeometry(null, previewPen, geom);
 
                 if (IsPreviewSnapped)
                 {
-                    var snapRingPen = new Pen(brush, 2.0);
-                    dc.DrawEllipse(null, snapRingPen, p3, 9.5, 9.5);
+                    dc.DrawEllipse(null, _cachedSnapRingPen, p3, 9.5, 9.5);
                     dc.DrawEllipse(brush, null, p3, 4.0, 4.0);
                 }
                 else
@@ -309,16 +270,52 @@ namespace LinkNexus.Blueprint.Controls
             }
         }
 
+        private void EnsurePreviewPens(Brush brush)
+        {
+            if (ReferenceEquals(_cachedPreviewBrushSource, brush) &&
+                _cachedPreviewDashedPen != null &&
+                _cachedPreviewSnappedPen != null &&
+                _cachedSnapRingPen != null)
+            {
+                return;
+            }
+
+            _cachedPreviewBrushSource = brush;
+
+            var dashed = new Pen(brush, 2.2)
+            {
+                StartLineCap = PenLineCap.Round,
+                EndLineCap = PenLineCap.Round,
+                DashStyle = PreviewDashStyle
+            };
+            dashed.Freeze();
+            _cachedPreviewDashedPen = dashed;
+
+            var snapped = new Pen(brush, 2.8)
+            {
+                StartLineCap = PenLineCap.Round,
+                EndLineCap = PenLineCap.Round
+            };
+            snapped.Freeze();
+            _cachedPreviewSnappedPen = snapped;
+
+            var ring = new Pen(brush, 2.0);
+            ring.Freeze();
+            _cachedSnapRingPen = ring;
+        }
+
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
             if (!RenderEstablishedConnections || Connections == null || Connections.Count == 0) return;
+            if (e.LeftButton == MouseButtonState.Pressed) return;
 
             Point pos = e.GetPosition(this);
             ConnectionViewModel? hit = HitTestConnection(pos, 10.0);
 
-            foreach (var conn in Connections)
+            for (int i = 0; i < Connections.Count; i++)
             {
+                var conn = Connections[i];
                 conn.IsHovered = ReferenceEquals(conn, hit);
             }
 
@@ -329,9 +326,9 @@ namespace LinkNexus.Blueprint.Controls
         {
             base.OnMouseLeave(e);
             if (Connections == null) return;
-            foreach (var conn in Connections)
+            for (int i = 0; i < Connections.Count; i++)
             {
-                conn.IsHovered = false;
+                Connections[i].IsHovered = false;
             }
             Cursor = Cursors.Arrow;
         }
@@ -363,12 +360,12 @@ namespace LinkNexus.Blueprint.Controls
                 Point p3 = conn.EndPoint;
                 GetControlPoints(p0, p3, out Point c1, out Point c2);
 
-                const int samples = 28;
+                const int samples = 24;
                 Point prev = p0;
                 for (int s = 1; s <= samples; s++)
                 {
                     double t = s / (double)samples;
-                    Point curr = EvaluateCubicBezier(p0, c1, c2, p3, t);
+                    Point curr = EvaluateCubicBezierPoint(p0, c1, c2, p3, t);
                     double distSq = DistanceToSegmentSquared(pt, prev, curr);
                     if (distSq <= bestDistSq)
                     {
@@ -405,7 +402,7 @@ namespace LinkNexus.Blueprint.Controls
             return geom;
         }
 
-        private static Point EvaluateCubicBezier(Point p0, Point c1, Point c2, Point p3, double t)
+        public static Point EvaluateCubicBezierPoint(Point p0, Point c1, Point c2, Point p3, double t)
         {
             double u = 1.0 - t;
             double tt = t * t;
@@ -437,6 +434,55 @@ namespace LinkNexus.Blueprint.Controls
             double dx = p.X - projX;
             double dy = p.Y - projY;
             return dx * dx + dy * dy;
+        }
+
+        /// <summary>
+        /// 构建静态冻结的 96×96 (4×24px) 工程点阵平铺画刷，由 GPU 纹理单元直接硬件平铺
+        /// </summary>
+        private static Brush CreateFrozenGridTileBrush(string bgHex, string minorHex, string majorHex)
+        {
+            const double step = 24.0;
+            const double tileSize = step * 4.0; // 96.0
+
+            var bgBrush = CreateFrozenBrush(bgHex);
+            var minorPen = CreateFrozenPen(minorHex, 1.0);
+            var majorPen = CreateFrozenPen(majorHex, 1.0);
+
+            var group = new DrawingGroup();
+            using (DrawingContext dc = group.Open())
+            {
+                dc.DrawRectangle(bgBrush, null, new Rect(0, 0, tileSize, tileSize));
+
+                // 次网格线 (24, 48, 72)
+                for (int i = 1; i < 4; i++)
+                {
+                    double pos = i * step;
+                    dc.DrawLine(minorPen, new Point(pos, 0), new Point(pos, tileSize));
+                    dc.DrawLine(minorPen, new Point(0, pos), new Point(tileSize, pos));
+                }
+
+                // 主网格线 (0)
+                dc.DrawLine(majorPen, new Point(0, 0), new Point(0, tileSize));
+                dc.DrawLine(majorPen, new Point(0, 0), new Point(tileSize, 0));
+            }
+            group.Freeze();
+
+            var drawingBrush = new DrawingBrush(group)
+            {
+                TileMode = TileMode.Tile,
+                Viewport = new Rect(0, 0, tileSize, tileSize),
+                ViewportUnits = BrushMappingMode.Absolute,
+                Stretch = Stretch.None
+            };
+            drawingBrush.Freeze();
+            return drawingBrush;
+        }
+
+        private static DashStyle CreateFrozenDashStyle()
+        {
+            var ds = new DashStyle(new double[] { 4, 3 }, 0);
+            ds.Freeze();
+            return ds;
         }
 
         private static Brush CreateFrozenBrush(string hex)

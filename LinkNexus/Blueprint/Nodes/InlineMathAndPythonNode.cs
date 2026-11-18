@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using CodingSeb.ExpressionEvaluator;
 using LinkNexus.Blueprint.Core;
 
@@ -9,7 +13,7 @@ namespace LinkNexus.Blueprint.Nodes
     /// <summary>
     /// UE5 动态表达式与 Python 热重载沙盒卡 (InlineMathAndPythonNode)
     /// 1. 轻量模式：CodingSeb.ExpressionEvaluator 编译单行公式 (如 a * b, (a - prev_a) / dt)；
-    /// 2. 重载模式：绑定外部 .py 算法文件，基于 FileSystemWatcher 热重载算法内核；
+    /// 2. 重载模式：绑定外部 .py 算法文件，基于 FileSystemWatcher 热重载算法内核并直连 PythonNetBridge.TryExecuteInProcess；
     /// 3. 提供 [M] Bypass 一键直通对比按钮与微秒级计算耗时指示，输入引脚满足 Blender/UE5 内联编辑规范。
     /// </summary>
     public sealed class InlineMathAndPythonNode : NodeBase
@@ -24,9 +28,14 @@ namespace LinkNexus.Blueprint.Nodes
         private readonly ExpressionEvaluator _evaluator = new();
         private readonly object _execLock = new();
         private FileSystemWatcher? _fileWatcher;
+        private string _resolvedPyPath = string.Empty;
 
         private double _valA = 24.0;
         private double _valB = 1.5;
+        private double _prevA = 24.0;
+        private double _kalmanX = 24.0;
+        private double _kalmanP = 1.0;
+        private long _lastTick = 0;
 
         public override string NodeTypeKey => "inline_math_python";
         public override double CardWidth => 320.0;
@@ -37,10 +46,12 @@ namespace LinkNexus.Blueprint.Nodes
             var pinA = AddInputPin("自变量 A", PinDataType.FloatStream);
             pinA.HasInlineWidget = true;
             pinA.InlineValue = "24.0";
+            pinA.InlineDoubleChangedCallback = v => _valA = v;
 
             var pinB = AddInputPin("自变量 B", PinDataType.FloatStream);
             pinB.HasInlineWidget = true;
             pinB.InlineValue = "1.5";
+            pinB.InlineDoubleChangedCallback = v => _valB = v;
 
             AddOutputPin("计算结果 (Result)", PinDataType.FloatStream);
 
@@ -48,9 +59,9 @@ namespace LinkNexus.Blueprint.Nodes
             _modeParam.Options.Add("C# 动态数学公式 (Expression)");
             _modeParam.Options.Add("Python 热重载脚本 (.py)");
 
-            _expressionParam = new NodeParameter("expr", "公式表达式 f(a, b)", NodeParamKind.Text, "a * b");
+            _expressionParam = new NodeParameter("expr", "公式表达式 f(a, b, dt)", NodeParamKind.Text, "a * b");
 
-            _pyScriptPathParam = new NodeParameter("script_path", "Python 脚本路径", NodeParamKind.Text, "algo_filter.py")
+            _pyScriptPathParam = new NodeParameter("script_path", "Python 脚本路径", NodeParamKind.Text, PythonAlgoRepoService.DefaultKalmanFile)
             {
                 ValueChangedCallback = path => SetupFileWatcher(path)
             };
@@ -65,7 +76,32 @@ namespace LinkNexus.Blueprint.Nodes
             Parameters.Add(_pyScriptPathParam);
             Parameters.Add(_bypassToggleParam);
 
+            SetupFileWatcher(_pyScriptPathParam.Value);
             UpdateStatusOnUi("沙盒计算就绪 (<1μs)", true);
+        }
+
+        private string ResolveScriptFilePath(string rawPath)
+        {
+            if (string.IsNullOrWhiteSpace(rawPath)) return string.Empty;
+            string trimmed = rawPath.Trim();
+
+            if (PythonAlgoRepoService.Instance.TryResolveWhitelistedFile(trimmed, out string whitelistedPath, out _))
+            {
+                return whitelistedPath;
+            }
+
+            if (File.Exists(trimmed))
+            {
+                return Path.GetFullPath(trimmed);
+            }
+
+            string repoCandidate = Path.Combine(PythonAlgoRepoService.Instance.RepoDirectory, Path.GetFileName(trimmed));
+            if (File.Exists(repoCandidate))
+            {
+                return repoCandidate;
+            }
+
+            return string.Empty;
         }
 
         private void SetupFileWatcher(string path)
@@ -75,24 +111,30 @@ namespace LinkNexus.Blueprint.Nodes
                 _fileWatcher?.Dispose();
                 _fileWatcher = null;
 
-                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
+                _resolvedPyPath = ResolveScriptFilePath(path);
+                if (string.IsNullOrEmpty(_resolvedPyPath) || !File.Exists(_resolvedPyPath)) return;
 
-                string? dir = Path.GetDirectoryName(path);
-                string file = Path.GetFileName(path);
+                PythonNetBridge.NotifyScriptReloaded(_resolvedPyPath, NodeId);
+
+                string? dir = Path.GetDirectoryName(_resolvedPyPath);
+                string file = Path.GetFileName(_resolvedPyPath);
                 if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
                 {
                     _fileWatcher = new FileSystemWatcher(dir, file)
                     {
                         NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size
                     };
-                    _fileWatcher.Changed += (s, e) =>
+                    _fileWatcher.Changed += (_, _) =>
                     {
+                        PythonNetBridge.NotifyScriptReloaded(_resolvedPyPath, NodeId);
                         UpdateStatusOnUi($"Python 热重载: {DateTime.Now:HH:mm:ss}", true);
                     };
                     _fileWatcher.EnableRaisingEvents = true;
                 }
             }
-            catch { }
+            catch
+            {
+            }
         }
 
         protected override Task OnPacketReceivedAsync(int pinIndex, BlueprintPacket packet, CancellationToken ct)
@@ -103,15 +145,20 @@ namespace LinkNexus.Blueprint.Nodes
                 else if (pinIndex == 1) _valB = packet.Channels[0];
             }
 
-            long swStart = Stopwatch.GetTimestamp();
+            long nowTick = Stopwatch.GetTimestamp();
+            double dt = _lastTick > 0
+                ? Math.Clamp((nowTick - _lastTick) / (double)Stopwatch.Frequency, 1e-6, 1.0)
+                : 0.001;
+            _lastTick = nowTick;
+
+            long swStart = nowTick;
             double outVal = _valA;
 
             if (_bypassToggleParam.BoolValue)
             {
-                // Bypass 模式直通
                 outVal = _valA;
             }
-            else if (_modeParam.Value.Contains("Expression"))
+            else if (_modeParam.Value.Contains("Expression", StringComparison.OrdinalIgnoreCase))
             {
                 lock (_execLock)
                 {
@@ -119,10 +166,12 @@ namespace LinkNexus.Blueprint.Nodes
                     {
                         _evaluator.Variables["a"] = _valA;
                         _evaluator.Variables["b"] = _valB;
+                        _evaluator.Variables["prev_a"] = _prevA;
+                        _evaluator.Variables["dt"] = dt;
                         object res = _evaluator.Evaluate(_expressionParam.Value);
                         if (res is IConvertible conv)
                         {
-                            outVal = conv.ToDouble(null);
+                            outVal = conv.ToDouble(CultureInfo.InvariantCulture);
                         }
                     }
                     catch
@@ -133,18 +182,71 @@ namespace LinkNexus.Blueprint.Nodes
             }
             else
             {
-                // Python 脚本模式模拟
-                outVal = _valA * 0.9 + _valB * 0.1;
+                outVal = ExecutePythonSandbox(_valA, _valB);
             }
+
+            _prevA = _valA;
 
             long swEnd = Stopwatch.GetTimestamp();
             double costUs = (swEnd - swStart) * (1000000.0 / Stopwatch.Frequency);
 
-            var outPkt = new BlueprintPacket(new[] { outVal }, $"RES:{outVal:F2}", "MATH_OUT", DateTime.Now);
+            var outPkt = new BlueprintPacket(new[] { outVal }, $"RES:{outVal:F3}", "MATH_OUT", DateTime.Now);
             EmitPacket(0, outPkt);
 
-            UpdateStatusOnUi($"输出: {outVal:F2} ({costUs:F1}μs)", true);
+            UpdateStatusOnUi($"输出: {outVal:F3} ({costUs:F1}μs)", true);
             return Task.CompletedTask;
+        }
+
+        private double ExecutePythonSandbox(double a, double b)
+        {
+            if (string.IsNullOrEmpty(_resolvedPyPath) || !File.Exists(_resolvedPyPath))
+            {
+                _resolvedPyPath = ResolveScriptFilePath(_pyScriptPathParam.Value);
+            }
+
+            if (!string.IsNullOrEmpty(_resolvedPyPath) && File.Exists(_resolvedPyPath))
+            {
+                var defaults = PythonAlgoRepoService.Instance.GetDefaultParamsFor(Path.GetFileName(_resolvedPyPath));
+                defaults["a"] = a;
+                defaults["b"] = b;
+                string paramsJson = PythonAlgoRepoService.SerializeParams(defaults);
+
+                if (PythonNetBridge.TryExecuteInProcess(
+                        _resolvedPyPath,
+                        new[] { a, b },
+                        paramsJson,
+                        out double[] pyResult,
+                        out _,
+                        stateKey: NodeId) &&
+                    pyResult.Length > 0)
+                {
+                    return pyResult[0];
+                }
+
+                // 若本机未加载 python3*.dll，根据脚本算子类型执行一致的参数化数学核
+                string fileName = Path.GetFileName(_resolvedPyPath).ToLowerInvariant();
+                if (fileName.Contains("ema"))
+                {
+                    double alpha = defaults.TryGetValue("alpha", out double al) ? Math.Clamp(al, 0.005, 1.0) : 0.25;
+                    _kalmanX = alpha * a + (1.0 - alpha) * _kalmanX;
+                    return _kalmanX;
+                }
+                if (fileName.Contains("scale"))
+                {
+                    double scale = defaults.TryGetValue("scale", out double sc) ? sc : b;
+                    double offset = defaults.TryGetValue("offset", out double of) ? of : 0.0;
+                    return a * scale + offset;
+                }
+            }
+
+            // 1D 卡尔曼递归估计 (以 b 映射动态测量噪声比例)
+            double q = 0.022;
+            double r = Math.Max(1e-5, Math.Abs(b) * 0.12);
+            double pPred = _kalmanP + q;
+            double k = pPred / (pPred + r);
+            _kalmanX = _kalmanX + k * (a - _kalmanX);
+            _kalmanP = (1.0 - k) * pPred;
+            return _kalmanX;
         }
 
         public override void Dispose()

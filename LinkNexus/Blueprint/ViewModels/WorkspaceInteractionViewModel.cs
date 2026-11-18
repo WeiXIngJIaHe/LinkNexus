@@ -214,10 +214,27 @@ namespace LinkNexus.Blueprint.ViewModels
                 }
             }
 
-            FilteredItems.Clear();
-            foreach (var item in list)
+            // 若过滤结果序列与当前列表完全一致，则免除 Clear + Rebuild，避免触发 ListBox 容器重建
+            bool sameSequence = FilteredItems.Count == list.Count;
+            if (sameSequence)
             {
-                FilteredItems.Add(item);
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (!ReferenceEquals(FilteredItems[i], list[i]))
+                    {
+                        sameSequence = false;
+                        break;
+                    }
+                }
+            }
+
+            if (!sameSequence)
+            {
+                FilteredItems.Clear();
+                foreach (var item in list)
+                {
+                    FilteredItems.Add(item);
+                }
             }
 
             SelectedItem = FilteredItems.FirstOrDefault();
@@ -228,9 +245,14 @@ namespace LinkNexus.Blueprint.ViewModels
         {
             if (source == PinDataType.Any || target == PinDataType.Any) return true;
             if (source == target) return true;
-            if (source == PinDataType.FloatStream && target == PinDataType.FloatStream) return true;
-            if (source == PinDataType.Vector3Stream && target == PinDataType.Vector3Stream) return true;
-            return false;
+
+            bool srcNumeric = source is PinDataType.ChannelStream or PinDataType.FloatStream or PinDataType.Vector3Stream or PinDataType.ImuAttitude;
+            bool tgtNumeric = target is PinDataType.ChannelStream or PinDataType.FloatStream or PinDataType.Vector3Stream or PinDataType.ImuAttitude;
+            if (srcNumeric && tgtNumeric) return true;
+
+            bool srcRaw = source is PinDataType.RawFrame or PinDataType.ByteStream;
+            bool tgtRaw = target is PinDataType.RawFrame or PinDataType.ByteStream;
+            return srcRaw && tgtRaw;
         }
 
         #region Blender 式拖拽卡片切入现有连线 (Auto-Insert Node on Wire)

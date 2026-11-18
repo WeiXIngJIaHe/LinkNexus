@@ -15,7 +15,7 @@
         Height="880" Width="1440"
         MinHeight="720" MinWidth="1180"
         WindowStartupLocation="CenterScreen"
-        WindowStyle="None"
+        WindowStyle="SingleBorderWindow"
         ResizeMode="CanResize"
         Background="{DynamicResource AppBgBrush}"
         Foreground="{DynamicResource AppTextPrimaryBrush}"
@@ -26,12 +26,13 @@
         AllowDrop="True"
         Drop="Window_Drop"
         DragOver="Window_DragOver"
+        PreviewKeyDown="Window_PreviewKeyDown"
         KeyDown="Window_KeyDown">
 
-    <!-- 沉浸式隐形标题栏 (WindowChrome) -->
+    <!-- 沉浸式标题栏 (WindowChrome: 保留 1px DWM 硬件非客户区合成边框，彻底消除 Mica 重算卡顿与边缘贴靠失效) -->
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="38" 
-                      GlassFrameThickness="0" 
+                      GlassFrameThickness="1" 
                       CornerRadius="0" 
                       ResizeBorderThickness="6" 
                       UseAeroCaptionButtons="False" />
@@ -388,39 +389,27 @@
             </Setter>
         </Style>
 
-        <!-- 设备卡片模板定义 (高对比度工业级排版与毛玻璃质感，支持点击卡片进入工作台及收纳/拉出抽屉) -->
+        <!-- 设备卡片模板定义 (高对比度工业级排版与轻量描边，无软件 DropShadowEffect 渲染阻塞) -->
         <DataTemplate x:Key="DeviceCardTemplate">
             <Border Margin="0,0,12,12" Width="320" MinHeight="122" Cursor="Hand" SnapsToDevicePixels="True"
                     CornerRadius="8" Padding="0"
                     ToolTip="点击卡片打开该设备工作台并自动收纳抽屉；再次点击已选中卡片可切换抽屉拉出/收纳"
                     Background="{DynamicResource CardGlassBgBrush}"
-                    BorderBrush="{DynamicResource CardGlassBorderBrush}" BorderThickness="1.2">
-                <Border.Effect>
-                    <DropShadowEffect BlurRadius="14" Direction="270" ShadowDepth="3" Opacity="0.18" Color="#000000"/>
-                </Border.Effect>
+                    BorderBrush="{DynamicResource CardGlassBorderBrush}" BorderThickness="1">
                 <Border.Style>
                     <Style TargetType="Border">
                         <Setter Property="Background" Value="{DynamicResource CardGlassBgBrush}" />
                         <Setter Property="BorderBrush" Value="{DynamicResource CardGlassBorderBrush}" />
-                        <Setter Property="BorderThickness" Value="1.2" />
+                        <Setter Property="BorderThickness" Value="1" />
                         <Style.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="{DynamicResource CardGlassHoverBgBrush}" />
                                 <Setter Property="BorderBrush" Value="{DynamicResource CardGlassHoverBorderBrush}" />
-                                <Setter Property="Effect">
-                                    <Setter.Value>
-                                        <DropShadowEffect BlurRadius="20" Direction="270" ShadowDepth="4" Opacity="0.28" Color="#38BDF8"/>
-                                    </Setter.Value>
-                                </Setter>
                             </Trigger>
                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                 <Setter Property="BorderBrush" Value="{DynamicResource AccentCyanBrush}" />
                                 <Setter Property="Background" Value="{DynamicResource CardSelectedBgBrush}" />
-                                <Setter Property="Effect">
-                                    <Setter.Value>
-                                        <DropShadowEffect BlurRadius="18" Direction="0" ShadowDepth="0" Opacity="0.42" Color="#38BDF8"/>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter Property="BorderThickness" Value="1.5" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding State}" Value="{x:Static local:DeviceState.Warning}">
                                 <Setter Property="BorderBrush" Value="{DynamicResource WarningAmberBrush}" />
@@ -1492,10 +1481,10 @@
                                             </dock:LayoutAnchorable>
                                         </dock:LayoutAnchorablePane>
 
-                                        <!-- 中央主体: Nodify 节点式流式蓝图设计器 -->
+                                        <!-- 中央主体: 节点式流式蓝图设计器 -->
                                         <dock:LayoutDocumentPane>
                                             <dock:LayoutDocument Title="节点式流式蓝图设计器" CanClose="False">
-                                                <bpCtrl:BlueprintWorkspaceControl DataContext="{Binding BlueprintVm}" />
+                                                <bpCtrl:BlueprintWorkspaceControl x:Name="MainBlueprintControl" DataContext="{Binding BlueprintVm}" />
                                             </dock:LayoutDocument>
                                         </dock:LayoutDocumentPane>
 
@@ -2055,7 +2044,7 @@
                                                     <Border.Triggers>
                                                         <EventTrigger RoutedEvent="FrameworkElement.Loaded">
                                                             <BeginStoryboard>
-                                                                <Storyboard RepeatBehavior="Forever">
+                                                                <Storyboard x:Name="HallBtnGlowStoryboard" RepeatBehavior="Forever">
                                                                     <DoubleAnimation Storyboard.TargetName="HallBtnGlowTransform"
                                                                                      Storyboard.TargetProperty="X"
                                                                                      From="-40" To="85" Duration="0:0:0.85">
@@ -2114,7 +2103,7 @@
                                         <Border.Triggers>
                                             <EventTrigger RoutedEvent="FrameworkElement.Loaded">
                                                 <BeginStoryboard>
-                                                    <Storyboard RepeatBehavior="Forever">
+                                                    <Storyboard x:Name="HallFullWidthGlowStoryboard" RepeatBehavior="Forever">
                                                         <DoubleAnimation Storyboard.TargetName="HallFullWidthGlowTransform"
                                                                          Storyboard.TargetProperty="X"
                                                                          From="-160" To="1400" Duration="0:0:1.3">
@@ -2145,12 +2134,9 @@
                                 </ItemsControl>
                             </ScrollViewer>
 
-                            <!-- B. 无设备时: 毛玻璃空态引导 -->
+                            <!-- B. 无设备时: 毛玻璃空态引导 (移除软件模糊阴影) -->
                             <Border Visibility="{Binding HasNoUsbDevices, Converter={StaticResource BoolToVisConverter}}"
-                                    Background="{DynamicResource CardGlassBgBrush}" BorderBrush="{DynamicResource CardGlassBorderBrush}" BorderThickness="1.2" CornerRadius="8" Padding="24" MaxWidth="520" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Border.Effect>
-                                    <DropShadowEffect BlurRadius="20" Direction="270" ShadowDepth="4" Opacity="0.18" Color="#000000"/>
-                                </Border.Effect>
+                                    Background="{DynamicResource CardGlassBgBrush}" BorderBrush="{DynamicResource CardGlassBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="24" MaxWidth="520" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Path Data="M 12 2 C 6.48 2 2 6.48 2 12 C 2 17.52 6.48 22 12 22 C 17.52 22 22 17.52 22 12 C 22 6.48 17.52 2 12 2 Z M 13 17 H 11 V 15 H 13 V 17 Z M 13 13 H 11 V 7 H 13 V 13 Z"
                                           Fill="{DynamicResource AppTextMutedBrush}" Width="36" Height="36" Stretch="Uniform" Margin="0,0,0,14" HorizontalAlignment="Center" Opacity="0.8"/>
@@ -2961,19 +2947,16 @@
                 </Border.InputBindings>
             </Border>
 
-            <!-- 真实 Linux Shell 美学 CLI 终端悬浮窗 (自适应深浅色主题，支持鼠标自由拖拽与边框磁吸贴合) -->
+            <!-- 真实 Linux Shell 美学 CLI 终端悬浮窗 (自适应深浅色主题，支持鼠标自由拖拽与边框磁吸贴合，轻量高光描边消除拖拽阴影重算) -->
             <Border x:Name="Esp32CliWindowBorder"
                     Width="900" Height="590" MaxWidth="1100" MaxHeight="750"
                     Background="{DynamicResource AppSurfaceBrush}"
-                    BorderBrush="{DynamicResource AppBorderBrush}"
-                    BorderThickness="1" CornerRadius="8"
+                    BorderBrush="{DynamicResource AccentCyanBrush}"
+                    BorderThickness="1.2" CornerRadius="8"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
                 <Border.RenderTransform>
                     <TranslateTransform x:Name="CliWindowTransform" X="0" Y="0" />
                 </Border.RenderTransform>
-                <Border.Effect>
-                    <DropShadowEffect BlurRadius="28" ShadowDepth="6" Direction="270" Color="#000000" Opacity="0.35" />
-                </Border.Effect>
 
                 <Grid Margin="16,14,16,14">
                     <Grid.RowDefinitions>
@@ -3097,7 +3080,7 @@
                                 <Border.Triggers>
                                     <EventTrigger RoutedEvent="FrameworkElement.Loaded">
                                         <BeginStoryboard>
-                                            <Storyboard RepeatBehavior="Forever">
+                                            <Storyboard x:Name="DaemonScanStoryboard" RepeatBehavior="Forever">
                                                 <DoubleAnimation Storyboard.TargetName="DaemonScanTransform"
                                                                  Storyboard.TargetProperty="X"
                                                                  From="-24" To="52" Duration="0:0:0.95">

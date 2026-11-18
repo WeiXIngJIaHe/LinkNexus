@@ -218,9 +218,13 @@ namespace LinkNexus.Blueprint.Core
             if (DataType == PinDataType.Any || other.DataType == PinDataType.Any) return true;
             if (DataType == other.DataType) return true;
 
-            bool thisNumeric = DataType is PinDataType.ChannelStream or PinDataType.ImuAttitude;
-            bool otherNumeric = other.DataType is PinDataType.ChannelStream or PinDataType.ImuAttitude;
-            return thisNumeric && otherNumeric;
+            bool thisNumeric = DataType is PinDataType.ChannelStream or PinDataType.FloatStream or PinDataType.Vector3Stream or PinDataType.ImuAttitude;
+            bool otherNumeric = other.DataType is PinDataType.ChannelStream or PinDataType.FloatStream or PinDataType.Vector3Stream or PinDataType.ImuAttitude;
+            if (thisNumeric && otherNumeric) return true;
+
+            bool thisRaw = DataType is PinDataType.RawFrame or PinDataType.ByteStream;
+            bool otherRaw = other.DataType is PinDataType.RawFrame or PinDataType.ByteStream;
+            return thisRaw && otherRaw;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

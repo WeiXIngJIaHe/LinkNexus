@@ -9,15 +9,19 @@ using LinkNexus.Blueprint.ViewModels;
 namespace LinkNexus.Blueprint.Controls
 {
     /// <summary>
-    /// Blender / UE5 风格无边框毛玻璃暗黑搜索与拉线建链弹窗 (NodeSearchPopup)
+    /// Blender / UE5 风格内嵌画布硬件加速搜索与拉线建链浮层 (NodeSearchPopup)
+    /// 采用同 HWND 视口边界钳位卡片方案，彻底消除 Popup AllowsTransparency 软件分层渲染与焦点切换延迟
     /// </summary>
     public partial class NodeSearchPopup : UserControl
     {
+        private const double CardWidthPx = 380.0;
+        private const double CardEstimatedHeightPx = 392.0;
+
         public WorkspaceInteractionViewModel InteractionVm { get; } = new();
 
         public event Action<NodeRegistryItem, Point, PinViewModel?>? NodeSelected;
 
-        public bool IsOpen => HostPopup.IsOpen;
+        public bool IsOpen => Visibility == Visibility.Visible;
 
         public NodeSearchPopup()
         {
@@ -31,32 +35,50 @@ namespace LinkNexus.Blueprint.Controls
             };
         }
 
-        public void ShowAt(Point screenPoint, Point canvasPoint, PinViewModel? dragOriginPin = null)
+        /// <summary>
+        /// 在工作区相对坐标处秒开搜索卡片（自动钳位防止超出视口边界）
+        /// </summary>
+        public void ShowAt(Point viewportPoint, Point canvasPoint, PinViewModel? dragOriginPin = null)
         {
-            HostPopup.HorizontalOffset = screenPoint.X;
-            HostPopup.VerticalOffset = screenPoint.Y;
+            double hostW = ActualWidth > 10 ? ActualWidth : (Parent is FrameworkElement fe && fe.ActualWidth > 10 ? fe.ActualWidth : 960.0);
+            double hostH = ActualHeight > 10 ? ActualHeight : (Parent is FrameworkElement feH && feH.ActualHeight > 10 ? feH.ActualHeight : 640.0);
+
+            double clampedX = Math.Clamp(viewportPoint.X, 8.0, Math.Max(8.0, hostW - CardWidthPx - 12.0));
+            double clampedY = Math.Clamp(viewportPoint.Y, 8.0, Math.Max(8.0, hostH - CardEstimatedHeightPx - 12.0));
+
+            PopupCardTransform.X = clampedX;
+            PopupCardTransform.Y = clampedY;
 
             InteractionVm.Open(canvasPoint, dragOriginPin);
-            HostPopup.IsOpen = true;
+            Visibility = Visibility.Visible;
+
+            SearchTextBox.Focus();
+            Keyboard.Focus(SearchTextBox);
+            SearchTextBox.SelectAll();
+
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (Visibility == Visibility.Visible)
+                {
+                    SearchTextBox.Focus();
+                    Keyboard.Focus(SearchTextBox);
+                }
+            }, DispatcherPriority.Input);
         }
 
         public void Hide()
         {
-            HostPopup.IsOpen = false;
-        }
-
-        private void HostPopup_Opened(object sender, EventArgs e)
-        {
-            Dispatcher.BeginInvoke(() =>
+            if (Visibility != Visibility.Collapsed)
             {
-                SearchTextBox.Focus();
-                SearchTextBox.SelectAll();
-            }, DispatcherPriority.Input);
+                Visibility = Visibility.Collapsed;
+                InteractionVm.Close();
+            }
         }
 
-        private void HostPopup_Closed(object sender, EventArgs e)
+        private void Backdrop_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            InteractionVm.Close();
+            Hide();
+            e.Handled = true;
         }
 
         private void SearchTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -99,7 +121,9 @@ namespace LinkNexus.Blueprint.Controls
 
         private void NodesListBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            if (NodesListBox.SelectedItem != null)
+            if (e.OriginalSource is DependencyObject dep &&
+                VisualTreeSafeHelper.FindAncestor<ListBoxItem>(dep, includeSelf: true) != null &&
+                NodesListBox.SelectedItem != null)
             {
                 InteractionVm.ConfirmSelection();
                 e.Handled = true;

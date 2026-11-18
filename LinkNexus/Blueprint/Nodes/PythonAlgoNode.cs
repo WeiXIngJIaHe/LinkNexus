@@ -292,6 +292,10 @@ namespace LinkNexus.Blueprint.Nodes
             _kalmanX = Array.Empty<double>();
             _kalmanP = Array.Empty<double>();
             _windowBuffers.Clear();
+            if (!string.IsNullOrEmpty(_activeLoadedFilePath))
+            {
+                PythonNetBridge.NotifyScriptReloaded(_activeLoadedFilePath, NodeId);
+            }
         }
 
         protected override async Task OnPacketReceivedAsync(int inputPinIndex, BlueprintPacket packet, CancellationToken ct)
@@ -325,6 +329,16 @@ namespace LinkNexus.Blueprint.Nodes
                 {
                     UpdateEngineBadge(err);
                     UpdateStatusOnUi("拦截非法脚本", false);
+                    return;
+                }
+
+                _activeLoadedFilePath = fullPyPath;
+                PythonNetBridge.NotifyScriptReloaded(fullPyPath, NodeId);
+
+                if (PythonNetBridge.IsEngineReady)
+                {
+                    UpdateEngineBadge($"{Path.GetFileName(fullPyPath)} · Python.NET 内存直连");
+                    UpdateStatusOnUi("外部算子在线 (零拷贝)", true);
                     return;
                 }
 
@@ -402,6 +416,21 @@ namespace LinkNexus.Blueprint.Nodes
             Dictionary<string, double> currentParams,
             CancellationToken ct)
         {
+            if (!string.IsNullOrEmpty(_activeLoadedFilePath) && PythonNetBridge.IsEngineReady)
+            {
+                string paramsJson = PythonAlgoRepoService.SerializeParams(currentParams);
+                if (PythonNetBridge.TryExecuteInProcess(
+                        _activeLoadedFilePath,
+                        input,
+                        paramsJson,
+                        out double[] inProcResult,
+                        out _,
+                        stateKey: NodeId))
+                {
+                    return inProcResult;
+                }
+            }
+
             await _pyLock.WaitAsync(ct).ConfigureAwait(false);
             try
             {

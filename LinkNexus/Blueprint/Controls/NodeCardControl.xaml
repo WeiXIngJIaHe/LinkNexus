@@ -149,13 +149,10 @@
         <Border x:Name="CardRootBorder"
                 Background="{DynamicResource CardGlassBgBrush}"
                 BorderBrush="{DynamicResource CardGlassBorderBrush}"
-                BorderThickness="1.2"
+                BorderThickness="1"
                 CornerRadius="9"
                 MouseLeftButtonDown="CardRoot_MouseLeftButtonDown"
                 MouseRightButtonUp="CardRoot_MouseRightButtonUp">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270" Color="#000000" Opacity="0.32" />
-            </Border.Effect>
 
             <StackPanel>
                 <!-- 1. 顶部 3.5px 分类颜色条 -->

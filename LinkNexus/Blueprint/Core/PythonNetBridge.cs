@@ -1,19 +1,22 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.Json;
 using Python.Runtime;
 
 namespace LinkNexus.Blueprint.Core
 {
     /// <summary>
     /// Python.NET 高性能进程内互操作桥接器 (PythonNetBridge)
-    /// 基于开源 pythonnet 库，将 C# 数组与标量参数直接在内存堆中传递给 Python 算法函数，
-    /// 消除子进程创建与 IPC 序列化开销，实现微秒级低延迟算法流转；若本机未配置 Python DLL 则透明回退至隔离子进程。
+    /// 基于开源 pythonnet 库，按 process(channels, params, state) 三参规范在内存堆中直连调用 Python 算子，
+    /// 持久化复用每节点实例的 state 字典，并支持 FileSystemWatcher 修改后热重载模块。
     /// </summary>
     public static class PythonNetBridge
     {
         private static readonly object _initLock = new();
+        private static readonly ConcurrentDictionary<string, PyObject> _stateDicts = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly ConcurrentDictionary<string, bool> _reloadFlags = new(StringComparer.OrdinalIgnoreCase);
+
         private static bool _initialized = false;
         private static bool _initFailed = false;
         private static string _initError = string.Empty;
@@ -44,12 +47,15 @@ namespace LinkNexus.Blueprint.Core
 
                 try
                 {
-                    // 探测可用的 Python DLL 路径 (如 PlatformIO 隔离虚拟环境或系统 Python)
                     string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                    string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
                     string[] candidateDirs = new[]
                     {
                         Path.Combine(userProfile, @".platformio\penv\Scripts"),
                         Path.Combine(userProfile, @".platformio\penv"),
+                        Path.Combine(localAppData, @"Programs\Python\Python313"),
+                        Path.Combine(localAppData, @"Programs\Python\Python312"),
+                        Path.Combine(localAppData, @"Programs\Python\Python311"),
                         @"C:\Python313",
                         @"C:\Python312",
                         @"C:\Python311"
@@ -61,11 +67,17 @@ namespace LinkNexus.Blueprint.Core
                         if (Directory.Exists(dir))
                         {
                             var dlls = Directory.GetFiles(dir, "python3*.dll", SearchOption.TopDirectoryOnly);
-                            if (dlls.Length > 0)
+                            foreach (var dll in dlls)
                             {
-                                foundDll = dlls[0];
-                                break;
+                                string name = Path.GetFileName(dll);
+                                // 排除 python3.dll 转发桩，选择具体版本如 python311.dll / python312.dll
+                                if (name.Length > "python3.dll".Length)
+                                {
+                                    foundDll = dll;
+                                    break;
+                                }
                             }
+                            if (foundDll != null) break;
                         }
                     }
 
@@ -89,12 +101,50 @@ namespace LinkNexus.Blueprint.Core
         }
 
         /// <summary>
-        /// 尝试通过 Python.NET 内存直连执行 Python 算法脚本中的 process(channels, params) 函数
+        /// 标记指定脚本或节点实例状态需要热重载清空
         /// </summary>
-        public static bool TryExecuteInProcess(string scriptPath, double[] inputChannels, string scalarParamsJson, out double[] outputChannels, out string errorMessage)
+        public static void NotifyScriptReloaded(string scriptPath, string? stateKey = null)
+        {
+            if (!string.IsNullOrWhiteSpace(scriptPath))
+            {
+                _reloadFlags[Path.GetFullPath(scriptPath)] = true;
+            }
+
+            string key = string.IsNullOrWhiteSpace(stateKey) ? (scriptPath ?? string.Empty) : stateKey!;
+            if (_stateDicts.TryRemove(key, out PyObject? oldState) && IsEngineReady)
+            {
+                try
+                {
+                    using (Py.GIL())
+                    {
+                        oldState.Dispose();
+                    }
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        /// <summary>
+        /// 通过 Python.NET 内存直连执行 Python 算法脚本中的 process(channels, params, state) 函数
+        /// </summary>
+        public static bool TryExecuteInProcess(
+            string scriptPath,
+            double[] inputChannels,
+            string scalarParamsJson,
+            out double[] outputChannels,
+            out string errorMessage,
+            string? stateKey = null)
         {
             outputChannels = Array.Empty<double>();
             errorMessage = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(scriptPath) || !File.Exists(scriptPath))
+            {
+                errorMessage = "Python 脚本文件不存在。";
+                return false;
+            }
 
             if (!IsEngineReady)
             {
@@ -103,34 +153,66 @@ namespace LinkNexus.Blueprint.Core
 
             try
             {
+                string fullPath = Path.GetFullPath(scriptPath);
+                string resolvedStateKey = string.IsNullOrWhiteSpace(stateKey)
+                    ? fullPath
+                    : $"{stateKey}:{fullPath}";
+
                 using (Py.GIL())
                 {
+                    using dynamic importlibUtil = Py.Import("importlib.util");
                     using dynamic sys = Py.Import("sys");
-                    string scriptDir = Path.GetDirectoryName(scriptPath) ?? string.Empty;
-                    sys.path.append(scriptDir);
 
-                    string moduleName = Path.GetFileNameWithoutExtension(scriptPath);
-                    using dynamic module = Py.Import(moduleName);
+                    string moduleKey = "lnx_mod_" + Math.Abs(fullPath.GetHashCode(StringComparison.OrdinalIgnoreCase));
+                    bool forceReload = _reloadFlags.TryRemove(fullPath, out _);
 
-                    // 传递 channels 列表与 params 字典
-                    using dynamic pyChannels = new PyList();
-                    foreach (var ch in inputChannels)
+                    dynamic module;
+                    if (!forceReload && (bool)sys.modules.__contains__(moduleKey))
                     {
-                        pyChannels.Append(new PyFloat(ch));
+                        module = sys.modules[moduleKey];
+                    }
+                    else
+                    {
+                        using dynamic spec = importlibUtil.spec_from_file_location(moduleKey, fullPath);
+                        module = importlibUtil.module_from_spec(spec);
+                        sys.modules[moduleKey] = module;
+                        spec.loader.exec_module(module);
                     }
 
-                    using dynamic jsonMod = Py.Import("json");
-                    using dynamic pyParams = jsonMod.loads(scalarParamsJson);
-
-                    using dynamic pyResult = module.process(pyChannels, pyParams);
-
-                    // 解析返回值
-                    var resultList = new List<double>();
-                    foreach (dynamic item in pyResult)
+                    using (module)
                     {
-                        resultList.Add((double)item);
+                        using dynamic pyChannels = new PyList();
+                        for (int i = 0; i < inputChannels.Length; i++)
+                        {
+                            using var f = new PyFloat(inputChannels[i]);
+                            pyChannels.Append(f);
+                        }
+
+                        using dynamic jsonMod = Py.Import("json");
+                        string safeJson = string.IsNullOrWhiteSpace(scalarParamsJson) ? "{}" : scalarParamsJson;
+                        using dynamic pyParams = jsonMod.loads(safeJson);
+
+                        if (!_stateDicts.TryGetValue(resolvedStateKey, out PyObject? stateObj) || stateObj == null)
+                        {
+                            stateObj = new PyDict();
+                            _stateDicts[resolvedStateKey] = stateObj;
+                        }
+
+                        dynamic pyResult = module.process(pyChannels, pyParams, stateObj);
+                        using (pyResult)
+                        {
+                            var resultList = new List<double>(inputChannels.Length);
+                            foreach (dynamic item in pyResult)
+                            {
+                                using (item)
+                                {
+                                    resultList.Add((double)item);
+                                }
+                            }
+                            outputChannels = resultList.ToArray();
+                        }
                     }
-                    outputChannels = resultList.ToArray();
+
                     return true;
                 }
             }
@@ -142,4 +224,3 @@ namespace LinkNexus.Blueprint.Core
         }
     }
 }
-

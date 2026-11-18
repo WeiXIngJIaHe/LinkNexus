@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using LinkNexus.Blueprint.Core;
 using LinkNexus.Blueprint.Nodes;
 
 namespace LinkNexus.Blueprint.Core
@@ -64,7 +63,7 @@ namespace LinkNexus.Blueprint.Core
             // 拼音缩写特例匹配 (如 "jf" 匹配 "积分", "km" 匹配 "卡尔曼", "ys" 匹配 "运算")
             if (q == "jf" && (Title.Contains("积分") || Key.Contains("calculus"))) return true;
             if (q == "ds" && (Title.Contains("导数") || Title.Contains("微分"))) return true;
-            if (q == "km" && (Title.Contains("卡尔曼") || Key.Contains("kalman"))) return true;
+            if (q == "km" && (Title.Contains("卡尔曼") || Key.Contains("kalman") || Key.Contains("python"))) return true;
             if (q == "jz" && (Title.Contains("矩阵") || Key.Contains("matrix"))) return true;
             if (q == "nh" && (Title.Contains("拟合") || Key.Contains("fit"))) return true;
             if (q == "bl" && (Title.Contains("标量") || Key.Contains("scalar"))) return true;
@@ -76,7 +75,7 @@ namespace LinkNexus.Blueprint.Core
 
     /// <summary>
     /// 全局全栈卡片库中央注册表 (NodeRegistry)
-    /// 包含高阶数学、母舰硬件、数据转换、控制联锁与示波等全部卡片
+    /// 完整覆盖全量 24 类节点：高阶数学、母舰硬件、数据拆分与转换、控制联锁与 AI MCP、信号滤波与示波 IO
     /// </summary>
     public static class NodeRegistry
     {
@@ -102,7 +101,7 @@ namespace LinkNexus.Blueprint.Core
                 "#D97706",
                 "M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z",
                 new[] { "math", "scalar", "add", "subtract", "multiply", "divide", "+", "-", "*", "/", "jia", "jian", "cheng", "chu", "ys", "bl" },
-                new[] { PinDataType.FloatStream },
+                new[] { PinDataType.FloatStream, PinDataType.ChannelStream },
                 new[] { PinDataType.FloatStream },
                 (x, y) => new ScalarMathNode(x, y)
             ));
@@ -115,7 +114,7 @@ namespace LinkNexus.Blueprint.Core
                 "#D97706",
                 "M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M9,17H7V7H9V17M13,17H11V11H13V17M17,17H15V13H17V17Z",
                 new[] { "calculus", "integral", "derivative", "jifen", "daoshu", "weifen", "jf", "ds", "dirty derivative" },
-                new[] { PinDataType.FloatStream, PinDataType.Trigger },
+                new[] { PinDataType.FloatStream, PinDataType.ChannelStream, PinDataType.Trigger },
                 new[] { PinDataType.FloatStream },
                 (x, y) => new RealtimeCalculusNode(x, y)
             ));
@@ -128,7 +127,7 @@ namespace LinkNexus.Blueprint.Core
                 "#D97706",
                 "M4,4H20A2,2 0 0,1 22,6V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V6A2,2 0 0,1 4,4M4,6V18H20V6H4M6,8H8V10H6V8M10,8H14V10H10V8M16,8H18V10H16V8M6,12H8V14H6V12M10,12H14V14H10V12M16,12H18V14H16V12M6,16H8V18H6V16M10,16H14V18H10V16M16,16H18V18H16V16Z",
                 new[] { "matrix", "linear", "algebra", "transform", "vector", "juzhen", "jz", "space", "kinematics" },
-                new[] { PinDataType.Vector3Stream, PinDataType.FloatStream },
+                new[] { PinDataType.Vector3Stream, PinDataType.FloatStream, PinDataType.ChannelStream },
                 new[] { PinDataType.Vector3Stream, PinDataType.FloatStream },
                 (x, y) => new MatrixTransformNode(x, y)
             ));
@@ -141,9 +140,22 @@ namespace LinkNexus.Blueprint.Core
                 "#D97706",
                 "M16,6L18.29,8.29L13.41,13.17L9.41,9.17L2,16.59L3.41,18L9.41,12L13.41,16L19.71,9.71L22,12V6H16Z",
                 new[] { "fit", "polynomial", "spline", "r2", "curve", "nihe", "nh", "horner", "c code" },
-                new[] { PinDataType.FloatStream },
+                new[] { PinDataType.FloatStream, PinDataType.ChannelStream },
                 new[] { PinDataType.FloatStream },
                 (x, y) => new DataToFunctionFitNode(x, y)
+            ));
+
+            _items.Add(new NodeRegistryItem(
+                "expression_math",
+                "C# 动态数学公式 (ExpressionMath)",
+                "Math & Calculus",
+                "运行 C# 动态数学表达式编译计算 (如 x * 1.5 + Math.Sin(y))，实时输出衍生通道",
+                "#8B5CF6",
+                "M4,4H20V6H4V4M4,9H20V11H4V9M4,14H14V16H4V14M4,19H14V21H4V19M16,14H18V17H21V19H18V22H16V19H13V17H16V14Z",
+                new[] { "expression", "formula", "math", "eval", "gongshi", "gs", "bds" },
+                new[] { PinDataType.ChannelStream, PinDataType.FloatStream },
+                new[] { PinDataType.ChannelStream, PinDataType.FloatStream },
+                (x, y) => new ExpressionMathNode(x, y)
             ));
 
             // ==========================================
@@ -170,7 +182,7 @@ namespace LinkNexus.Blueprint.Core
                 "#BE123C",
                 "M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M13,13H11V18H13V13M12,9A1.5,1.5 0 0,1 13.5,10.5A1.5,1.5 0 0,1 12,12A1.5,1.5 0 0,1 10.5,10.5A1.5,1.5 0 0,1 12,9Z",
                 new[] { "swd", "dap", "daplink", "xds110", "peeker", "ram", "memory", "tzt", "cankao" },
-                new[] { PinDataType.FloatStream },
+                new[] { PinDataType.FloatStream, PinDataType.ChannelStream },
                 new[] { PinDataType.FloatStream },
                 (x, y) => new SwdMemoryPeekerNode(x, y)
             ));
@@ -188,6 +200,19 @@ namespace LinkNexus.Blueprint.Core
                 (x, y) => new CapTouchSliderNode(x, y)
             ));
 
+            _items.Add(new NodeRegistryItem(
+                "ina236",
+                "INA236 三路硬件遥测源 (Ina236Telemetry)",
+                "Motherbase & Hardware",
+                "驱动总路 (0x40)、XDS110 (0x41)、DAPLink (0x42) 母线电压、电流与功率实时遥测流",
+                "#10B981",
+                "M13,2 L3,14 H12 L11,22 L21,10 H12 L13,2 Z",
+                new[] { "ina236", "telemetry", "power", "voltage", "current", "yaoce", "yc", "dianliu" },
+                Array.Empty<PinDataType>(),
+                new[] { PinDataType.ChannelStream, PinDataType.FloatStream },
+                (x, y) => new Ina236TelemetryNode(x, y)
+            ));
+
             // ==========================================
             // 3. Converter & Math (Cyan/Amber Gradient #06B6D4)
             // ==========================================
@@ -199,7 +224,7 @@ namespace LinkNexus.Blueprint.Core
                 "#06B6D4",
                 "M12,2L2,7L12,12L22,7L12,2M2,17L12,22L22,17L12,12L2,17M2,12L12,17L22,12L12,7L2,12Z",
                 new[] { "demux", "separate", "protocol", "vofa", "justfloat", "fenliu", "fl", "jiebao" },
-                new[] { PinDataType.ByteStream, PinDataType.ChannelStream },
+                new[] { PinDataType.ByteStream, PinDataType.RawFrame, PinDataType.ChannelStream },
                 new[] { PinDataType.FloatStream, PinDataType.Vector3Stream },
                 (x, y) => new ProtocolDemuxNode(x, y)
             ));
@@ -212,7 +237,7 @@ namespace LinkNexus.Blueprint.Core
                 "#0891B2",
                 "M15,1H9V3H15V1M11,14H13V8H11V14M19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,6C16.07,4.74 14.12,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12C20,9.88 19.26,7.93 18.03,6.39L19.03,7.39M12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6A6,6 0 0,1 18,12A6,6 0 0,1 12,18Z",
                 new[] { "align", "sync", "time", "shixu", "duiqi", "interpolator", "sx" },
-                new[] { PinDataType.FloatStream },
+                new[] { PinDataType.FloatStream, PinDataType.ChannelStream },
                 new[] { PinDataType.FloatStream },
                 (x, y) => new MultiStreamTimeAlignerNode(x, y)
             ));
@@ -225,9 +250,22 @@ namespace LinkNexus.Blueprint.Core
                 "#F59E0B",
                 "M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M19,19H5V5H19V19M13.5,13.5L10,17L8.5,15.5L11,13L8.5,10.5L10,9L13.5,12.5L15,11V16H13.5V13.5Z",
                 new[] { "math", "python", "py", "sandbox", "expression", "eval", "suanzi", "bds" },
-                new[] { PinDataType.FloatStream },
+                new[] { PinDataType.FloatStream, PinDataType.ChannelStream },
                 new[] { PinDataType.FloatStream },
                 (x, y) => new InlineMathAndPythonNode(x, y)
+            ));
+
+            _items.Add(new NodeRegistryItem(
+                "python_algo",
+                "外部隔离 Python 算法仓 (PythonAlgo)",
+                "Converter & Math",
+                "加载 %LOCALAPPDATA%\\LinkNexus\\PythonAlgoRepo 隔离算法 (卡尔曼/EMA/滑动均值)，支持 Agent 安全调优标量参数",
+                "#8B5CF6",
+                "M8,4 H15 A3,3 0 0,1 18,7 V11 H9 A3,3 0 0,0 6,14 V17 A3,3 0 0,0 9,20 H16 M12,4 V2 M12,22 V20",
+                new[] { "python", "py", "kalman", "ema", "algo", "km", "kaerman", "suanfa" },
+                new[] { PinDataType.ChannelStream, PinDataType.FloatStream },
+                new[] { PinDataType.ChannelStream, PinDataType.FloatStream },
+                (x, y) => new PythonAlgoNode(PythonAlgoNode.AlgoKalman, x, y)
             ));
 
             // ==========================================
@@ -241,7 +279,7 @@ namespace LinkNexus.Blueprint.Core
                 "#9333EA",
                 "M11,15H13V17H11V15M11,7H13V13H11V7M12,2C6.47,2 2,6.5 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z",
                 new[] { "fuse", "interlock", "protect", "crashdump", "baohu", "lianlock", "duanlu", "bh", "dl" },
-                new[] { PinDataType.FloatStream, PinDataType.Trigger },
+                new[] { PinDataType.FloatStream, PinDataType.ChannelStream, PinDataType.Trigger },
                 new[] { PinDataType.Trigger, PinDataType.FloatStream },
                 (x, y) => new HardwareInterlockFuseNode(x, y)
             ));
@@ -259,8 +297,21 @@ namespace LinkNexus.Blueprint.Core
                 (x, y) => new McpAgentProbeAndTunerNode(x, y)
             ));
 
+            _items.Add(new NodeRegistryItem(
+                "mcp_node",
+                "MCP 智能体数据桥接 (McpAgentBridge)",
+                "Control & AI MCP",
+                "双向 MCP 数据分析与信号注入节点：采样上游波形供 AI Agent 统计分析，或接收 push_blueprint_data 信号注入",
+                "#14B8A6",
+                "M12,2A2,2 0 0,1 14,4C14,4.74 13.6,5.39 13,5.73V7H14A7,7 0 0,1 21,14H22A1,1 0 0,1 23,15V18A1,1 0 0,1 22,19H21V20A2,2 0 0,1 19,22H5A2,2 0 0,1 3,20V19H2A1,1 0 0,1 1,18V15A1,1 0 0,1 2,14H3A7,7 0 0,1 10,7H11V5.73C10.4,5.39 10,4.74 10,4A2,2 0 0,1 12,2Z",
+                new[] { "mcp", "agent", "bridge", "tap", "analyze", "ai", "zhinengti" },
+                new[] { PinDataType.Any, PinDataType.ChannelStream, PinDataType.FloatStream },
+                new[] { PinDataType.ChannelStream, PinDataType.FloatStream },
+                (x, y) => new McpInputNode("MCP_SIGNAL_TAP", x, y)
+            ));
+
             // ==========================================
-            // 5. 基础示波、滤波与 IO
+            // 5. Signal & Visualizer (示波、滤波與三维相空间)
             // ==========================================
             _items.Add(new NodeRegistryItem(
                 "dsp_filter",
@@ -292,26 +343,68 @@ namespace LinkNexus.Blueprint.Core
                 "imu_3d",
                 "IMU 三维姿态视窗 (Imu3D)",
                 "Signal & Visualizer",
-                "基于四元数实时驱动 3D 飞行载板三维旋转动捕与相空间轨迹",
+                "基于四元数实时驱动 3D 飞行载板三维旋转动捕与欧拉角指示",
                 "#A855F7",
                 "M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z",
                 new[] { "imu", "3d", "attitude", "quaternion", "euler", "zitai", "zt" },
-                new[] { PinDataType.Vector3Stream, PinDataType.ChannelStream },
+                new[] { PinDataType.ImuAttitude, PinDataType.Vector3Stream, PinDataType.ChannelStream },
                 Array.Empty<PinDataType>(),
                 (x, y) => new Imu3DPlotNode(x, y)
             ));
 
             _items.Add(new NodeRegistryItem(
+                "phase_space_3d",
+                "3D 相空间吸引子轨迹 (PhaseSpace3D)",
+                "Signal & Visualizer",
+                "提取三维相空间坐标 (X, Y, Z) 驱动 HelixToolkit 实时绘制非线性动力学相平面轨迹",
+                "#EC4899",
+                "M12,2 L2,7 L12,12 L22,7 L12,2 Z M2,17 L12,22 L22,17 M2,12 L12,17 L22,12",
+                new[] { "phase", "space", "3d", "helix", "attractor", "xiangkongjian", "xkj" },
+                new[] { PinDataType.ChannelStream, PinDataType.Vector3Stream, PinDataType.FloatStream },
+                new[] { PinDataType.ChannelStream },
+                (x, y) => new PhaseSpace3DPlotNode(x, y)
+            ));
+
+            // ==========================================
+            // 6. I/O & Hardware (串口收发、固件烧录与 CSV 落盘)
+            // ==========================================
+            _items.Add(new NodeRegistryItem(
                 "com_input",
                 "COM 串口数据输入 (ComInput)",
                 "I/O & Hardware",
-                "必须绑定真实 USB 枚举端口，支持右键动态拆分多通道 CH 数据流",
+                "绑定真实 USB 枚举端口，支持右键动态拆分多数据流 (BUS/XDS/DAP) 与 CH 通道",
                 "#0EA5E9",
                 "M4,2H20A2,2 0 0,1 22,4V20A2,2 0 0,1 20,22H4A2,2 0 0,1 2,20V4A2,2 0 0,1 4,2Z",
-                new[] { "com", "uart", "serial", "input", "chuankou", "ck" },
+                new[] { "com", "uart", "serial", "input", "chuankou", "ck", "rx" },
                 Array.Empty<PinDataType>(),
-                new[] { PinDataType.ChannelStream, PinDataType.FloatStream, PinDataType.ByteStream },
-                (x, y) => new ComInputNode("COM3", x, y)
+                new[] { PinDataType.ChannelStream, PinDataType.FloatStream, PinDataType.RawFrame },
+                (x, y) => new ComInputNode(string.Empty, x, y)
+            ));
+
+            _items.Add(new NodeRegistryItem(
+                "com_output",
+                "COM 串口数据输出 (ComOutput)",
+                "I/O & Hardware",
+                "绑定真实 USB 枚举端口，将上游处理后的通道向量或原始帧格式化下发至物理串口",
+                "#10B981",
+                "M2,21L23,12L2,3V10L17,12L2,14V21Z",
+                new[] { "com", "uart", "serial", "output", "tx", "fasong", "shuchu" },
+                new[] { PinDataType.Any, PinDataType.ChannelStream, PinDataType.FloatStream, PinDataType.RawFrame },
+                Array.Empty<PinDataType>(),
+                (x, y) => new ComOutputNode(string.Empty, x, y)
+            ));
+
+            _items.Add(new NodeRegistryItem(
+                "flash_port",
+                "固件存放与端口烧录 (FlashPort)",
+                "I/O & Hardware",
+                "内置 .hex / .bin 固件存放库，支持指定真实 USB 烧录端口一键烧录或由上游信号触发烧录",
+                "#34D399",
+                "M7,2V13H10V22L17,10H13L17,2H7Z",
+                new[] { "flash", "burn", "hex", "bin", "daplink", "xds110", "ft2232", "shaolu", "sl" },
+                new[] { PinDataType.Any, PinDataType.Trigger },
+                new[] { PinDataType.RawFrame },
+                (x, y) => new FlashPortNode(string.Empty, x, y)
             ));
 
             _items.Add(new NodeRegistryItem(
@@ -322,7 +415,7 @@ namespace LinkNexus.Blueprint.Core
                 "#F59E0B",
                 "M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z",
                 new[] { "csv", "save", "log", "file", "shupan", "baocun" },
-                new[] { PinDataType.ChannelStream, PinDataType.FloatStream },
+                new[] { PinDataType.Any, PinDataType.ChannelStream, PinDataType.FloatStream },
                 Array.Empty<PinDataType>(),
                 (x, y) => new CsvSaveNode(x, y)
             ));
